@@ -1,29 +1,75 @@
-# Zooza MCP Server
+<p align="center">
+  <img src="https://www.zooza.online/wp-content/uploads/2025/02/zooza-logo.png" alt="Zooza" width="200" />
+</p>
 
-**Zooza MCP** is a cloud-based bridge between your Zooza account and AI assistants like Claude. It lets you manage programmes, classes, bookings, registrations, trainers, locations, payments, and reporting through natural conversation — without switching between dashboards.
+<h1 align="center">Zooza MCP Server</h1>
 
-> **Hosted endpoint:** `https://mcp.zooza.app/mcp`
+<p align="center">
+  <strong>Your entire studio — one conversation.</strong><br/>
+  AI-powered operations for children's activity and education businesses.
+</p>
+
+<p align="center">
+  <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-6366f1?style=flat-square" alt="MCP compatible"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License"/></a>
+  <a href="https://zooza.online"><img src="https://img.shields.io/badge/Zooza-official-f97316?style=flat-square" alt="Official"/></a>
+  <a href="https://mcp.zooza.app/mcp"><img src="https://img.shields.io/badge/endpoint-live-22c55e?style=flat-square" alt="Live endpoint"/></a>
+</p>
+
+<p align="center">
+  <a href="https://zooza.online">Website</a> ·
+  <a href="https://help.zooza.online">Documentation</a> ·
+  <a href="#connect-in-2-minutes">Quickstart</a> ·
+  <a href="#available-tools">Tools</a>
+</p>
+
+---
+
+## Stop managing your studio from 6 different screens
+
+Running a dance academy, swim school, or activity franchise means constantly switching between your scheduling tool, your booking list, your attendance tracker, your payment dashboard — and still missing things.
+
+**Zooza MCP connects Claude directly to your Zooza account.** Ask Claude to create next term's timetable, check who hasn't paid, find a trainer's availability, or preview a full schedule before it goes live — all in one conversation, with no dashboard hunting.
+
+> **Zooza serves 500,000+ learners across activity businesses worldwide** — from single-location dance academies to multi-site franchise networks. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+
+---
+
+## What you can do
+
+### Build a term from scratch
+```
+"Create a new swimming programme for Spring 2026 at the Bratislava location.
+ Classes every Tuesday 16:00–17:00 for 12 weeks, starting 3 March.
+ Assign trainer Tomáš Novák and preview the full schedule before I confirm."
+```
+
+### Get instant answers
+```
+"Which programmes are running this billing period?"
+"Who's teaching on Monday evenings?"
+"What locations do we have available?"
+"Show me all open registrations for the gymnastics class."
+```
+
+### Manage bookings and payments
+```
+"Show unpaid registrations from this season."
+"Which clients are on the waiting list for Saturday Robotics?"
+"List all billing periods for the Bratislava company."
+```
+
+No clicking through menus. No switching tabs. Just ask — Claude handles the lookups, previews, and confirmations.
 
 ---
 
 ## Supported clients
 
-| Client | Connection type |
+| Client | How to connect |
 |---|---|
-| [Claude Desktop](https://claude.ai/download) | Native MCP (HTTP) |
-| [Claude Code](https://claude.ai/code) | Plugin or manual `.mcp.json` |
+| [Claude Desktop](https://claude.ai/download) | Native MCP over HTTPS |
+| [Claude Code](https://claude.ai/code) | Plugin zip or manual `.mcp.json` |
 | Any MCP-compatible client | Streamable HTTP — `https://mcp.zooza.app/mcp` |
-
----
-
-## Before you start
-
-You need:
-- An active **Zooza account** — [zooza.online](https://zooza.online)
-- Access to at least one company/location in your Zooza workspace
-- Claude Desktop, Claude Code, or another MCP-compatible client
-
-No API keys to manage. Authentication is handled via OAuth — Claude will guide you through a one-time login on first use.
 
 ---
 
@@ -48,185 +94,106 @@ File location:
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
-Restart Claude Desktop. On first use, you'll be prompted to sign in to your Zooza account.
+Restart Claude Desktop. On first use, you'll be prompted to sign in to your Zooza account — no API keys, no setup, just your existing login.
 
 ### Claude Code
 
-Download the latest `zooza-plugin-*.zip` from [Releases](../../releases) and install it:
+Download the latest `zooza-plugin-*.zip` from [Releases](../../releases) and run:
 
 ```
 /install-plugin zooza-plugin-*.zip
 ```
 
-Or add manually to your `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "zooza": {
-      "type": "http",
-      "url": "https://mcp.zooza.app/mcp"
-    }
-  }
-}
-```
-
----
-
-## Data and security
-
-- All communication uses **TLS** between the AI client and `mcp.zooza.app`
-- Authentication uses **OAuth 2.0** — Claude receives a scoped token tied to your Zooza identity
-- Tokens carry only the scopes you are granted in Zooza (`mcp:read`, `mcp:write`) — no broader API access
-- Zooza MCP **inherits your existing permissions** — Claude can only see and change what you can see and change in the Zooza dashboard
-- No conversation content is stored by the MCP server
+The plugin includes the MCP connection config and guided workflow skills for studio management.
 
 ---
 
 ## How it works
 
 ```
-You (via Claude)
-      │  natural language
-      ▼
-Claude (AI client)
-      │  MCP tools over HTTPS
-      ▼
-mcp.zooza.app  (Zooza MCP Server)
-      │  OAuth-validated REST calls
-      ▼
-Zooza API  (your data, your rules)
+You → Claude → Zooza MCP Server → Zooza API → Your data
 ```
 
-The MCP server is **stateless**. Each request carries a JWT validated against Zooza's OAuth server. Your data never leaves the Zooza infrastructure — the MCP layer only passes structured requests and returns structured responses.
+The MCP server is **stateless and hosted by Zooza** at `mcp.zooza.app`. You don't run anything locally. Every request is authenticated against your Zooza account — Claude can only see and change what you're already allowed to access in the dashboard.
 
-**Multi-location accounts:** If your account covers multiple locations or franchise units, Claude will ask which company to operate on at the start of each conversation. You can switch locations at any time.
-
----
-
-## Example workflows
-
-### Programmes & classes
-
-```
-"Create a new swimming programme for the Spring season at the Bratislava location.
- Classes every Tuesday 16:00–17:00, starting 3 March, 12 weeks total.
- Assign trainer Tomáš Novák."
-
-"Show me all active programmes in the current billing period."
-
-"List trainers available at the Košice location."
-
-"What rooms and locations do we have in the system?"
-```
-
-### Scheduling & preview
-
-```
-"Preview what the Tuesday swimming schedule looks like before I confirm."
-
-"Show all sessions in the next 4 weeks for the Spring term."
-
-"Check for scheduling conflicts on Monday evenings at Studio A."
-```
-
-### Bookings & registrations
-
-```
-"Find all registrations for the Monday morning gymnastics class."
-
-"Show unpaid bookings from the current billing period."
-
-"Which clients are on the waiting list for the Saturday Robotics programme?"
-```
-
-### Payments & billing
-
-```
-"List all billing periods for the Bratislava company."
-
-"Show me open invoices from this season."
-```
-
-### Reporting
-
-```
-"How many active registrations does the Spring season have so far?"
-
-"Which programmes have the most bookings this term?"
-```
+**Multi-location and franchise accounts:** Claude will ask which location to operate on at the start of each session. You can switch mid-conversation — useful for comparing across sites or managing a network.
 
 ---
 
 ## Available tools
 
-| Tool | Scope | What it does |
-|---|---|---|
-| `whoami` | read | Identify the connected user and list accessible companies/locations |
-| `find_courses` | read | Search programmes by billing period, name, or status |
-| `find_billing_periods` | read | List billing periods (seasons/terms) for a company |
-| `find_trainers` | read | List trainers available at a location |
-| `find_places` | read | List rooms and locations for a company |
-| `preview_schedule` | read | Preview recurring class dates before committing |
-| `preview_events` | read | Preview individual sessions in a date range |
-| `commit_class` | write | Create a new class with a full recurring schedule |
-| `get_skill` | read | Load a guided playbook for multi-step workflows |
+9 tools covering the core operations of a children's activity business:
 
----
-
-## Skills — guided workflows
-
-Skills are structured playbooks that teach Claude how to combine tools correctly for real operational scenarios. Claude automatically loads the right skill when it detects a matching request.
-
-| Skill | What it guides |
+| Tool | What it does |
 |---|---|
-| `class-management` | Full interview → schedule preview → confirmation flow for creating a new class with recurring sessions |
-
-**Coming soon:** `cancel_day`, `mark_attendance`, `transfer_booking`, `initiate_refund`
+| `whoami` | Identify the connected user and list accessible companies/locations |
+| `find_courses` | Search programmes by billing period, name, or status |
+| `find_billing_periods` | List billing periods (seasons/terms) for a company |
+| `find_trainers` | List trainers available at a location |
+| `find_places` | List rooms and locations for a company |
+| `preview_schedule` | Preview a recurring class schedule before committing |
+| `preview_events` | Preview individual sessions across a date range |
+| `commit_class` | Create a class with a full recurring session schedule |
+| `get_skill` | Load a guided playbook for multi-step workflows |
 
 ---
 
-## Tips
+## Skills — guided studio workflows
 
-**Set your default location** — If you work primarily with one company, tell Claude at the start of the session: *"I'm working in the Bratislava studio today."* Claude will use that company for all follow-up tools without asking.
+Skills teach Claude how to combine tools correctly for real operational scenarios. Claude loads the right skill automatically when it detects a matching request — no need to invoke them manually.
 
-**Preview before committing** — For class creation, always ask Claude to preview the schedule first. The `preview_schedule` tool shows you every generated date before anything is written.
+| Skill | What it handles |
+|---|---|
+| `class-management` | Full guided flow: interview → schedule preview → confirmation. Use this when creating any new class with recurring sessions. |
 
-**Use skills for complex flows** — If you're creating a new class, say *"create a new class"* and Claude will walk you through it step by step using the `class-management` skill rather than asking you for all parameters at once.
+**Coming next:** `cancel_day` · `mark_attendance` · `transfer_booking` · `initiate_refund`
+
+---
+
+## Security
+
+- **TLS** on all traffic between your AI client and `mcp.zooza.app`
+- **OAuth 2.0** — Claude receives a scoped token tied to your Zooza identity, not your password
+- **Permission inheritance** — Claude can only do what your Zooza account allows
+- **No conversation storage** — the MCP server is stateless; your prompts are not logged
+
+> **Note on prompt injection:** As with any AI integration, be cautious about AI-readable content in your Zooza data (e.g. programme names) that could attempt to influence Claude's behaviour. All write operations require explicit confirmation before anything is committed.
 
 ---
 
 ## What Zooza is
 
-[Zooza](https://zooza.online) is an end-to-end management platform for children's activity and education businesses — dance academies, swimming schools, language schools, music schools, STEM programmes, sports clubs, and franchise networks. It handles the full operational lifecycle: programme setup, class scheduling, client bookings and registrations, attendance tracking, payment management, parent communication, and multi-location reporting.
+[Zooza](https://zooza.online) is an end-to-end management platform built for children's activity and education businesses — dance academies, swimming schools, music schools, language schools, STEM programmes, sports clubs, summer camps, and franchise networks.
 
-Zooza MCP brings this platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+It handles the full operational lifecycle: **programme setup, class scheduling, client bookings and registrations, attendance tracking, payment management, parent communication, and multi-location reporting** — all in one system, designed to scale from a single studio to an international franchise network.
+
+Zooza MCP extends this platform to AI. Instead of clicking through dashboards, your team can operate Zooza through natural conversation using Claude or any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ---
 
 ## Roadmap
 
-The following tools are in active development:
-
 | Tool | What it will do |
 |---|---|
-| `cancel_day` | Cancel all classes on a given date with optional parent notifications |
+| `cancel_day` | Cancel all classes on a date with optional parent notifications |
 | `mark_attendance` | Record attendance for a session |
-| `transfer_booking` | Move a client registration from one class to another |
-| `initiate_refund` | Prepare and confirm a credit or refund for a client |
+| `transfer_booking` | Move a client from one class to another |
+| `initiate_refund` | Prepare and confirm a credit or refund |
 | Reporting tools | Revenue summaries, attendance rates, capacity utilisation |
-| Payment gateway tools | Invoice management, payment status |
-| Communication tools | Send templated messages to parents and clients |
+| Communication tools | Send templated messages to parents and registered clients |
 
 ---
 
 ## For developers
 
+<details>
+<summary>Local development setup</summary>
+
 ### Run locally
 
 ```bash
-git clone https://github.com/zooza-dev/zooza-mcp
-cd zooza-mcp
+git clone https://github.com/zooza-dev/zooza-mcp-server
+cd zooza-mcp-server
 npm install
 cp .env.example .env   # fill in credentials
 npm run dev            # http://localhost:3001/mcp
@@ -238,33 +205,45 @@ npm run dev            # http://localhost:3001/mcp
 |---|---|---|
 | `ZOOZA_API_BASE` | yes | Zooza API base URL (e.g. `http://php-server/v1`) |
 | `ZOOZA_API_KEY` | yes | Server-wide API key for the MCP integration |
-| `MCP_RESOURCE_URL` | prod | Public URL of this server |
+| `MCP_RESOURCE_URL` | prod | Public URL of this MCP server |
 | `MCP_AUTH_SERVER_URL` | prod | Zooza OAuth server base URL |
 | `PORT` | no | HTTP port (default `3001`) |
-| `ZOOZA_ALLOW_HARDCODED_AUTH` | dev | Set `true` to skip JWT validation locally |
-| `ZOOZA_API_TOKEN` | dev | Dev-fallback token (only with hardcoded auth enabled) |
+| `ZOOZA_ALLOW_HARDCODED_AUTH` | dev only | Set `true` to skip JWT validation locally |
+| `ZOOZA_API_TOKEN` | dev only | Dev-fallback token (only with hardcoded auth enabled) |
 
 ### Smoke test
 
 ```bash
-# List tools
 curl -sS http://localhost:3001/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
+### Architecture
+
+```
+Claude (any MCP client)
+    │  Streamable HTTP over TLS
+    ▼
+mcp.zooza.app  (Node.js / TypeScript)
+    │  OAuth 2.0 JWT validation
+    ▼
+Zooza API  (your data, your rules)
+```
+
+</details>
+
 ---
 
 ## Support
 
-- **Documentation:** [help.zooza.online](https://help.zooza.online)
-- **Website:** [zooza.online](https://zooza.online)
-- **Email:** [hello@zooza.online](mailto:hello@zooza.online)
+**[help.zooza.online](https://help.zooza.online)** — Full documentation  
+**[zooza.online](https://zooza.online)** — Platform website  
+**[hello@zooza.online](mailto:hello@zooza.online)** — Get in touch
 
 ---
 
-## Security note
-
-As with any AI integration, be aware of **prompt injection** — malicious content in your Zooza data (e.g. programme names or notes) could attempt to influence Claude's behaviour. Zooza MCP requires explicit confirmation for all write operations. Always review Claude's proposed actions before confirming, and use accounts with the minimum required permissions.
-
+<p align="center">
+  Built by <a href="https://zooza.online">Zooza</a> — the platform that keeps children's activity businesses running.
+</p>
