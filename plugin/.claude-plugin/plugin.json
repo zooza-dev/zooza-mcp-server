@@ -1,0 +1,12 @@
+{
+  "name": "zooza",
+  "version": "0.1.0",
+  "description": "Zooza class management, scheduling, and reporting tools for Claude.",
+  "author": {
+    "name": "Zooza",
+    "email": "hello@zooza.online",
+    "url": "https://zooza.app"
+  },
+  "homepage": "https://zooza.app",
+  "license": "UNLICENSED"
+}

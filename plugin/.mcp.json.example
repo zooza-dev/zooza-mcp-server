@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy this over .mcp.json before publishing a release. Pick the URL for the target environment.",
+  "mcpServers": {
+    "zooza": {
+      "type": "http",
+      "url": "https://mcp.zooza.app/mcp"
+    }
+  },
+  "_alternative_urls": {
+    "local-dev": "http://localhost:3001/mcp",
+    "test": "https://mcp-test.zooza.app/mcp",
+    "prod": "https://mcp.zooza.app/mcp"
+  }
+}

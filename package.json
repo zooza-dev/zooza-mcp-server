@@ -1,0 +1,48 @@
+{
+  "name": "zooza-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server for Zooza — manage dance, yoga, and fitness studio classes, bookings, trainers, and scheduling through Claude and any MCP-compatible AI client.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "zooza",
+    "studio-management",
+    "dance-studio",
+    "yoga-studio",
+    "fitness",
+    "class-scheduling",
+    "booking",
+    "ai-tools",
+    "claude",
+    "llm-tools"
+  ],
+  "homepage": "https://zooza.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zooza-app/zooza-mcp"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.0",
+    "express": "^4.21.2",
+    "jose": "^5.10.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.0"
+  }
+}

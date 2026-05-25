@@ -1,0 +1,46 @@
+name: Release Zooza plugin
+
+on:
+  push:
+    tags:
+      - 'plugin-v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stamp shipping .mcp.json from .mcp.json.example
+        run: |
+          if [ ! -f plugin/.mcp.json.example ]; then
+            echo "::error::plugin/.mcp.json.example missing"
+            exit 1
+          fi
+          cp plugin/.mcp.json.example plugin/.mcp.json
+
+      - name: Zip plugin/
+        run: |
+          cd plugin
+          zip -r "../zooza-plugin-${GITHUB_REF_NAME}.zip" . \
+            -x "*.DS_Store" \
+            -x "__MACOSX/*"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zooza-plugin-${{ github.ref_name }}
+          path: zooza-plugin-${{ github.ref_name }}.zip
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/plugin-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: zooza-plugin-${{ github.ref_name }}.zip
+          generate_release_notes: true
