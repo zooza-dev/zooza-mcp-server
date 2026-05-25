@@ -247,3 +247,4 @@ Zooza API  (your data, your rules)
 <p align="center">
   Built by <a href="https://zooza.online">Zooza</a> — the platform that keeps children's activity businesses running.
 </p>
+
