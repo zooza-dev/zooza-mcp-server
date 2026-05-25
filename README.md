@@ -6,7 +6,8 @@
 
 <p align="center">
   <strong>Your entire studio — one conversation.</strong><br/>
-  AI-powered operations for children's activity and education businesses.
+  AI-powered operations for dance schools, language academies, STEAM programmes,<br/>
+  sports clubs, baby classes, camps, movement studios, and franchise networks.
 </p>
 
 <p align="center">
@@ -27,11 +28,11 @@
 
 ## Stop managing your studio from 6 different screens
 
-Running a dance academy, swim school, or activity franchise means constantly switching between your scheduling tool, your booking list, your attendance tracker, your payment dashboard — and still missing things.
+Running a dance school, language academy, STEAM programme, sports club, baby class, summer camp, or multi-site franchise means constantly switching between your scheduling tool, your booking list, your attendance tracker, your payment dashboard — and still missing things.
 
 **Zooza MCP connects Claude directly to your Zooza account.** Ask Claude to create next term's timetable, check who hasn't paid, find a trainer's availability, or preview a full schedule before it goes live — all in one conversation, with no dashboard hunting.
 
-> **Zooza serves 500,000+ learners across activity businesses worldwide** — from single-location dance academies to multi-site franchise networks. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+> **Zooza serves 500,000+ learners across activity businesses worldwide** — from single-location baby class studios to international franchise networks running dance, language, STEAM, sports, and movement programmes. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ---
 
@@ -39,24 +40,31 @@ Running a dance academy, swim school, or activity franchise means constantly swi
 
 ### Build a term from scratch
 ```
-"Create a new swimming programme for Spring 2026 at the Bratislava location.
+"Create a new Spanish for beginners course for Spring 2026 at the city centre location.
  Classes every Tuesday 16:00–17:00 for 12 weeks, starting 3 March.
  Assign trainer Tomáš Novák and preview the full schedule before I confirm."
+```
+
+```
+"Set up our summer robotics camp — Monday to Friday, 9:00–13:00, for 4 weeks in July.
+ Split into two age groups: 6–9 and 10–14. Preview both before I confirm."
 ```
 
 ### Get instant answers
 ```
 "Which programmes are running this billing period?"
-"Who's teaching on Monday evenings?"
+"Who's teaching dance on Monday evenings?"
 "What locations do we have available?"
-"Show me all open registrations for the gymnastics class."
+"Show me all open registrations for the Saturday baby movement class."
+"Which STEAM courses still have free capacity this term?"
 ```
 
 ### Manage bookings and payments
 ```
 "Show unpaid registrations from this season."
-"Which clients are on the waiting list for Saturday Robotics?"
+"Which clients are on the waiting list for Saturday gymnastics?"
 "List all billing periods for the Bratislava company."
+"How many spots are left in the beginner English course?"
 ```
 
 No clicking through menus. No switching tabs. Just ask — Claude handles the lookups, previews, and confirmations.
@@ -163,11 +171,19 @@ Skills teach Claude how to combine tools correctly for real operational scenario
 
 ## What Zooza is
 
-[Zooza](https://zooza.online) is an end-to-end management platform built for children's activity and education businesses — dance academies, swimming schools, music schools, language schools, STEM programmes, sports clubs, summer camps, and franchise networks.
+[Zooza](https://zooza.online) is an end-to-end management platform built for children's activity and education businesses:
+
+**Dance & movement** — dance academies, gymnastics, baby movement, yoga for kids  
+**Language & education** — language schools, tutoring centres, STEAM / robotics / coding  
+**Sports** — martial arts, swimming, tennis academies, sports franchises  
+**Camps & seasonal** — summer camps, holiday programmes, weekend workshops  
+**Fitness & wellness** — fitness studios, pilates, baby & toddler classes  
+
+All running on one platform, from a single location to an international franchise network.
 
 It handles the full operational lifecycle: **programme setup, class scheduling, client bookings and registrations, attendance tracking, payment management, parent communication, and multi-location reporting** — all in one system, designed to scale from a single studio to an international franchise network.
 
-Zooza MCP extends this platform to AI. Instead of clicking through dashboards, your team can operate Zooza through natural conversation using Claude or any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+Zooza MCP extends this platform to AI. Instead of clicking through dashboards, your team — from studio managers to franchise operators — can operate Zooza through natural conversation using Claude or any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ---
 
