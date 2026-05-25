@@ -267,3 +267,4 @@ curl -sS http://localhost:3001/mcp \
 ## Security note
 
 As with any AI integration, be aware of **prompt injection** — malicious content in your Zooza data (e.g. programme names or notes) could attempt to influence Claude's behaviour. Zooza MCP requires explicit confirmation for all write operations. Always review Claude's proposed actions before confirming, and use accounts with the minimum required permissions.
+
