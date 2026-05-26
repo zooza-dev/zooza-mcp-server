@@ -5,6 +5,11 @@ description: Guided flow for creating a new Zooza class — interview the user, 
 
 # Class management
 
+> **Terminology is pre-loaded in your context.** This skill operates on Zooza's
+> Programme → Class → Session hierarchy. If the user uses non-standard terms
+> (e.g. "kurz", "hodina", "skupina"), resolve them to canonical Zooza terms before
+> proceeding. Use `get_terminology` if disambiguation is needed.
+
 When the user wants to **create a new class** (synonyms: "set up a class", "schedule a course", "add a Monday/Wednesday class", "start a new training group"), enter this guided flow. Do **not** try to construct the full class in one tool call — the user almost certainly hasn't told you everything yet.
 
 ## The shape of a class

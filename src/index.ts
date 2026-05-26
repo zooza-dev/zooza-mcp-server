@@ -12,6 +12,7 @@ import { hasScope, type Scope, SCOPE_READ, SCOPE_WRITE } from "./auth/scopes.js"
 import type { RequestAuthContext } from "./auth/types.js";
 import { config } from "./config.js";
 import { buildSkillInstructions, loadAllSkills } from "./skills.js";
+import { TERMINOLOGY_INSTRUCTIONS, TERMINOLOGY_INDEX } from "./terminology/index.js";
 import {
   commitClassDescription,
   commitClassInputSchema,
@@ -60,9 +61,25 @@ import {
   whoamiInputSchema,
   whoamiTitle,
 } from "./tools/whoami.js";
+import {
+  getTerminologyDescription,
+  getTerminologyInputSchema,
+  getTerminologyTitle,
+  runGetTerminology,
+} from "./tools/get-terminology.js";
+import {
+  negotiateTerminologyDescription,
+  negotiateTerminologyInputSchema,
+  negotiateTerminologyTitle,
+  runNegotiateTerminology,
+} from "./tools/negotiate-terminology.js";
 
 const SKILLS = loadAllSkills();
 const SKILL_INSTRUCTIONS = buildSkillInstructions(SKILLS);
+
+const COMBINED_INSTRUCTIONS = [TERMINOLOGY_INSTRUCTIONS, SKILL_INSTRUCTIONS]
+  .filter(Boolean)
+  .join("\n\n---\n\n");
 
 type ToolResult = {
   isError?: boolean;
@@ -140,7 +157,51 @@ function resolveCompanyId<Args extends Record<string, unknown>>(
 function createMcpServer(ctx: RequestAuthContext): McpServer {
   const server = new McpServer(
     { name: "zooza-mcp", version: "0.1.0" },
-    SKILL_INSTRUCTIONS ? { instructions: SKILL_INSTRUCTIONS } : undefined,
+    COMBINED_INSTRUCTIONS ? { instructions: COMBINED_INSTRUCTIONS } : undefined,
+  );
+
+  // MCP Resource — full structured glossary (market-first: no other major MCP server exposes this)
+  server.registerResource(
+    "Zooza Glossary",
+    "domain://zooza/glossary",
+    {
+      description:
+        "Full domain terminology — canonical terms, translations, intent keywords, and " +
+        "disambiguation rules for all Zooza concepts across 9 languages. " +
+        "Read once per session and cache; the condensed version is already in server instructions.",
+      mimeType: "application/json",
+    },
+    async (_uri) => ({
+      contents: [
+        {
+          uri: "domain://zooza/glossary",
+          mimeType: "application/json",
+          text: JSON.stringify(TERMINOLOGY_INDEX, null, 2),
+        },
+      ],
+    }),
+  );
+
+  // Free tool — no Zooza API call, no company_id needed
+  server.registerTool(
+    "get_terminology",
+    {
+      title: getTerminologyTitle,
+      description: getTerminologyDescription,
+      inputSchema: getTerminologyInputSchema,
+    },
+    scopeGuard(SCOPE_READ, ctx, async (args) => runGetTerminology(args)),
+  );
+
+  // Free tool — no Zooza API call, no company_id needed
+  server.registerTool(
+    "negotiate_terminology",
+    {
+      title: negotiateTerminologyTitle,
+      description: negotiateTerminologyDescription,
+      inputSchema: negotiateTerminologyInputSchema,
+    },
+    scopeGuard(SCOPE_READ, ctx, async (args) => runNegotiateTerminology(args)),
   );
 
   server.registerTool(
