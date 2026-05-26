@@ -44,6 +44,17 @@ export function buildSkillInstructions(skills: Skill[]): string {
     "4. If you already have a `whoami` response in your context from earlier this conversation, don't re-call it.",
   ];
 
+  sections.push(
+    "",
+    "## Reference tools (call on demand — no API required)",
+    "These tools return hardcoded Zooza knowledge instantly. Call them when the user asks a direct question or when you need to resolve a value before calling an operational tool.",
+    "- `explain_data_model` — entity hierarchy, valid status values, do-not-confuse rules. Use when the user's request is ambiguous about which entity they mean.",
+    "- `list_schedule_patterns` — valid cadences (weekly/biweekly/monthly/daily), weekday keys (mon/tue…), time_minutes format, payment schedule types. Use when building a class schedule from scratch without a skill.",
+    "- `list_message_merge_vars` — all valid *|MERGE_VAR|* tags for email/SMS templates. Use when the user asks to write or edit a message template.",
+    "- `get_terminology` — multilingual term lookup (e.g. 'hodina' → Session). Use when the user's language is ambiguous.",
+    "Do NOT call these proactively on every request — only when genuinely needed.",
+  );
+
   if (skills.length > 0) {
     const list = skills
       .map((s) => `- \`${s.name}\` — ${s.description}`)

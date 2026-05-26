@@ -28,8 +28,9 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "npm run compile:terminology && tsc -p tsconfig.json",
+    "build": "npm run compile:terminology && npm run compile:merge-vars && tsc -p tsconfig.json",
     "compile:terminology": "tsx scripts/compile-terminology.ts",
+    "compile:merge-vars": "tsx scripts/compile-merge-vars.ts",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

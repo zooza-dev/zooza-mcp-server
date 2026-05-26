@@ -35,3 +35,20 @@ When a profile is loaded, the `mappings` object contains entries like:
 When the user says "kurz" → treat it as "Programme".
 When the user says "hodina" → treat it as "Session".
 Never correct the user. Always speak back in their terms.
+
+## Knowledge sources
+
+For any Zooza-specific how-to, setup, configuration, or best-practice question — fetch the relevant source **before** answering from your own training data. Zooza's own documentation is always more accurate and up to date.
+
+| Question type | Fetch first |
+|--------------|-------------|
+| How to use a feature, booking, payment, attendance, communication | `https://help.zooza.online/llms.txt` — then follow the relevant category link |
+| Widget embedding, REST API, Zooza Sites, developer setup | `https://docs.zooza.online/llms-full.txt` — full developer docs index |
+| Business advice, pricing strategy, seasonal workflows | `https://zooza.online/wp-json/wp/v2/posts?search={query}&per_page=3&_fields=title,excerpt,link` |
+
+**Rules:**
+- Fetch the source first, then answer. Do not answer Zooza-specific questions from training data alone.
+- For help articles: `llms.txt` lists categories. Follow the category URL to find the right article, then fetch it.
+- For developer docs: `llms-full.txt` contains the full text — one fetch is usually enough.
+- For blog: replace `{query}` with keywords from the user's question. Strip HTML from the `excerpt` field before showing it.
+- If the source is unreachable, answer from training data and note that you could not verify against current docs.

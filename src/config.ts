@@ -91,4 +91,10 @@ export const config = {
       ...parseVirtualTrainers(optional("ZOOZA_VIRTUAL_TRAINERS", "")),
     ],
   },
+  /**
+   * Which Zooza regional installation this MCP instance serves.
+   * EU (SK/CZ/DE/RO/HU/IT/PL) is the default.
+   * Set ZOOZA_SERVER_REGION=uk for the UK deployment, etc.
+   */
+  serverRegion: optional("ZOOZA_SERVER_REGION", "eu"),
 } as const;

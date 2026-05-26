@@ -1,31 +1,58 @@
 import type { RequestAuthContext } from "../auth/types.js";
+import { config } from "../config.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 
 export const whoamiTitle = "Who am I?";
 
-export const whoamiDescription = `Returns the connected user's identity, the companies they can operate on, and the session's token state. Call ONCE at the start of every conversation — this is the authoritative source for the user's accessible companies, and every other tool requires a 'company_id' picked from the 'companies' list returned here.
+export const whoamiDescription = `Returns the connected user's identity, the companies they can operate on, regional context, and the session's token state. Call ONCE at the start of every conversation.
 
 How to interpret the response:
 
-- 'status: "ok"' — user is authenticated and has at least one company. Pick a 'company_id' from 'companies' for follow-up calls (ask the user which one if more than one exists).
-- 'status: "no_companies"' — user is authenticated but has no accessible companies. Surface 'status_message' to the user verbatim. Do NOT invent a 'company_id' or guess from other context — no other Zooza tool will work until the user is granted company access.
-- 'status: "invalid_user"' — api-v1 rejects this account. Surface 'status_message' verbatim; do not attempt other tools.
-- 'status: "api_error"' — api-v1 was unreachable. Surface 'status_message' verbatim and suggest a retry.
+- 'status: "ok"' — authenticated, at least one company available. Pick a 'company_id' from 'companies' for follow-up calls (ask the user if more than one exists).
+- 'status: "no_companies"' — authenticated but no companies linked. Surface 'status_message' verbatim. No other tool will work.
+- 'status: "invalid_user"' — account rejected by api-v1. Surface 'status_message' verbatim.
+- 'status: "api_error"' — api-v1 unreachable. Surface 'status_message' and suggest retry.
 
-Never surface internal fields like 'sub', 'scopes', or 'token_expires_in_seconds' to the user — those are diagnostic-only. Render only what's useful to a human: their name/email and the company list.`;
+Regional context fields (use these to adapt behaviour):
+- 'server_region' — which Zooza installation this MCP serves: "eu" (SK/CZ/DE/RO/HU/IT/PL), "uk", "us", "asia".
+- 'company.region' — the company's market region code (e.g. "sk", "cz", "de", "en").
+- 'company.locale' — BCP-47 locale for date/number/currency formatting (e.g. "sk-SK", "cs-CZ", "en-GB").
+- 'company.language' — the company's primary language code.
+- 'company.currency' — the company's currency (e.g. "EUR", "CZK", "GBP").
+
+Use 'company.region' and 'company.language' to resolve terminology: a Slovak company saying "kurz" means Programme; a Czech company saying "lekce" means Session. When region context is available, skip asking the user to clarify language.
+
+Never surface 'sub', 'scopes', or 'token_expires_in_seconds' to the user — diagnostic only.`;
 
 export const whoamiInputSchema = {};
 
 type WhoamiStatus = "ok" | "no_companies" | "invalid_user" | "api_error";
 
+interface CompanyContext {
+  region: string | null;
+  language: string | null;
+  locale: string | null;
+  currency: string | null;
+}
+
+interface WhoamiCompany {
+  id: number;
+  name: string;
+  region: string | null;
+  language: string | null;
+  locale: string | null;
+  currency: string | null;
+}
+
 interface WhoamiResult {
   status: WhoamiStatus;
   status_message: string;
+  server_region: string;
   identity: {
     email?: string;
     name?: string;
   };
-  companies: Array<{ id: number; name: string }>;
+  companies: WhoamiCompany[];
   scopes: string[];
   token_expires_in_seconds: number | null;
 }
@@ -57,6 +84,7 @@ export async function runWhoami(
     return ok({
       status: "api_error",
       status_message: `Zooza is temporarily unreachable. Tell the user to try again in a moment. (Underlying: ${message})`,
+      server_region: config.serverRegion,
       identity: {},
       companies: [],
       scopes,
@@ -66,16 +94,30 @@ export async function runWhoami(
 
   const { userValid, email, name } = extractIdentity(rawUser);
   const companies = extractCompanies(rawUser);
+  const companyContext = extractCompanyContext(rawUser);
+  const serverRegion = config.serverRegion;
   const identity = {
     ...(email ? { email } : {}),
     ...(name ? { name } : {}),
   };
+
+  // Enrich the company entry that matches the current auth company with regional context.
+  // Other companies in a multi-company list get null context (API only returns context
+  // for the currently authenticated company).
+  const currentCompanyId = parseInt(ctx.auth.company, 10);
+  const enrichedCompanies: WhoamiCompany[] = companies.map((c) => {
+    if (c.id === currentCompanyId && companyContext) {
+      return { ...c, ...companyContext };
+    }
+    return { ...c, region: null, language: null, locale: null, currency: null };
+  });
 
   if (userValid === false) {
     return ok({
       status: "invalid_user",
       status_message:
         "Your Zooza account is not active. Please contact your administrator to enable it.",
+      server_region: serverRegion,
       identity,
       companies: [],
       scopes,
@@ -83,11 +125,12 @@ export async function runWhoami(
     });
   }
 
-  if (companies.length === 0) {
+  if (enrichedCompanies.length === 0) {
     return ok({
       status: "no_companies",
       status_message:
         "You are signed in but no Zooza companies are linked to your account. Please contact your administrator to be added to a company.",
+      server_region: serverRegion,
       identity,
       companies: [],
       scopes,
@@ -98,8 +141,9 @@ export async function runWhoami(
   return ok({
     status: "ok",
     status_message: "Authenticated. Pick a company_id from `companies` for follow-up tool calls.",
+    server_region: serverRegion,
     identity,
-    companies,
+    companies: enrichedCompanies,
     scopes,
     token_expires_in_seconds: tokenExp,
   });
@@ -169,6 +213,50 @@ function normaliseCompanyList(c: unknown): Array<{ id: number; name: string }> {
     }
   }
   return out;
+}
+
+// ─── Locale derivation ────────────────────────────────────────────────────────
+// Mirrors Company::get_locale() in api-v1/class/Company.php.
+// Update here if the PHP mapping changes.
+
+const LOCALE_MAP: Record<string, string> = {
+  cz: "cs-CZ",
+  cs: "cs-CZ",
+  sk: "sk-SK",
+  de: "de-AT",
+  ro: "ro-RO",
+  hu: "hu-HU",
+  it: "it-IT",
+  pl: "pl-PL",
+};
+
+function deriveLocale(language: string | null, serverRegion: string): string {
+  if (language && LOCALE_MAP[language]) return LOCALE_MAP[language];
+  // English variants depend on which Zooza installation
+  if (serverRegion === "uk") return "en-GB";
+  if (serverRegion === "us") return "en-US";
+  return "en-IE"; // EU default (same as Company::get_locale() fallback)
+}
+
+// ─── Company context extraction ───────────────────────────────────────────────
+// The /user endpoint response contains a top-level 'company' object with
+// region, language, currency — already available from the existing API call.
+
+function extractCompanyContext(raw: unknown): CompanyContext | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const company = obj.company as Record<string, unknown> | undefined;
+  if (!company || typeof company !== "object") return null;
+
+  const region = pickStr(company.region) ?? null;
+  const language = pickStr(company.language) ?? null;
+  const currency = pickStr(company.currency) ?? null;
+  const locale =
+    region !== null || language !== null
+      ? deriveLocale(language ?? region, config.serverRegion)
+      : null;
+
+  return { region, language, locale, currency };
 }
 
 function pickStr(v: unknown): string | undefined {

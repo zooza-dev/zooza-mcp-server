@@ -73,6 +73,24 @@ import {
   negotiateTerminologyTitle,
   runNegotiateTerminology,
 } from "./tools/negotiate-terminology.js";
+import {
+  explainDataModelDescription,
+  explainDataModelInputSchema,
+  explainDataModelTitle,
+  runExplainDataModel,
+} from "./tools/explain-data-model.js";
+import {
+  listMessageMergeVarsDescription,
+  listMessageMergeVarsInputSchema,
+  listMessageMergeVarsTitle,
+  runListMessageMergeVars,
+} from "./tools/list-message-merge-vars.js";
+import {
+  listSchedulePatternsDescription,
+  listSchedulePatternsInputSchema,
+  listSchedulePatternsTitle,
+  runListSchedulePatterns,
+} from "./tools/list-schedule-patterns.js";
 
 const SKILLS = loadAllSkills();
 const SKILL_INSTRUCTIONS = buildSkillInstructions(SKILLS);
@@ -191,6 +209,39 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: getTerminologyInputSchema,
     },
     scopeGuard(SCOPE_READ, ctx, async (args) => runGetTerminology(args)),
+  );
+
+  // Free tool — no Zooza API call, no company_id needed
+  server.registerTool(
+    "explain_data_model",
+    {
+      title: explainDataModelTitle,
+      description: explainDataModelDescription,
+      inputSchema: explainDataModelInputSchema,
+    },
+    scopeGuard(SCOPE_READ, ctx, async (args) => runExplainDataModel(args)),
+  );
+
+  // Free tool — no Zooza API call, no company_id needed
+  server.registerTool(
+    "list_message_merge_vars",
+    {
+      title: listMessageMergeVarsTitle,
+      description: listMessageMergeVarsDescription,
+      inputSchema: listMessageMergeVarsInputSchema,
+    },
+    scopeGuard(SCOPE_READ, ctx, async (args) => runListMessageMergeVars(args)),
+  );
+
+  // Free tool — no Zooza API call, no company_id needed
+  server.registerTool(
+    "list_schedule_patterns",
+    {
+      title: listSchedulePatternsTitle,
+      description: listSchedulePatternsDescription,
+      inputSchema: listSchedulePatternsInputSchema,
+    },
+    scopeGuard(SCOPE_READ, ctx, async (args) => runListSchedulePatterns(args)),
   );
 
   // Free tool — no Zooza API call, no company_id needed
