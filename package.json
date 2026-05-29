@@ -1,6 +1,6 @@
 {
   "name": "zooza-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "MCP server for Zooza — manage dance, yoga, and fitness studio classes, bookings, trainers, and scheduling through Claude and any MCP-compatible AI client.",
   "keywords": [

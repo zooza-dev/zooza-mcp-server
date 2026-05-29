@@ -1,7 +1,7 @@
 {
   "$schema": "https://claude.ai/schemas/plugin.json",
   "name": "zooza",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Zooza class management, scheduling, and reporting tools for Claude.",
   "author": {
     "name": "Zooza",
