@@ -91,6 +91,12 @@ import {
   listSchedulePatternsTitle,
   runListSchedulePatterns,
 } from "./tools/list-schedule-patterns.js";
+import {
+  runSubmitFeedback,
+  submitFeedbackDescription,
+  submitFeedbackInputSchema,
+  submitFeedbackTitle,
+} from "./tools/submit-feedback.js";
 
 const SKILLS = loadAllSkills();
 const SKILL_INSTRUCTIONS = buildSkillInstructions(SKILLS);
@@ -207,6 +213,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: getTerminologyTitle,
       description: getTerminologyDescription,
       inputSchema: getTerminologyInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(SCOPE_READ, ctx, async (args) => runGetTerminology(args)),
   );
@@ -218,6 +225,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: explainDataModelTitle,
       description: explainDataModelDescription,
       inputSchema: explainDataModelInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(SCOPE_READ, ctx, async (args) => runExplainDataModel(args)),
   );
@@ -229,6 +237,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: listMessageMergeVarsTitle,
       description: listMessageMergeVarsDescription,
       inputSchema: listMessageMergeVarsInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(SCOPE_READ, ctx, async (args) => runListMessageMergeVars(args)),
   );
@@ -240,6 +249,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: listSchedulePatternsTitle,
       description: listSchedulePatternsDescription,
       inputSchema: listSchedulePatternsInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(SCOPE_READ, ctx, async (args) => runListSchedulePatterns(args)),
   );
@@ -251,6 +261,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: negotiateTerminologyTitle,
       description: negotiateTerminologyDescription,
       inputSchema: negotiateTerminologyInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(SCOPE_READ, ctx, async (args) => runNegotiateTerminology(args)),
   );
@@ -261,6 +272,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: whoamiTitle,
       description: whoamiDescription,
       inputSchema: whoamiInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard<Record<string, never>>(SCOPE_READ, ctx, async () => runWhoami(ctx)),
   );
@@ -271,6 +283,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findCoursesTitle,
       description: findCoursesDescription,
       inputSchema: findCoursesInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(
       SCOPE_READ,
@@ -285,6 +298,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findBillingPeriodsTitle,
       description: findBillingPeriodsDescription,
       inputSchema: findBillingPeriodsInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(
       SCOPE_READ,
@@ -299,6 +313,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findTrainersTitle,
       description: findTrainersDescription,
       inputSchema: findTrainersInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(
       SCOPE_READ,
@@ -313,6 +328,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findPlacesTitle,
       description: findPlacesDescription,
       inputSchema: findPlacesInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(
       SCOPE_READ,
@@ -327,6 +343,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: previewScheduleTitle,
       description: previewScheduleDescription,
       inputSchema: previewScheduleInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(
       SCOPE_READ,
@@ -341,6 +358,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: previewEventsTitle,
       description: previewEventsDescription,
       inputSchema: previewEventsInputSchema,
+      annotations: { readOnlyHint: true },
     },
     scopeGuard(
       SCOPE_READ,
@@ -355,12 +373,27 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: commitClassTitle,
       description: commitClassDescription,
       inputSchema: commitClassInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     },
     scopeGuard(
       SCOPE_WRITE,
       ctx,
       resolveCompanyId(ctx, async (args) => runCommitClass(args, ctx.auth)),
     ),
+  );
+
+  // Per-user feedback channel. No company_id — feedback is about the MCP
+  // integration itself, not a particular company. See ZMCP-20260527-001 and
+  // the feedback-nudge skill for when to offer this proactively.
+  server.registerTool(
+    "submit_feedback",
+    {
+      title: submitFeedbackTitle,
+      description: submitFeedbackDescription,
+      inputSchema: submitFeedbackInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    scopeGuard(SCOPE_WRITE, ctx, async (args) => runSubmitFeedback(args, ctx)),
   );
 
   const skillNames = SKILLS.map((s) => s.name);
@@ -374,6 +407,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: {
         name: z.string().describe("Exact skill name from the available list."),
       },
+      annotations: { readOnlyHint: true },
     },
     scopeGuard<{ name: string }>(SCOPE_READ, ctx, async ({ name }) => {
       const skill = SKILLS.find((s) => s.name === name);
@@ -394,11 +428,12 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
     }),
   );
 
+  // Skill-based prompts — one per skill file, title from frontmatter.
   for (const skill of SKILLS) {
     server.registerPrompt(
       skill.name,
       {
-        title: skill.name,
+        title: skill.title,
         description: skill.description,
       },
       async () => ({
@@ -411,6 +446,59 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       }),
     );
   }
+
+  // --- Standalone open-conversation prompts ---
+
+  // "Show my programmes" — lists all programmes via find_courses, no filters.
+  server.registerPrompt(
+    "show-programmes",
+    {
+      title: "Show my programmes",
+      description: "List all your Zooza programmes and courses with their key details.",
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: "Show me all the programmes and courses I offer in Zooza. List them with their name, target audience, and number of active classes. Use my terminology if you know it from previous sessions.",
+          },
+        },
+      ],
+    }),
+  );
+
+  // "Who am I & what can you do?" — whoami + dynamic skill list.
+  // Auto-updates as new skills are added — no manual maintenance needed.
+  server.registerPrompt(
+    "whoami-capabilities",
+    {
+      title: "Who am I & what can you do?",
+      description: "See which Zooza account you're connected to and what this assistant can help you with.",
+    },
+    async () => {
+      const skillList = SKILLS.map((s) => `- **${s.title}**: ${s.description}`).join("\n");
+      return {
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: [
+                "Tell me who I am in Zooza — which company or account I'm connected to.",
+                "Then briefly explain what you can help me with. Here are your available guided flows:",
+                "",
+                skillList,
+                "",
+                "Keep it concise. Use my language and terminology if you know it.",
+              ].join("\n"),
+            },
+          },
+        ],
+      };
+    },
+  );
 
   return server;
 }

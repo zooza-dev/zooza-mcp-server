@@ -1,5 +1,6 @@
 ---
 name: class-management
+title: Create a new class
 description: Guided flow for creating a new Zooza class — interview the user, accumulate session patterns, commit. Used in conjunction with the preview_schedule, preview_events, and commit_class MCP tools.
 ---
 

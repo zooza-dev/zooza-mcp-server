@@ -1,5 +1,6 @@
 ---
 name: negotiate-terminology
+title: Set up my vocabulary
 description: Use when the user is new to Zooza MCP, says "you're using the wrong words", or runs /zooza-setup. Conducts a short vocabulary interview and saves a personalised terminology profile to Claude memory.
 ---
 

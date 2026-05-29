@@ -10,6 +10,7 @@ const SKILLS_DIR = resolve(
 
 export interface Skill {
   name: string;
+  title: string;
   description: string;
   body: string;
 }
@@ -22,8 +23,10 @@ export function loadAllSkills(): Skill[] {
   return files.map((f) => {
     const content = readFileSync(resolve(SKILLS_DIR, f), "utf-8");
     const { meta, body } = parseFrontmatter(content);
+    const name = meta.name ?? f.replace(/\.md$/, "");
     return {
-      name: meta.name ?? f.replace(/\.md$/, ""),
+      name,
+      title: meta.title ?? name,
       description: meta.description ?? "",
       body: body.trim(),
     };

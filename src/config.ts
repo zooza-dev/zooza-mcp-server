@@ -91,6 +91,16 @@ export const config = {
       ...parseVirtualTrainers(optional("ZOOZA_VIRTUAL_TRAINERS", "")),
     ],
   },
+  feedback: {
+    // GitHub PAT used by submit_feedback when path="internal".
+    // Recommended: fine-grained PAT with Issues:read/write on zooza-dev/zooza-mcp
+    // only, or a classic PAT with `repo` scope (broader blast radius — see spec
+    // ZMCP-20260527-001 for the bot-user/GitHub-App follow-up). Optional: when
+    // unset, path="internal" returns a clear error and path="github" still works.
+    // Note: env var is FEEDBACK_TOKEN (not GITHUB_*) — some deployment surfaces
+    // reserve the GITHUB_ prefix.
+    githubToken: optional("FEEDBACK_TOKEN", "") || null,
+  },
   /**
    * Which Zooza regional installation this MCP instance serves.
    * EU (SK/CZ/DE/RO/HU/IT/PL) is the default.

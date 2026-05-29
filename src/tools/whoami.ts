@@ -22,6 +22,10 @@ Regional context fields (use these to adapt behaviour):
 
 Use 'company.region' and 'company.language' to resolve terminology: a Slovak company saying "kurz" means Programme; a Czech company saying "lekce" means Session. When region context is available, skip asking the user to clarify language.
 
+Feedback context (used by the 'feedback-nudge' skill):
+- 'last_feedback_at' — ISO timestamp of the user's last MCP feedback submission, or null if never. Drives the skill's 7-day cool-off on proactive feedback nudges.
+- 'feedback_count' — total submissions to date (0 if never).
+
 Never surface 'sub', 'scopes', or 'token_expires_in_seconds' to the user — diagnostic only.`;
 
 export const whoamiInputSchema = {};
@@ -55,6 +59,8 @@ interface WhoamiResult {
   companies: WhoamiCompany[];
   scopes: string[];
   token_expires_in_seconds: number | null;
+  last_feedback_at: string | null;
+  feedback_count: number;
 }
 
 export async function runWhoami(
@@ -89,12 +95,15 @@ export async function runWhoami(
       companies: [],
       scopes,
       token_expires_in_seconds: tokenExp,
+      last_feedback_at: null,
+      feedback_count: 0,
     });
   }
 
   const { userValid, email, name } = extractIdentity(rawUser);
   const companies = extractCompanies(rawUser);
   const companyContext = extractCompanyContext(rawUser);
+  const feedback = extractFeedbackStatus(rawUser);
   const serverRegion = config.serverRegion;
   const identity = {
     ...(email ? { email } : {}),
@@ -122,6 +131,8 @@ export async function runWhoami(
       companies: [],
       scopes,
       token_expires_in_seconds: tokenExp,
+      last_feedback_at: feedback.last_feedback_at,
+      feedback_count: feedback.feedback_count,
     });
   }
 
@@ -135,6 +146,8 @@ export async function runWhoami(
       companies: [],
       scopes,
       token_expires_in_seconds: tokenExp,
+      last_feedback_at: feedback.last_feedback_at,
+      feedback_count: feedback.feedback_count,
     });
   }
 
@@ -146,7 +159,35 @@ export async function runWhoami(
     companies: enrichedCompanies,
     scopes,
     token_expires_in_seconds: tokenExp,
+    last_feedback_at: feedback.last_feedback_at,
+    feedback_count: feedback.feedback_count,
   });
+}
+
+// ─── Feedback status extraction ───────────────────────────────────────────────
+// Per agreed handoff zooza-mcp-to-api-v1-20260527-001, api-v1 surfaces flat
+// fields on the /v1/user response. We degrade to null/0 if missing (older
+// api-v1 deployments without the migration).
+
+function extractFeedbackStatus(raw: unknown): {
+  last_feedback_at: string | null;
+  feedback_count: number;
+} {
+  if (!raw || typeof raw !== "object") {
+    return { last_feedback_at: null, feedback_count: 0 };
+  }
+  const obj = raw as Record<string, unknown>;
+  const user = (obj.user as Record<string, unknown> | undefined) ?? {};
+  const lastRaw = user.mcp_last_feedback_at ?? obj.mcp_last_feedback_at;
+  const countRaw = user.mcp_feedback_count ?? obj.mcp_feedback_count;
+  const lastIso = pickStr(lastRaw) ?? null;
+  const count =
+    typeof countRaw === "number"
+      ? countRaw
+      : typeof countRaw === "string"
+        ? Number.parseInt(countRaw, 10) || 0
+        : 0;
+  return { last_feedback_at: lastIso, feedback_count: count };
 }
 
 function extractIdentity(raw: unknown): {
