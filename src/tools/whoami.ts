@@ -1,5 +1,4 @@
 import type { RequestAuthContext } from "../auth/types.js";
-import { config } from "../config.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 
 export const whoamiTitle = "Who am I?";
@@ -18,8 +17,8 @@ Identity fields (use these to scope follow-up calls to the calling user):
 - 'identity.email', 'identity.name' — for display only.
 
 Regional context fields (use these to adapt behaviour):
-- 'server_region' — which Zooza installation this MCP serves: "eu" (SK/CZ/DE/RO/HU/IT/PL), "uk", "us", "asia".
-- 'company.region' — the company's market region code (e.g. "sk", "cz", "de", "en").
+- 'server_region' — which Zooza installation this token routes to, taken from the JWT 'region' claim: "eu" (SK/CZ/DE/RO/HU/IT/PL), "uk", "us", "asia". This is the API-instance region, NOT the company's market region. Null in dev-fallback (no JWT).
+- 'company.region' — the company's MARKET region code (e.g. "sk", "cz", "de", "en"). Different axis from 'server_region': one EU instance ('server_region: "eu"') serves Slovak, Czech, German, … companies.
 - 'company.locale' — BCP-47 locale for date/number/currency formatting (e.g. "sk-SK", "cs-CZ", "en-GB").
 - 'company.language' — the company's primary language code.
 - 'company.currency' — the company's currency (e.g. "EUR", "CZK", "GBP").
@@ -55,7 +54,8 @@ interface WhoamiCompany {
 interface WhoamiResult {
   status: WhoamiStatus;
   status_message: string;
-  server_region: string;
+  /** API-instance region from the JWT `region` claim; null when no JWT (dev-fallback). */
+  server_region: string | null;
   identity: {
     user_id?: number;
     email?: string;
@@ -92,7 +92,7 @@ export async function runWhoami(
     return ok({
       status: "api_error",
       status_message: `Zooza is temporarily unreachable. Tell the user to try again in a moment. (Underlying: ${message})`,
-      server_region: config.serverRegion,
+      server_region: ctx.claims?.region ?? null,
       identity: {},
       companies: [],
       scopes,
@@ -104,9 +104,10 @@ export async function runWhoami(
 
   const { userValid, user_id: userIdFromBody, email, name } = extractIdentity(rawUser);
   const companies = extractCompanies(rawUser);
-  const companyContext = extractCompanyContext(rawUser);
+  // API-instance region comes from the JWT only (null in dev-fallback / no-JWT).
+  const serverRegion = ctx.claims?.region ?? null;
+  const companyContext = extractCompanyContext(rawUser, serverRegion);
   const feedback = extractFeedbackStatus(rawUser);
-  const serverRegion = config.serverRegion;
   // Fall back to the JWT `sub` claim when /v1/user doesn't surface user.id —
   // sub is the Zooza user id string-encoded. Legacy auth has no claims.
   const user_id =
@@ -295,9 +296,9 @@ const LOCALE_MAP: Record<string, string> = {
   pl: "pl-PL",
 };
 
-function deriveLocale(language: string | null, serverRegion: string): string {
+function deriveLocale(language: string | null, serverRegion: string | null): string {
   if (language && LOCALE_MAP[language]) return LOCALE_MAP[language];
-  // English variants depend on which Zooza installation
+  // English variants depend on which Zooza installation (from the JWT region).
   if (serverRegion === "uk") return "en-GB";
   if (serverRegion === "us") return "en-US";
   return "en-IE"; // EU default (same as Company::get_locale() fallback)
@@ -307,7 +308,10 @@ function deriveLocale(language: string | null, serverRegion: string): string {
 // The /user endpoint response contains a top-level 'company' object with
 // region, language, currency — already available from the existing API call.
 
-function extractCompanyContext(raw: unknown): CompanyContext | null {
+function extractCompanyContext(
+  raw: unknown,
+  instanceRegion: string | null,
+): CompanyContext | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
   const company = obj.company as Record<string, unknown> | undefined;
@@ -318,7 +322,7 @@ function extractCompanyContext(raw: unknown): CompanyContext | null {
   const currency = pickStr(company.currency) ?? null;
   const locale =
     region !== null || language !== null
-      ? deriveLocale(language ?? region, config.serverRegion)
+      ? deriveLocale(language ?? region, instanceRegion)
       : null;
 
   return { region, language, locale, currency };

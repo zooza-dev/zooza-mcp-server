@@ -1,4 +1,3 @@
-import { config } from "./config.js";
 import type { ZoozaAuth } from "./auth/types.js";
 
 export type ZoozaRequestOptions = {
@@ -123,9 +122,9 @@ function collectInvalidFieldNames(entry: unknown): string[] {
   return [];
 }
 
-function buildUrl(path: string, query?: ZoozaRequestOptions["query"]): string {
+function buildUrl(baseUrl: string, path: string, query?: ZoozaRequestOptions["query"]): string {
   const trimmed = path.startsWith("/") ? path : `/${path}`;
-  const url = new URL(`${config.zooza.baseUrl}${trimmed}`);
+  const url = new URL(`${baseUrl}${trimmed}`);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value === undefined) continue;
@@ -153,7 +152,7 @@ export async function zoozaFetch<T = unknown>(
   options: ZoozaRequestOptions = {},
   auth: ZoozaAuth,
 ): Promise<T> {
-  const url = buildUrl(path, options.query);
+  const url = buildUrl(auth.baseUrl, path, options.query);
   const response = await fetch(url, {
     method: options.method ?? "GET",
     headers: {

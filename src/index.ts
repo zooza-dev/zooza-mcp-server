@@ -803,9 +803,16 @@ async function main(): Promise<void> {
 
   app.listen(config.port, () => {
     const authMode = config.auth.allowHardcoded ? "dev-fallback enabled" : "JWT required";
+    const regions = Object.keys(config.zooza.regionBaseUrls);
+    const regionInfo = regions.length > 0 ? regions.join(", ") : "NONE";
     console.log(
-      `zooza-mcp listening on :${config.port} (Zooza API: ${config.zooza.baseUrl}; auth: ${authMode})`,
+      `zooza-mcp listening on :${config.port} (Zooza API regions: ${regionInfo}; auth: ${authMode})`,
     );
+    if (regions.length === 0) {
+      console.warn(
+        "[config] No ZOOZA_API_BASE_<REGION> env vars set — every request will be rejected for lack of a regional api-v1 base URL.",
+      );
+    }
   });
 }
 

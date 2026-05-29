@@ -69,6 +69,7 @@ export async function validateJwt(token: string): Promise<JwtClaims> {
       iat: typeof payload.iat === "number" ? payload.iat : 0,
       exp: typeof payload.exp === "number" ? payload.exp : 0,
       jti: typeof payload.jti === "string" ? payload.jti : "",
+      region: typeof payload.region === "string" ? payload.region : null,
     };
   } catch (err) {
     if (err instanceof JwtValidationError) throw err;

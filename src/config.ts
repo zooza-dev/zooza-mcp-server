@@ -21,6 +21,26 @@ function bool(name: string, fallback: boolean): boolean {
 const allowHardcoded = bool("ZOOZA_ALLOW_HARDCODED_AUTH", false);
 
 /**
+ * Collect per-region api-v1 base URLs from `ZOOZA_API_BASE_<REGION>` env vars
+ * (e.g. `ZOOZA_API_BASE_EU`, `ZOOZA_API_BASE_UK`). The value is the complete
+ * base URL; the region claim on each JWT selects which one a request uses.
+ *
+ * There is deliberately no global `ZOOZA_API_BASE` fallback — a request whose
+ * region has no entry here is rejected rather than routed to a default
+ * installation (see src/auth/region.ts). Keys are upper-case region codes.
+ */
+function parseRegionBaseUrls(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    const match = /^ZOOZA_API_BASE_([A-Z]{2,4})$/.exec(key);
+    if (match && value && value.trim() !== "") {
+      out[match[1]] = value.trim().replace(/\/$/, "");
+    }
+  }
+  return out;
+}
+
+/**
  * System-wide virtual trainer ids hardcoded in the Zooza app (`app/main.js`,
  * translation keys `enums__trainers__*`). They have no `users` row, no role,
  * and `/v1/users` never returns them — but api-v1 accepts them as valid
@@ -58,7 +78,9 @@ function parseVirtualTrainers(raw: string): Array<{ id: number; name: string }> 
 export const config = {
   port: Number.parseInt(optional("PORT", "3001"), 10),
   zooza: {
-    baseUrl: optional("ZOOZA_API_BASE", "http://php-server/v1").replace(/\/$/, ""),
+    // Per-region api-v1 base URLs, keyed by upper-case region code. The region
+    // claim on each request selects the URL; there is no global fallback.
+    regionBaseUrls: parseRegionBaseUrls(),
     apiKey: required("ZOOZA_API_KEY"),
     // Legacy creds — only used when allowHardcoded is true AND no Bearer arrives.
     // Required even when allowHardcoded is false because tests / dev / migration
@@ -101,12 +123,6 @@ export const config = {
     // reserve the GITHUB_ prefix.
     githubToken: optional("FEEDBACK_TOKEN", "") || null,
   },
-  /**
-   * Which Zooza regional installation this MCP instance serves.
-   * EU (SK/CZ/DE/RO/HU/IT/PL) is the default.
-   * Set ZOOZA_SERVER_REGION=uk for the UK deployment, etc.
-   */
-  serverRegion: optional("ZOOZA_SERVER_REGION", "eu"),
   audit: {
     // Per-tool-call JSONL log (ZMCP-20260528-001). Relative paths resolve
     // against the server's CWD on startup. The parent dir is created lazily

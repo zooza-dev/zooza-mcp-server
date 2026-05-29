@@ -51,8 +51,16 @@ export function buildDevFallbackSession(): SessionState {
  * The placeholder is the first company in the session list (if any) or "0";
  * api-v1 will reject calls that ride the placeholder, which is intentional
  * (forces tools to be explicit).
+ *
+ * `baseUrl` is the region-resolved api-v1 base URL for this request — the
+ * caller (middleware) resolves it from the JWT `region` claim and rejects the
+ * request before calling here when no region URL is configured.
  */
-export function buildAuth(session: SessionState, bearer: string | null): ZoozaAuth {
+export function buildAuth(
+  session: SessionState,
+  bearer: string | null,
+  baseUrl: string,
+): ZoozaAuth {
   const placeholder = String(session.companies[0]?.id ?? 0);
   if (bearer === null) {
     return {
@@ -60,6 +68,7 @@ export function buildAuth(session: SessionState, bearer: string | null): ZoozaAu
       apiKey: config.zooza.apiKey,
       company: placeholder,
       legacyToken: config.zooza.legacyToken,
+      baseUrl,
     };
   }
   return {
@@ -67,6 +76,7 @@ export function buildAuth(session: SessionState, bearer: string | null): ZoozaAu
     apiKey: config.zooza.apiKey,
     company: placeholder,
     bearer,
+    baseUrl,
   };
 }
 

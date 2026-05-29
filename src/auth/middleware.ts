@@ -2,10 +2,10 @@ import type { Request } from "express";
 import { config } from "../config.js";
 import { zoozaFetch } from "../zooza.js";
 import { extractBearer, JwtValidationError, validateJwt } from "./jwt.js";
+import { resolveBaseUrl } from "./region.js";
 import {
   bootstrapJwtSession,
   buildAuth,
-  buildDevFallbackSession,
   getSession,
 } from "./session-store.js";
 import type { RequestAuthContext, ZoozaAuth } from "./types.js";
@@ -40,14 +40,15 @@ function unauthorizedChallenge(error: "invalid_token" | "missing_token", descrip
 export async function resolveAuthContext(req: Request): Promise<RequestAuthContext> {
   const bearer = extractBearer(req.header("authorization"));
 
-  // No Bearer + hardcoded allowed → dev fallback (current local-dev behaviour).
+  // The api-v1 region is resolved from the JWT `region` claim only — there is no
+  // server-configured default. A request without a Bearer therefore has no region
+  // to route to and is rejected, even when hardcoded-auth dev mode is enabled.
+  // Local dev must present a real JWT carrying a `region` claim.
   if (bearer === null) {
-    if (config.auth.allowHardcoded) {
-      const session = buildDevFallbackSession();
-      const auth: ZoozaAuth = buildAuth(session, null);
-      return { mode: "legacy", auth, session, claims: null };
-    }
-    throw unauthorizedChallenge("missing_token", "Authorization header required.");
+    throw unauthorizedChallenge(
+      "missing_token",
+      "Authorization header with a JWT (carrying a `region` claim) is required.",
+    );
   }
 
   // Bearer present — always validate (no silent fallback on JWT failure).
@@ -64,6 +65,19 @@ export async function resolveAuthContext(req: Request): Promise<RequestAuthConte
     );
   }
 
+  // Resolve the region's api-v1 base URL from the token before any outbound
+  // call. Missing/malformed/unconfigured region is rejected — routing a request
+  // to the wrong installation is worse than failing.
+  const baseUrl = resolveBaseUrl(claims.region);
+  if (baseUrl === null) {
+    throw unauthorizedChallenge(
+      "invalid_token",
+      claims.region
+        ? `No api-v1 base URL configured for region "${claims.region}".`
+        : "JWT missing `region` claim.",
+    );
+  }
+
   // Look up or bootstrap session for this user.
   let session = getSession(claims.sub);
   if (!session) {
@@ -75,12 +89,13 @@ export async function resolveAuthContext(req: Request): Promise<RequestAuthConte
         apiKey: config.zooza.apiKey,
         company: "0",
         bearer,
+        baseUrl,
       };
       return zoozaFetch("/user", { query: { widget_type: "unknown" } }, bootstrapAuth);
     });
   }
 
-  const auth = buildAuth(session, bearer);
+  const auth = buildAuth(session, bearer, baseUrl);
   return { mode: "jwt", auth, session, claims };
 }
 

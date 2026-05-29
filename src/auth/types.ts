@@ -18,6 +18,9 @@ export interface JwtClaims {
   iat: number;
   exp: number;
   jti: string;
+  /** Regional installation this token belongs to, e.g. "eu" / "uk" / "asia".
+   *  Selects the api-v1 base URL per request. Null when the claim is absent. */
+  region: string | null;
 }
 
 export interface CompanyRef {
@@ -50,12 +53,16 @@ export type ZoozaAuth =
       apiKey: string;
       company: string;
       bearer: string;
+      /** Resolved api-v1 base URL for this request's region. */
+      baseUrl: string;
     }
   | {
       mode: "legacy";
       apiKey: string;
       company: string;
       legacyToken: string;
+      /** Resolved api-v1 base URL for this request's region. */
+      baseUrl: string;
     };
 
 /**
