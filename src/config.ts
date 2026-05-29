@@ -107,4 +107,17 @@ export const config = {
    * Set ZOOZA_SERVER_REGION=uk for the UK deployment, etc.
    */
   serverRegion: optional("ZOOZA_SERVER_REGION", "eu"),
+  audit: {
+    // Per-tool-call JSONL log (ZMCP-20260528-001). Relative paths resolve
+    // against the server's CWD on startup. The parent dir is created lazily
+    // on first write.
+    logPath: optional("AUDIT_LOG_PATH", "logs/audit.log"),
+  },
+  features: {
+    // MCP Apps interactive roster card (ZMCP-20260529-001, EXPERIMENTAL).
+    // When true, get_attendance_roster advertises a `ui://` App resource so
+    // MCP-Apps-capable hosts (Claude.ai connectors) render an interactive card.
+    // Off by default — text + structuredContent remains the universal path.
+    rosterAppResource: bool("ZOOZA_FEATURE_ROSTER_APP", false),
+  },
 } as const;

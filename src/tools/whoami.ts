@@ -13,6 +13,10 @@ How to interpret the response:
 - 'status: "invalid_user"' — account rejected by api-v1. Surface 'status_message' verbatim.
 - 'status: "api_error"' — api-v1 unreachable. Surface 'status_message' and suggest retry.
 
+Identity fields (use these to scope follow-up calls to the calling user):
+- 'identity.user_id' — the caller's Zooza user id. Pass this as 'trainer_id' to filter find_events / get_attendance_roster / etc. to the user's OWN data whenever the user says "my sessions," "my classes today," "what am I teaching tomorrow," etc. Without it, find_events returns ALL company events, not just the caller's.
+- 'identity.email', 'identity.name' — for display only.
+
 Regional context fields (use these to adapt behaviour):
 - 'server_region' — which Zooza installation this MCP serves: "eu" (SK/CZ/DE/RO/HU/IT/PL), "uk", "us", "asia".
 - 'company.region' — the company's market region code (e.g. "sk", "cz", "de", "en").
@@ -53,6 +57,7 @@ interface WhoamiResult {
   status_message: string;
   server_region: string;
   identity: {
+    user_id?: number;
     email?: string;
     name?: string;
   };
@@ -97,12 +102,22 @@ export async function runWhoami(
     });
   }
 
-  const { userValid, email, name } = extractIdentity(rawUser);
+  const { userValid, user_id: userIdFromBody, email, name } = extractIdentity(rawUser);
   const companies = extractCompanies(rawUser);
   const companyContext = extractCompanyContext(rawUser);
   const feedback = extractFeedbackStatus(rawUser);
   const serverRegion = config.serverRegion;
+  // Fall back to the JWT `sub` claim when /v1/user doesn't surface user.id —
+  // sub is the Zooza user id string-encoded. Legacy auth has no claims.
+  const user_id =
+    userIdFromBody ??
+    (ctx.claims?.sub
+      ? Number.parseInt(ctx.claims.sub, 10) || undefined
+      : undefined);
   const identity = {
+    ...(user_id !== undefined && Number.isFinite(user_id) && user_id > 0
+      ? { user_id }
+      : {}),
     ...(email ? { email } : {}),
     ...(name ? { name } : {}),
   };
@@ -189,6 +204,7 @@ function extractFeedbackStatus(raw: unknown): {
 
 function extractIdentity(raw: unknown): {
   userValid: boolean | undefined;
+  user_id?: number;
   email?: string;
   name?: string;
 } {
@@ -202,8 +218,19 @@ function extractIdentity(raw: unknown): {
   const lastName = pickStr(user.last_name);
   const composed = [firstName, lastName].filter(Boolean).join(" ").trim();
   const name = composed.length > 0 ? composed : pickStr(user.name) ?? pickStr(user.display_name);
+  // user.id is what the API surfaces; tolerate string-encoded ids.
+  const idRaw = user.id ?? obj.user_id;
+  const user_id =
+    typeof idRaw === "number" && Number.isFinite(idRaw)
+      ? idRaw
+      : typeof idRaw === "string" && idRaw.length > 0
+        ? Number.parseInt(idRaw, 10)
+        : undefined;
   return {
     userValid,
+    ...(user_id !== undefined && Number.isFinite(user_id) && user_id > 0
+      ? { user_id }
+      : {}),
     ...(email ? { email } : {}),
     ...(name ? { name } : {}),
   };

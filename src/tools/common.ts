@@ -18,3 +18,11 @@ export const companyIdSchema = z
   .describe(
     "Zooza company id to operate against. Optional: if the user has exactly one company, the server defaults to it — you can omit this field. With multiple companies, you MUST specify which; get the id list from `whoami.available_companies[].id`. If the user hasn't indicated which company they mean, ask them before guessing.",
   );
+
+/**
+ * Registration statuses that mean "still in trial". Single source of truth for
+ * the attendance tools: `get_attendance_roster` derives `is_trial` from it, and
+ * `mark_attendance` uses it to gate the trial-followup todo lookup. Keep in sync
+ * with api-v1's trial status enum.
+ */
+export const TRIAL_STATUSES = new Set(["trial_started", "trial_not_started"]);

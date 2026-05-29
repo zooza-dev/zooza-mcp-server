@@ -226,6 +226,7 @@ npm run dev            # http://localhost:3001/mcp
 | `PORT` | no | HTTP port (default `3001`) |
 | `ZOOZA_ALLOW_HARDCODED_AUTH` | dev only | Set `true` to skip JWT validation locally |
 | `ZOOZA_API_TOKEN` | dev only | Dev-fallback token (only with hardcoded auth enabled) |
+| `AUDIT_LOG_PATH` | no | Per-tool-call JSONL audit log path (default `logs/audit.log`) |
 
 ### Smoke test
 
@@ -235,6 +236,27 @@ curl -sS http://localhost:3001/mcp \
   -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+### Debug bookend workflow
+
+Every tool invocation appends one JSON line to `logs/audit.log` (or whatever
+`AUDIT_LOG_PATH` points at). Each entry carries `request_id`, `tool`, `args`,
+`outcome`, `result`-or-`error`, and `duration_ms` — enough to reconstruct
+what the server saw without scraping container logs.
+
+When you're testing a tool and want Claude to inspect what happened inside the
+server, use this bookend pattern:
+
+1. **You:** "I'm about to call `find_events`."
+2. **Claude** marks a watermark — `wc -l logs/audit.log`.
+3. **You** run the tool from your MCP client.
+4. **You:** "done."
+5. **Claude** reads the lines past the watermark and reports tool name, args,
+   outcome, duration, and any error — no extra MCP tool, no log shipping
+   required.
+
+The same JSONL stream is the on-disk bridge for a future log forwarder to
+ship into a central observability system.
 
 ### Architecture
 

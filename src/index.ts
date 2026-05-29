@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import express from "express";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
+import { audit } from "./audit.js";
 import {
   AuthChallengeError,
   buildResourceMetadata,
@@ -31,6 +34,30 @@ import {
   findCoursesTitle,
   runFindCourses,
 } from "./tools/find-courses.js";
+import {
+  findEventsDescription,
+  findEventsInputSchema,
+  findEventsTitle,
+  runFindEvents,
+} from "./tools/find-events.js";
+import {
+  getAttendanceRosterDescription,
+  getAttendanceRosterInputSchema,
+  getAttendanceRosterTitle,
+  runGetAttendanceRoster,
+} from "./tools/get-attendance-roster.js";
+import {
+  markAttendanceDescription,
+  markAttendanceInputSchema,
+  markAttendanceTitle,
+  runMarkAttendance,
+} from "./tools/mark-attendance.js";
+import {
+  addSessionSummaryDescription,
+  addSessionSummaryInputSchema,
+  addSessionSummaryTitle,
+  runAddSessionSummary,
+} from "./tools/add-session-summary.js";
 import {
   findPlacesDescription,
   findPlacesInputSchema,
@@ -105,9 +132,31 @@ const COMBINED_INSTRUCTIONS = [TERMINOLOGY_INSTRUCTIONS, SKILL_INSTRUCTIONS]
   .filter(Boolean)
   .join("\n\n---\n\n");
 
+// MCP App view resource (ZMCP-20260529-001, EXPERIMENTAL). The bundled HTML is
+// produced by `npm run compile:ui`; read once and cached. CWD is the repo root
+// under both `npm start` (node dist/index.js) and `npm run dev` (tsx).
+const ROSTER_VIEW_URI = "ui://zooza/attendance-roster";
+// MCP Apps MIME type (the `RESOURCE_MIME_TYPE` constant in
+// @modelcontextprotocol/ext-apps). Hardcoded so the server runtime carries NO
+// dependency on that package — only the esbuild-bundled browser view imports it
+// at build time. This keeps the server bootable even when ext-apps isn't in the
+// runtime node_modules and the feature flag is off.
+const ROSTER_VIEW_MIME = "text/html;profile=mcp-app";
+let rosterViewCache: string | null = null;
+function loadRosterView(): string {
+  if (rosterViewCache === null) {
+    rosterViewCache = readFileSync(resolve(process.cwd(), "dist/ui/attendance-roster.html"), "utf8");
+  }
+  return rosterViewCache;
+}
+
 type ToolResult = {
   isError?: boolean;
   content: Array<{ type: "text"; text: string }>;
+  // Carried through the wrapper chain so a future wrapper that reconstructs the
+  // result can't silently drop the App-card / chaining sidecar (find_events,
+  // get_attendance_roster). Wrappers must preserve it.
+  structuredContent?: Record<string, unknown>;
 };
 
 function scopeGuard<Args>(
@@ -206,6 +255,26 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
     }),
   );
 
+  // MCP App view — interactive attendance roster (ZMCP-20260529-001, EXPERIMENTAL,
+  // gated by config.features.rosterAppResource). The bundled HTML is produced by
+  // `npm run compile:ui` into dist/ui/. Hosts without MCP Apps support ignore the
+  // tool's `_meta.ui` and fall back to the text + structuredContent path.
+  if (config.features.rosterAppResource) {
+    server.registerResource(
+      "Attendance roster",
+      ROSTER_VIEW_URI,
+      {
+        description: "Interactive attendance register for one event.",
+        mimeType: ROSTER_VIEW_MIME,
+      },
+      async () => ({
+        contents: [
+          { uri: ROSTER_VIEW_URI, mimeType: ROSTER_VIEW_MIME, text: loadRosterView() },
+        ],
+      }),
+    );
+  }
+
   // Free tool — no Zooza API call, no company_id needed
   server.registerTool(
     "get_terminology",
@@ -215,7 +284,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: getTerminologyInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(SCOPE_READ, ctx, async (args) => runGetTerminology(args)),
+    audit("get_terminology", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runGetTerminology(args))),
   );
 
   // Free tool — no Zooza API call, no company_id needed
@@ -227,7 +296,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: explainDataModelInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(SCOPE_READ, ctx, async (args) => runExplainDataModel(args)),
+    audit("explain_data_model", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runExplainDataModel(args))),
   );
 
   // Free tool — no Zooza API call, no company_id needed
@@ -239,7 +308,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: listMessageMergeVarsInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(SCOPE_READ, ctx, async (args) => runListMessageMergeVars(args)),
+    audit("list_message_merge_vars", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runListMessageMergeVars(args))),
   );
 
   // Free tool — no Zooza API call, no company_id needed
@@ -251,7 +320,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: listSchedulePatternsInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(SCOPE_READ, ctx, async (args) => runListSchedulePatterns(args)),
+    audit("list_schedule_patterns", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runListSchedulePatterns(args))),
   );
 
   // Free tool — no Zooza API call, no company_id needed
@@ -263,7 +332,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: negotiateTerminologyInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(SCOPE_READ, ctx, async (args) => runNegotiateTerminology(args)),
+    audit("negotiate_terminology", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runNegotiateTerminology(args))),
   );
 
   server.registerTool(
@@ -274,7 +343,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: whoamiInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard<Record<string, never>>(SCOPE_READ, ctx, async () => runWhoami(ctx)),
+    audit("whoami", ctx, scopeGuard<Record<string, never>>(SCOPE_READ, ctx, async () => runWhoami(ctx))),
   );
 
   server.registerTool(
@@ -285,10 +354,14 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: findCoursesInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(
-      SCOPE_READ,
+    audit(
+      "find_courses",
       ctx,
-      resolveCompanyId(ctx, async (args) => runFindCourses(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runFindCourses(args, ctx.auth)),
+      ),
     ),
   );
 
@@ -300,10 +373,14 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: findBillingPeriodsInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(
-      SCOPE_READ,
+    audit(
+      "find_billing_periods",
       ctx,
-      resolveCompanyId(ctx, async (args) => runFindBillingPeriods(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runFindBillingPeriods(args, ctx.auth)),
+      ),
     ),
   );
 
@@ -315,10 +392,14 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: findTrainersInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(
-      SCOPE_READ,
+    audit(
+      "find_trainers",
       ctx,
-      resolveCompanyId(ctx, async (args) => runFindTrainers(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runFindTrainers(args, ctx.auth)),
+      ),
     ),
   );
 
@@ -330,10 +411,110 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: findPlacesInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(
-      SCOPE_READ,
+    audit(
+      "find_places",
       ctx,
-      resolveCompanyId(ctx, async (args) => runFindPlaces(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runFindPlaces(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "find_events",
+    {
+      title: findEventsTitle,
+      description: findEventsDescription,
+      inputSchema: findEventsInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    audit(
+      "find_events",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runFindEvents(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "get_attendance_roster",
+    {
+      title: getAttendanceRosterTitle,
+      description: getAttendanceRosterDescription,
+      inputSchema: getAttendanceRosterInputSchema,
+      annotations: { readOnlyHint: true },
+      // EXPERIMENTAL: advertise the interactive roster card to MCP-Apps hosts.
+      // Emit BOTH the modern (`ui.resourceUri`) and legacy (`ui/resourceUri`)
+      // metadata keys — this is what ext-apps' `registerAppTool` does for
+      // compatibility with hosts that read the older flat key.
+      ...(config.features.rosterAppResource
+        ? {
+            _meta: {
+              ui: { resourceUri: ROSTER_VIEW_URI },
+              "ui/resourceUri": ROSTER_VIEW_URI,
+            },
+          }
+        : {}),
+    },
+    audit(
+      "get_attendance_roster",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runGetAttendanceRoster(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "mark_attendance",
+    {
+      title: markAttendanceTitle,
+      description: markAttendanceDescription,
+      inputSchema: markAttendanceInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    audit(
+      "mark_attendance",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runMarkAttendance(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "add_session_summary",
+    {
+      title: addSessionSummaryTitle,
+      description: addSessionSummaryDescription,
+      inputSchema: addSessionSummaryInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    audit(
+      "add_session_summary",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runAddSessionSummary(args, ctx.auth)),
+      ),
     ),
   );
 
@@ -345,10 +526,14 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: previewScheduleInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(
-      SCOPE_READ,
+    audit(
+      "preview_schedule",
       ctx,
-      resolveCompanyId(ctx, async (args) => runPreviewSchedule(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runPreviewSchedule(args, ctx.auth)),
+      ),
     ),
   );
 
@@ -360,10 +545,14 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: previewEventsInputSchema,
       annotations: { readOnlyHint: true },
     },
-    scopeGuard(
-      SCOPE_READ,
+    audit(
+      "preview_events",
       ctx,
-      resolveCompanyId(ctx, async (args) => runPreviewEvents(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runPreviewEvents(args, ctx.auth)),
+      ),
     ),
   );
 
@@ -375,10 +564,14 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: commitClassInputSchema,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     },
-    scopeGuard(
-      SCOPE_WRITE,
+    audit(
+      "commit_class",
       ctx,
-      resolveCompanyId(ctx, async (args) => runCommitClass(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runCommitClass(args, ctx.auth)),
+      ),
     ),
   );
 
@@ -393,7 +586,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: submitFeedbackInputSchema,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
-    scopeGuard(SCOPE_WRITE, ctx, async (args) => runSubmitFeedback(args, ctx)),
+    audit("submit_feedback", ctx, scopeGuard(SCOPE_WRITE, ctx, async (args) => runSubmitFeedback(args, ctx))),
   );
 
   const skillNames = SKILLS.map((s) => s.name);
@@ -409,23 +602,27 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       },
       annotations: { readOnlyHint: true },
     },
-    scopeGuard<{ name: string }>(SCOPE_READ, ctx, async ({ name }) => {
-      const skill = SKILLS.find((s) => s.name === name);
-      if (!skill) {
+    audit(
+      "get_skill",
+      ctx,
+      scopeGuard<{ name: string }>(SCOPE_READ, ctx, async ({ name }) => {
+        const skill = SKILLS.find((s) => s.name === name);
+        if (!skill) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: `Unknown skill "${name}". Available: ${skillNameList}.`,
+              },
+            ],
+          };
+        }
         return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: `Unknown skill "${name}". Available: ${skillNameList}.`,
-            },
-          ],
+          content: [{ type: "text", text: skill.body }],
         };
-      }
-      return {
-        content: [{ type: "text", text: skill.body }],
-      };
-    }),
+      }),
+    ),
   );
 
   // Skill-based prompts — one per skill file, title from frontmatter.

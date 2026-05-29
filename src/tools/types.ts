@@ -256,3 +256,325 @@ export interface PaymentScheduleTemplateDto {
   value_date?: number;
   discount?: string;
 }
+
+// ─── find_events / get_attendance_roster / mark_attendance ───────────────────
+// Shared types for the attendance tooling pillar (ZMCP-20260527-002, -003, -004).
+
+/** Per-event attendance counters surfaced by find_events. Derived from
+ *  api-v1's materialised `__calc__attendance__*` columns. Sums of
+ *  `registrations.slots`, not COUNTs (one registration can book multiple slots). */
+export interface AttendanceCounts {
+  going: number;
+  attended: number;
+  noshow: number;
+  canceled: number;
+  canceled_late: number;
+  waitlist: number;
+}
+
+/** Curated event row for find_events output. Trimmed from the full api-v1
+ *  /v1/events row + embedded sub-resources for reasoning-ready LLM use. */
+export interface EventMatch {
+  event_id: number;
+  schedule_id: number;
+  course_id: number;
+  trainer_id: number;
+  place_id: number;
+  room_id: number;
+  date: string;
+  duration: number;
+  status: string;
+  course_name: string;
+  trainer_name: string;
+  place_name: string;
+  event_number: string;
+  capacity: number;
+  attendance_counts: AttendanceCounts;
+  segments: string[];
+  is_substituted: boolean;
+  is_replacement: boolean;
+  has_public_summary: boolean;
+  cancellation_reasoning_public: string | null;
+}
+
+export interface FindEventsScopeHint {
+  reason: "caller_is_trainer";
+  trainer_id: number;
+}
+
+export interface FindEventsResult {
+  // JSON-object DTO returned as a tool's structuredContent sidecar; the index
+  // signature makes it assignable to the MCP SDK's `Record<string, unknown>`.
+  [key: string]: unknown;
+  meta: {
+    page: number;
+    page_size: number;
+    total: number;
+    scoped_to: FindEventsScopeHint | null;
+    warnings?: string[];
+  };
+  events: EventMatch[];
+}
+
+/** Mark-attendance per-row result. */
+export type MarkAttendanceRowStatus = "ok" | "error";
+
+export interface MarkAttendanceRow {
+  registration_id: number;
+  attendance: string;
+  status: MarkAttendanceRowStatus;
+  error_code?: string;
+  error_message?: string;
+  /** Deferred action the caller should surface after this write (ZMCP-20260527-002
+   *  / agreed handoff -20260527-001, api API-20260529-001). Currently only
+   *  `"trial_followup"`: set when an `attended` write on a trial's final session
+   *  produced an open `trial_followup` todo. The attendance skill resolves it. */
+  pending_action?: "trial_followup";
+  /** The `todos` row id backing `pending_action`, for the skill to read/resolve. */
+  todo_id?: number;
+}
+
+export interface MarkAttendanceResult {
+  event_id: number;
+  total: number;
+  succeeded: number;
+  failed: number;
+  results: MarkAttendanceRow[];
+  /** Current event-level summary state — same shape as roster's. Surfaced
+   *  here so after-mark the LLM can offer add_session_summary without
+   *  a separate read. */
+  summary: EventSummaryState;
+}
+
+/** Per-row entrance-voucher state surfaced by get_attendance_roster.
+ *  Non-null only when the attendee's course has registration_type="open". */
+export interface RosterVoucher {
+  unused_entrance_vouchers: number;
+  credit_id: number | null;
+}
+
+/** Identity block for one party on a roster row.
+ *
+ *  Zooza's data model splits each registration into TWO people:
+ *  - **attendee** (api-v1 field: `customer`) — the person who actually
+ *    shows up. Often a child; may have `user_id = 0` if they aren't a
+ *    registered Zooza account holder (typical for children).
+ *  - **client** (api-v1 field: `buyer`) — the account holder / payer.
+ *    Usually an adult; has a real `user_id`. Contact info (email, phone)
+ *    lives here when the attendee is a child.
+ *
+ *  When the attendee IS the client (adult attending themselves), the two
+ *  blocks carry the same data. */
+export interface RosterPerson {
+  name: string;
+  user_id: number;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface RosterAttendeeIdentity extends RosterPerson {
+  date_of_birth: string | null;
+}
+
+/** One attendee row in get_attendance_roster output. */
+export interface RosterAttendee {
+  registration_id: number;
+  /** Pre-formatted one-line display label. When attendee == client, just
+   *  the one name (e.g. "Martin Rapavy"). When they differ, the attendee
+   *  with the client in parens (e.g. "Jozko Jozko (Martin Rapavy)") so
+   *  the LLM can list a roster without needing to compose names itself. */
+  display_name: string;
+  /** Person who attends (customer in api-v1). Often a child. */
+  attendee: RosterAttendeeIdentity;
+  /** Account holder / payer (buyer in api-v1). Contact info lives here. */
+  client: RosterPerson;
+  status: string;
+  is_trial: boolean;
+  /** V1: always null. See spec ZMCP-20260527-003 Notes — derivation requires
+   *  either an api-v1 schema-level field or per-row lookups; deferred. */
+  is_last_trial_session: boolean | null;
+  attendance: string | null;
+  cancellation_reason: string | null;
+  note: string | null;
+  replacement: boolean;
+  is_free_event: boolean;
+  cross_company: boolean;
+  /** Statuses THIS caller is permitted to set for THIS attendee. Computed
+   *  per row using the rules mirrored from `class/Attendance.php:1358-1367`. */
+  allowed_statuses: string[];
+  entrance_voucher: RosterVoucher | null;
+}
+
+export interface RosterResult {
+  // JSON-object DTO returned as structuredContent; index signature makes it
+  // assignable to the MCP SDK's `Record<string, unknown>`.
+  [key: string]: unknown;
+  event_id: number;
+  course: {
+    id: number;
+    registration_type: string;
+    attendance_management: string;
+  };
+  totals: {
+    enrolled: number;
+    marked: number;
+    trial: number;
+  };
+  /** Current event-level summary state. Lets the LLM decide whether to
+   *  offer add_session_summary as a follow-up without a second tool call. */
+  summary: EventSummaryState;
+  attendees: RosterAttendee[];
+}
+
+/** Raw nested person block on an attendance row (customer or buyer). */
+export interface RawAttendancePerson {
+  id?: number;
+  user_id?: number | string;
+  first_name?: string;
+  last_name?: string;
+  person_data?: {
+    email?: string | null;
+    phone?: string | null;
+    date_of_birth?: string | null;
+  };
+}
+
+/** Raw row from /v1/attendance?event_id=… listing. */
+export interface RawAttendanceRow {
+  registration_id?: number;
+  event_id?: number;
+  user_id?: number | string;
+  full_name?: string;
+  email?: string;
+  attendance?: string | null;
+  cancellation_reason?: string | null;
+  note?: string | null;
+  status?: string;
+  attendance_management?: string;
+  replacement?: boolean | number;
+  is_free_event?: boolean | number;
+  company_id?: number;
+  registration_type?: string;
+  /** Attendee (the person who shows up; often a child). */
+  customer?: RawAttendancePerson;
+  /** Account holder / payer (often the parent). */
+  buyer?: RawAttendancePerson;
+  /** Free-text "full name" extra field — sometimes the attendee name
+   *  for legacy data shapes. Used as a fallback when customer is absent. */
+  ef_full_name?: string;
+  entrance_voucher?: {
+    user_id?: number | string;
+    unused_entrance_vouchers?: number | string;
+    credit_id?: number | string | null;
+  };
+}
+
+/** Raw event row from /v1/events?filter=filter — the collection path,
+ *  which (unlike the bare /v1/events/{id} detail path) embeds the FULL
+ *  course object including track_attendance, registration_type, and
+ *  other course fields. Both get_attendance_roster and mark_attendance
+ *  use the collection-with-ids form to fetch a single event so the
+ *  embedded course is populated. */
+export interface RawEventDetail {
+  id?: number;
+  course_id?: number;
+  course?: {
+    id?: number;
+    registration_type?: string;
+    attendance_management?: string;
+    /** 0/false disables attendance tracking — the hard error condition.
+     *  Only populated via the collection path; absent on the detail path. */
+    track_attendance?: boolean | number | string;
+  };
+  // Summary state — surfaced for the add_session_summary follow-up and
+  // for the hint blocks on roster/mark_attendance responses.
+  summary?: string | null;
+  summary_public?: string | null;
+  summary_public_locked?: boolean | number | null;
+  summary_public_filled_at?: string | null;
+}
+
+/** Event-level summary state — surfaced as a hint by get_attendance_roster
+ *  and mark_attendance so the LLM can offer add_session_summary as a
+ *  follow-up without a separate read. Also returned by add_session_summary
+ *  itself as the post-write echo. */
+export interface EventSummaryState {
+  public_set: boolean;
+  public_filled_at: string | null;
+  public_locked: boolean;
+  internal_set: boolean;
+  /** True iff the caller's role allows writing summaries (owner/assistant
+   *  per api-v1's edit_course permission). */
+  writable_by_caller: boolean;
+}
+
+/** Per-field write outcome inside add_session_summary's response. */
+export type AddSessionSummaryFieldStatus = "ok" | "error" | "skipped";
+
+export interface AddSessionSummaryFieldResult {
+  status: AddSessionSummaryFieldStatus;
+  error_code?: string;
+  error_message?: string;
+  reason?: string;
+  /** Set on a successful public write — count of attendees whose
+   *  Person_Feed will receive the SUMMARY_PUBLIC item. */
+  delivered_to_attendees?: number;
+}
+
+export interface AddSessionSummaryResult {
+  // JSON-object DTO returned as structuredContent; index signature makes it
+  // assignable to the MCP SDK's `Record<string, unknown>`.
+  [key: string]: unknown;
+  event_id: number;
+  results: {
+    internal_summary: AddSessionSummaryFieldResult;
+    public_summary: AddSessionSummaryFieldResult;
+  };
+  summary_state_after: EventSummaryState;
+}
+
+/** Raw event row from api-v1 /v1/events?filter=filter — the modern
+ *  collection path. Only fields find_events consumes are typed; everything
+ *  else is intentionally untyped (read-and-discard at projection). */
+export interface RawEventRecord {
+  id: number;
+  company_id?: number;
+  course_id?: number;
+  schedule_id?: number;
+  trainer_id?: number;
+  place_id?: number;
+  room_id?: number;
+  name?: string;
+  date?: string;
+  duration?: number | string;
+  status?: string;
+  is_custom_replacement_event?: boolean | number;
+  substituted?: boolean | number;
+  summary_public?: string | null;
+  summary_public_locked?: boolean | number;
+  cancellation_reasoning_public?: string | null;
+  // Materialised display + counter fields
+  __calc__event_number?: string | number;
+  __calc__event_trainer?: string;
+  __calc__event_place?: string;
+  __calc__attendance__going?: number | string;
+  __calc__attendance__attended?: number | string;
+  __calc__attendance__noshow?: number | string;
+  __calc__attendance__canceled?: number | string;
+  __calc__attendance__canceled_late?: number | string;
+  __calc__attendance__waitlist?: number | string;
+  __schedule_segments__id?: string;
+  __schedule_segments__name?: string;
+  // Embedded sub-resources (read for denormalised hints, then discarded)
+  course?: {
+    id?: number;
+    name?: string;
+    registration_type?: string;
+  };
+  schedule?: {
+    id?: number;
+    capacity?: number | string;
+    duration?: number | string;
+  };
+  segments?: Array<{ id?: number; name?: string }>;
+}
