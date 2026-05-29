@@ -4,3 +4,4 @@ dist/
 *.log
 .DS_Store
 zooza-plugin-*.zip
+plugin/media/
