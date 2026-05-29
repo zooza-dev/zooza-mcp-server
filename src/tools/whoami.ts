@@ -26,7 +26,7 @@ Feedback context (used by the 'feedback-nudge' skill):
 - 'last_feedback_at' — ISO timestamp of the user's last MCP feedback submission, or null if never. Drives the skill's 7-day cool-off on proactive feedback nudges.
 - 'feedback_count' — total submissions to date (0 if never).
 
-Never surface 'sub', 'scopes', or 'token_expires_in_seconds' to the user — diagnostic only.`;
+Never surface 'sub' or 'scopes' to the user — diagnostic only.`;
 
 export const whoamiInputSchema = {};
 
@@ -58,7 +58,7 @@ interface WhoamiResult {
   };
   companies: WhoamiCompany[];
   scopes: string[];
-  token_expires_in_seconds: number | null;
+  token_state: "active";
   last_feedback_at: string | null;
   feedback_count: number;
 }
@@ -69,9 +69,6 @@ export async function runWhoami(
   const scopes = ctx.claims
     ? Array.from(ctx.claims.scopes)
     : ["mcp:read", "mcp:write"];
-  const tokenExp = ctx.claims
-    ? Math.max(0, ctx.claims.exp - Math.floor(Date.now() / 1000))
-    : null;
 
   let rawUser: unknown;
   try {
@@ -94,7 +91,7 @@ export async function runWhoami(
       identity: {},
       companies: [],
       scopes,
-      token_expires_in_seconds: tokenExp,
+      token_state: "active",
       last_feedback_at: null,
       feedback_count: 0,
     });
@@ -130,7 +127,7 @@ export async function runWhoami(
       identity,
       companies: [],
       scopes,
-      token_expires_in_seconds: tokenExp,
+      token_state: "active",
       last_feedback_at: feedback.last_feedback_at,
       feedback_count: feedback.feedback_count,
     });
@@ -145,7 +142,7 @@ export async function runWhoami(
       identity,
       companies: [],
       scopes,
-      token_expires_in_seconds: tokenExp,
+      token_state: "active",
       last_feedback_at: feedback.last_feedback_at,
       feedback_count: feedback.feedback_count,
     });
@@ -158,7 +155,7 @@ export async function runWhoami(
     identity,
     companies: enrichedCompanies,
     scopes,
-    token_expires_in_seconds: tokenExp,
+    token_state: "active",
     last_feedback_at: feedback.last_feedback_at,
     feedback_count: feedback.feedback_count,
   });

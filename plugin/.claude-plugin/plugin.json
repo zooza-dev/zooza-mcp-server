@@ -1,4 +1,5 @@
 {
+  "$schema": "https://claude.ai/schemas/plugin.json",
   "name": "zooza",
   "version": "0.1.0",
   "description": "Zooza class management, scheduling, and reporting tools for Claude.",
@@ -8,5 +9,21 @@
     "url": "https://zooza.app"
   },
   "homepage": "https://zooza.app",
-  "license": "UNLICENSED"
+  "repository": "https://github.com/zooza-app/zooza-mcp",
+  "license": "MIT",
+  "keywords": [
+    "class scheduling",
+    "class management",
+    "booking management",
+    "attendance tracking",
+    "dance studio",
+    "music school",
+    "language school",
+    "children's activities",
+    "sport and fitness",
+    "camps",
+    "franchise scheduling",
+    "zooza"
+  ],
+  "defaultEnabled": false
 }
