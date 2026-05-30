@@ -282,7 +282,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: getTerminologyTitle,
       description: getTerminologyDescription,
       inputSchema: getTerminologyInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit("get_terminology", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runGetTerminology(args))),
   );
@@ -294,7 +294,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: explainDataModelTitle,
       description: explainDataModelDescription,
       inputSchema: explainDataModelInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit("explain_data_model", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runExplainDataModel(args))),
   );
@@ -306,7 +306,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: listMessageMergeVarsTitle,
       description: listMessageMergeVarsDescription,
       inputSchema: listMessageMergeVarsInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit("list_message_merge_vars", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runListMessageMergeVars(args))),
   );
@@ -318,7 +318,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: listSchedulePatternsTitle,
       description: listSchedulePatternsDescription,
       inputSchema: listSchedulePatternsInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit("list_schedule_patterns", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runListSchedulePatterns(args))),
   );
@@ -330,7 +330,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: negotiateTerminologyTitle,
       description: negotiateTerminologyDescription,
       inputSchema: negotiateTerminologyInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit("negotiate_terminology", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runNegotiateTerminology(args))),
   );
@@ -341,7 +341,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: whoamiTitle,
       description: whoamiDescription,
       inputSchema: whoamiInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit("whoami", ctx, scopeGuard<Record<string, never>>(SCOPE_READ, ctx, async () => runWhoami(ctx))),
   );
@@ -352,7 +352,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findCoursesTitle,
       description: findCoursesDescription,
       inputSchema: findCoursesInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
       "find_courses",
@@ -371,7 +371,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findBillingPeriodsTitle,
       description: findBillingPeriodsDescription,
       inputSchema: findBillingPeriodsInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
       "find_billing_periods",
@@ -390,7 +390,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findTrainersTitle,
       description: findTrainersDescription,
       inputSchema: findTrainersInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
       "find_trainers",
@@ -409,7 +409,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findPlacesTitle,
       description: findPlacesDescription,
       inputSchema: findPlacesInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
       "find_places",
@@ -428,7 +428,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: findEventsTitle,
       description: findEventsDescription,
       inputSchema: findEventsInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
       "find_events",
@@ -447,7 +447,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: getAttendanceRosterTitle,
       description: getAttendanceRosterDescription,
       inputSchema: getAttendanceRosterInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       // EXPERIMENTAL: advertise the interactive roster card to MCP-Apps hosts.
       // Emit BOTH the modern (`ui.resourceUri`) and legacy (`ui/resourceUri`)
       // metadata keys — this is what ext-apps' `registerAppTool` does for
@@ -480,6 +480,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: markAttendanceInputSchema,
       annotations: {
         readOnlyHint: false,
+        openWorldHint: false,
         destructiveHint: false,
         idempotentHint: true,
       },
@@ -503,6 +504,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: addSessionSummaryInputSchema,
       annotations: {
         readOnlyHint: false,
+        openWorldHint: false,
         destructiveHint: false,
         idempotentHint: true,
       },
@@ -524,7 +526,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: previewScheduleTitle,
       description: previewScheduleDescription,
       inputSchema: previewScheduleInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
       "preview_schedule",
@@ -543,7 +545,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: previewEventsTitle,
       description: previewEventsDescription,
       inputSchema: previewEventsInputSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
       "preview_events",
@@ -562,7 +564,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       title: commitClassTitle,
       description: commitClassDescription,
       inputSchema: commitClassInputSchema,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: false },
     },
     audit(
       "commit_class",
@@ -600,7 +602,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       inputSchema: {
         name: z.string().describe("Exact skill name from the available list."),
       },
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
       "get_skill",
