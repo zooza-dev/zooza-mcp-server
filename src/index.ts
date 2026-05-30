@@ -730,6 +730,15 @@ async function main(): Promise<void> {
     res.json({ status: "ok", service: "zooza-mcp" });
   });
 
+  // OpenAI ChatGPT App domain verification — place token in OPENAI_DOMAIN_CHALLENGE_TOKEN env var.
+  // Required for ChatGPT MCP app submission (platform.openai.com/apps).
+  // URL: https://mcp.zooza.app/.well-known/openai-apps-challenge
+  if (config.openaiDomainChallengeToken) {
+    app.get("/.well-known/openai-apps-challenge", (_req, res) => {
+      res.type("text/plain").send(config.openaiDomainChallengeToken);
+    });
+  }
+
   app.get("/.well-known/oauth-protected-resource", (_req, res) => {
     res.json(buildResourceMetadata());
   });

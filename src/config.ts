@@ -136,4 +136,8 @@ export const config = {
     // Off by default — text + structuredContent remains the universal path.
     rosterAppResource: bool("ZOOZA_FEATURE_ROSTER_APP", false),
   },
+  // OpenAI ChatGPT App domain verification token.
+  // Set OPENAI_DOMAIN_CHALLENGE_TOKEN in the deployment env to enable the
+  // /.well-known/openai-apps-challenge endpoint required for ChatGPT MCP submission.
+  openaiDomainChallengeToken: optional("OPENAI_DOMAIN_CHALLENGE_TOKEN", "") || null,
 } as const;
