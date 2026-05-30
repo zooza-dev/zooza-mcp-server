@@ -743,6 +743,14 @@ async function main(): Promise<void> {
     res.json(buildResourceMetadata());
   });
 
+  // OpenAI Apps domain-verification challenge. One-time static check-in — the
+  // token is issued per-domain by the OpenAI Apps console and proves we control
+  // mcp.zooza.app. Not secret and not an env var: it only echoes a value OpenAI
+  // already generated for us. Safe to remove once the domain shows verified.
+  app.get("/.well-known/openai-apps-challenge", (_req, res) => {
+    res.type("text/plain").send("6M9DLBUnonwxKpzFOYio6ULHGsi4GOMPPbSQdvQteHI");
+  });
+
   // Fallback discovery path — some OAuth clients try this on the resource
   // server before / alongside `oauth-protected-resource`. Mirror the auth
   // server's own document verbatim so clients get a valid OAuth 2.0
