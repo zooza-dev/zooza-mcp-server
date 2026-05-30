@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
-import { companyIdSchema } from "./common.js";
+import { companyIdSchema, unwrapList } from "./common.js";
 import type {
   ApiListResponse,
   FindMatchesEnvelope,
@@ -55,8 +55,7 @@ export async function runFindPlaces(
       { query: { page: 0, page_size: 1000, filter: "filter" } },
       withCompany(auth, input.company_id!),
     );
-    const isBare = Array.isArray(raw);
-    const records: RawPlaceRecord[] = isBare ? raw : raw.data ?? [];
+    const { records } = unwrapList<RawPlaceRecord>(raw);
 
     const filtered = records.filter((r) => {
       if (r.status === "deleted") return false;

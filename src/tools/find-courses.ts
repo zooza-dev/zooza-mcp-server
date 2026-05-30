@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
-import { companyIdSchema } from "./common.js";
+import { companyIdSchema, unwrapList } from "./common.js";
 import type {
   ApiListResponse,
   CourseMatch,
@@ -74,12 +74,9 @@ export async function runFindCourses(
     const raw = await zoozaFetch<
       ApiListResponse<RawCourseRecord> | RawCourseRecord[]
     >("/courses", { query }, withCompany(auth, input.company_id!));
-    const isBare = Array.isArray(raw);
-    const records: RawCourseRecord[] = isBare ? raw : raw.data ?? [];
+    const { records, total, settings: echo } = unwrapList<RawCourseRecord>(raw);
     const matches: CourseMatch[] = records.map(projectCourse);
-    const total = isBare ? records.length : raw.total ?? records.length;
     const truncated = total > (page + 1) * pageSize;
-    const echo: Record<string, unknown> = isBare ? {} : raw.settings ?? {};
 
     const result: FindMatchesEnvelope<CourseMatch> = {
       matches,

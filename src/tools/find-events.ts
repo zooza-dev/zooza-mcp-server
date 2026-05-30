@@ -3,7 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { getCallerContext, isAutoScopedRole } from "./caller-context.js";
-import { companyIdSchema } from "./common.js";
+import { companyIdSchema, pickStr, unwrapList } from "./common.js";
 import type {
   ApiListResponse,
   AttendanceCounts,
@@ -186,9 +186,7 @@ export async function runFindEvents(
       // bounded by the slower of the two requests.
       safeCallerContext(callAuth),
     ]);
-    const isBare = Array.isArray(raw);
-    const records: RawEventRecord[] = isBare ? raw : raw.data ?? [];
-    const total = isBare ? records.length : raw.total ?? records.length;
+    const { records, total } = unwrapList<RawEventRecord>(raw);
 
     const events: EventMatch[] = records.map(projectEvent);
 
@@ -425,12 +423,6 @@ async function safeCallerContext(auth: ZoozaAuth) {
 
 function pipeJoin(v: number | number[]): string {
   return Array.isArray(v) ? v.join("|") : String(v);
-}
-
-function pickStr(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const t = v.trim();
-  return t.length > 0 ? t : undefined;
 }
 
 function stringify(v: unknown): string {

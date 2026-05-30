@@ -3,7 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { getCallerContext, type CallerContext } from "./caller-context.js";
-import { companyIdSchema } from "./common.js";
+import { companyIdSchema, pickStr, unwrapList } from "./common.js";
 import type {
   AddSessionSummaryFieldResult,
   AddSessionSummaryResult,
@@ -231,7 +231,7 @@ async function countAttendees(auth: ZoozaAuth, eventId: number): Promise<number>
     const raw = await zoozaFetch<
       RawAttendanceRow[] | { data?: RawAttendanceRow[] }
     >("/attendance", { query: { event_id: eventId } }, auth);
-    const rows = Array.isArray(raw) ? raw : raw?.data ?? [];
+    const rows = unwrapList<RawAttendanceRow>(raw).records;
     return rows.length;
   } catch {
     return 0;
@@ -304,12 +304,6 @@ function formatMarkdown(r: AddSessionSummaryResult): string {
 
 function hasNonEmpty(v: unknown): boolean {
   return typeof v === "string" && v.trim().length > 0;
-}
-
-function pickStr(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const t = v.trim();
-  return t.length > 0 ? t : undefined;
 }
 
 function errorResult(text: string) {

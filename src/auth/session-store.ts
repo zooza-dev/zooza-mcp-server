@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { extractCompanies } from "./companies.js";
 import type { CompanyRef, SessionState, ZoozaAuth } from "./types.js";
 
 /**
@@ -116,27 +117,3 @@ export async function bootstrapJwtSession(
   return state;
 }
 
-function extractCompanies(user: unknown): CompanyRef[] {
-  if (!user || typeof user !== "object") return [];
-  const obj = user as Record<string, unknown>;
-  const candidates = [obj.companies, (obj.data as Record<string, unknown> | undefined)?.companies];
-  for (const c of candidates) {
-    if (Array.isArray(c)) {
-      const out: CompanyRef[] = [];
-      for (const entry of c) {
-        if (typeof entry === "number") {
-          out.push({ id: entry, name: `company ${entry}` });
-          continue;
-        }
-        if (entry && typeof entry === "object") {
-          const e = entry as Record<string, unknown>;
-          const id = typeof e.id === "number" ? e.id : typeof e.id === "string" ? Number.parseInt(e.id, 10) : 0;
-          const name = typeof e.name === "string" ? e.name : `company ${id}`;
-          if (id > 0) out.push({ id, name });
-        }
-      }
-      if (out.length > 0) return out;
-    }
-  }
-  return [];
-}

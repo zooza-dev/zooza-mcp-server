@@ -1,5 +1,7 @@
+import { extractCompanies } from "../auth/companies.js";
 import type { RequestAuthContext } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
+import { pickStr } from "./common.js";
 
 export const whoamiTitle = "Who am I?";
 
@@ -237,50 +239,6 @@ function extractIdentity(raw: unknown): {
   };
 }
 
-function extractCompanies(raw: unknown): Array<{ id: number; name: string }> {
-  if (!raw || typeof raw !== "object") return [];
-  const obj = raw as Record<string, unknown>;
-  const user = (obj.user as Record<string, unknown> | undefined) ?? {};
-  const data = (obj.data as Record<string, unknown> | undefined) ?? {};
-  // Probe known + plausible locations in api-v1's JWT-aware /v1/user response.
-  // Order: most-specific to least-specific.
-  const candidates: unknown[] = [
-    obj.companies,
-    user.companies,
-    user.user_companies,
-    data.companies,
-  ];
-  for (const c of candidates) {
-    const list = normaliseCompanyList(c);
-    if (list.length > 0) return list;
-  }
-  return [];
-}
-
-function normaliseCompanyList(c: unknown): Array<{ id: number; name: string }> {
-  if (!Array.isArray(c)) return [];
-  const out: Array<{ id: number; name: string }> = [];
-  for (const entry of c) {
-    if (typeof entry === "number") {
-      out.push({ id: entry, name: `company ${entry}` });
-      continue;
-    }
-    if (entry && typeof entry === "object") {
-      const e = entry as Record<string, unknown>;
-      const idRaw = e.id ?? e.company_id;
-      const id =
-        typeof idRaw === "number"
-          ? idRaw
-          : typeof idRaw === "string"
-            ? Number.parseInt(idRaw, 10)
-            : 0;
-      const name = pickStr(e.name) ?? pickStr(e.company_name) ?? `company ${id}`;
-      if (id > 0) out.push({ id, name });
-    }
-  }
-  return out;
-}
-
 // ─── Locale derivation ────────────────────────────────────────────────────────
 // Mirrors Company::get_locale() in api-v1/class/Company.php.
 // Update here if the PHP mapping changes.
@@ -326,12 +284,6 @@ function extractCompanyContext(
       : null;
 
   return { region, language, locale, currency };
-}
-
-function pickStr(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const t = v.trim();
-  return t.length > 0 ? t : undefined;
 }
 
 function ok(payload: WhoamiResult) {

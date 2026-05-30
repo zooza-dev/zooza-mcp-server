@@ -6,7 +6,7 @@ import {
   type CallerContext,
   getCallerContext,
 } from "./caller-context.js";
-import { companyIdSchema, TRIAL_STATUSES } from "./common.js";
+import { companyIdSchema, pickStr, TRIAL_STATUSES, unwrapList } from "./common.js";
 import type {
   EventSummaryState,
   RawAttendancePerson,
@@ -92,7 +92,7 @@ export async function runGetAttendanceRoster(
       );
     }
 
-    const rows = Array.isArray(roster) ? roster : roster?.data ?? [];
+    const rows = unwrapList<RawAttendanceRow>(roster).records;
 
     const courseRegistrationType =
       pickStr(eventDetail?.course?.registration_type) ?? "";
@@ -333,12 +333,6 @@ async function safeCallerContext(auth: ZoozaAuth): Promise<CallerContext | null>
   } catch {
     return null;
   }
-}
-
-function pickStr(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const t = v.trim();
-  return t.length > 0 ? t : undefined;
 }
 
 function toInt(v: number | string | undefined | null): number {

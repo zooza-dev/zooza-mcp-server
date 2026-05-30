@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
-import { companyIdSchema } from "./common.js";
+import { companyIdSchema, unwrapList } from "./common.js";
 import type {
   ApiListResponse,
   BillingPeriodMatch,
@@ -56,8 +56,7 @@ export async function runFindBillingPeriods(
       { query: { filter: "filter" } },
       withCompany(auth, input.company_id!),
     );
-    const isBare = Array.isArray(raw);
-    const records: RawBillingPeriodRecord[] = isBare ? raw : raw.data ?? [];
+    const { records } = unwrapList<RawBillingPeriodRecord>(raw);
 
     const filtered = records.filter((r) => {
       if (!includeInactive && r.active === false) return false;

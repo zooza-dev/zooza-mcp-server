@@ -3,7 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { type CallerContext, getCallerContext } from "./caller-context.js";
-import { companyIdSchema, TRIAL_STATUSES } from "./common.js";
+import { companyIdSchema, TRIAL_STATUSES, unwrapList } from "./common.js";
 import { projectSummaryState } from "./get-attendance-roster.js";
 import type {
   MarkAttendanceResult,
@@ -91,7 +91,7 @@ export async function runMarkAttendance(
       // falls back to false, which is safe).
       safeCallerContext(callAuth),
     ]);
-    roster = Array.isArray(rosterRaw) ? rosterRaw : rosterRaw?.data ?? [];
+    roster = unwrapList<RawAttendanceRow>(rosterRaw).records;
     eventDetail = eventCollection?.data?.[0];
     caller = callerCtx;
   } catch (error) {

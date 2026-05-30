@@ -3,7 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { config } from "../config.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
-import { companyIdSchema } from "./common.js";
+import { companyIdSchema, unwrapList } from "./common.js";
 import type {
   ApiListResponse,
   FindMatchesEnvelope,
@@ -79,10 +79,8 @@ export async function runFindTrainers(
     const raw = await zoozaFetch<
       ApiListResponse<RawUserRecord> | RawUserRecord[]
     >("/users", { query }, withCompany(auth, input.company_id!));
-    const isBare = Array.isArray(raw);
-    const records: RawUserRecord[] = isBare ? raw : raw.data ?? [];
+    const { records, total: realTotal, settings: echo } = unwrapList<RawUserRecord>(raw);
     const realMatches: TrainerMatch[] = records.map(projectTrainer);
-    const realTotal = isBare ? records.length : raw.total ?? records.length;
     const virtualMatches = collectVirtualMatches(input.name, input.place_id, input.course_id);
 
     // Virtual trainers are always appended after the current page of real
@@ -92,7 +90,6 @@ export async function runFindTrainers(
     const matches: TrainerMatch[] = [...realMatches, ...virtualMatches];
     const total = realTotal + virtualMatches.length;
     const truncated = realTotal > (page + 1) * pageSize;
-    const echo: Record<string, unknown> = isBare ? {} : raw.settings ?? {};
 
     const result: FindMatchesEnvelope<TrainerMatch> = {
       matches,
