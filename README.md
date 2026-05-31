@@ -5,9 +5,9 @@
 <h1 align="center">Zooza MCP Server</h1>
 
 <p align="center">
-  <strong>Your entire studio — one conversation.</strong><br/>
+  <strong>Your entire activity business — one conversation.</strong><br/>
   AI-powered operations for dance schools, language academies, STEAM programmes,<br/>
-  sports clubs, baby classes, camps, movement studios, and franchise networks.
+  sports clubs, baby classes, camps, movement classes, and franchise networks.
 </p>
 
 <p align="center">
@@ -26,13 +26,13 @@
 
 ---
 
-## Stop managing your studio from 6 different screens
+## Stop managing your activity business from 6 different screens
 
 Running a dance school, language academy, STEAM programme, sports club, baby class, summer camp, or multi-site franchise means constantly switching between your scheduling tool, your booking list, your attendance tracker, your payment dashboard — and still missing things.
 
 **Zooza MCP connects Claude directly to your Zooza account.** Ask Claude to create next term's timetable, check who hasn't paid, find a trainer's availability, or preview a full schedule before it goes live — all in one conversation, with no dashboard hunting.
 
-> **Zooza serves 500,000+ learners across activity businesses worldwide** — from single-location baby class studios to international franchise networks running dance, language, STEAM, sports, and movement programmes. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+> **Zooza serves 500,000+ learners across activity businesses worldwide** — from single-location baby class providers to international franchise networks running dance, language, STEAM, sports, and movement programmes. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ---
 
@@ -112,7 +112,7 @@ Download the latest `zooza-plugin-*.zip` from [Releases](../../releases) and run
 /install-plugin zooza-plugin-*.zip
 ```
 
-The plugin includes the MCP connection config and guided workflow skills for studio management.
+The plugin includes the MCP connection config and guided workflow skills for activity management.
 
 ---
 
@@ -146,7 +146,7 @@ The MCP server is **stateless and hosted by Zooza** at `mcp.zooza.app`. You don'
 
 ---
 
-## Skills — guided studio workflows
+## Skills — guided activity workflows
 
 Skills teach Claude how to combine tools correctly for real operational scenarios. Claude loads the right skill automatically when it detects a matching request — no need to invoke them manually.
 
@@ -181,9 +181,9 @@ Skills teach Claude how to combine tools correctly for real operational scenario
 
 All running on one platform, from a single location to an international franchise network.
 
-It handles the full operational lifecycle: **programme setup, class scheduling, client bookings and registrations, attendance tracking, payment management, parent communication, and multi-location reporting** — all in one system, designed to scale from a single studio to an international franchise network.
+It handles the full operational lifecycle: **programme setup, class scheduling, client bookings and registrations, attendance tracking, payment management, parent communication, and multi-location reporting** — all in one system, designed to scale from a single location to an international franchise network.
 
-Zooza MCP extends this platform to AI. Instead of clicking through dashboards, your team — from studio managers to franchise operators — can operate Zooza through natural conversation using Claude or any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+Zooza MCP extends this platform to AI. Instead of clicking through dashboards, your team — from activity managers to franchise operators — can operate Zooza through natural conversation using Claude or any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ---
 

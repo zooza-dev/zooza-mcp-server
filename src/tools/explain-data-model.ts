@@ -85,7 +85,7 @@ const ENTITIES: EntityDef[] = [
             label: "Open / rolling attendance",
             notes:
               "No fixed booking — operator marks attendance session by session. " +
-              "Used for drop-in classes or membership-based studios.",
+              "Used for drop-in classes or membership-based businesses.",
           },
           {
             value: "single",

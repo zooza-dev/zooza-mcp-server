@@ -9,7 +9,7 @@ description: Use when the user is new to Zooza MCP, says "you're using the wrong
 ## Purpose
 
 Build a personalised terminology profile for this Zooza user.
-Every studio uses its own vocabulary — Slovak dance studios say "hodiny" and "skupiny",
+Every activity brand uses its own vocabulary — Slovak dance schools say "hodiny" and "skupiny",
 Czech language schools say "kurzy" and "lekce". This skill collects that vocabulary once
 and persists it to Claude memory so every future session starts with the right words.
 
@@ -35,7 +35,7 @@ The tool returns 8 interview objects — each with `concept`, `zooza_canonical`,
 Ask the 8 questions one at a time, in the user's language. Do NOT present them as a form.
 Adapt the question to context:
 
-- For locale: "Which language does your studio primarily use?" (SK / CZ / EN / …)
+- For locale: "Which language does your business primarily use?" (SK / CZ / EN / …)
 - For programme: "What do you call the top-level activity — the thing that has a price and schedule?"
 - For class: "And the specific group within that — the Monday group, the Wednesday group?"
 - For session: "What about a single meeting — one instance of that group?"

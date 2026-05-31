@@ -17,7 +17,7 @@ At the start of every conversation where Zooza tools are used:
 
 3. **If no profile exists:**
    - Mention once per session:
-     > "Tip: run `/zooza-setup` to teach me your studio's vocabulary."
+     > "Tip: run `/zooza-setup` to teach me your business vocabulary."
    - Fall back to Zooza canonical terms and the server-side terminology instructions.
      Do not block on missing profile — proceed with canonical terms.
 

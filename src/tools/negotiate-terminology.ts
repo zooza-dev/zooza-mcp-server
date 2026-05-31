@@ -19,7 +19,7 @@ const INTERVIEW_CONCEPTS = [
     concept: "locale",
     zooza_canonical: "(meta — not a Zooza concept)",
     description:
-      "Primary language of this studio. Used to pick the right keyword lists during matching.",
+      "Primary language of this business. Used to pick the right keyword lists during matching.",
     examples: ["sk", "cz", "en", "de", "pl", "ro", "hu", "it", "fr"],
   },
   {
@@ -157,7 +157,7 @@ const answersSchema = z.object({
   locale: z
     .string()
     .describe(
-      "Primary language code of this studio, e.g. 'sk', 'cz', 'en', 'de', 'pl', 'ro', 'hu'.",
+      "Primary language code of this business, e.g. 'sk', 'cz', 'en', 'de', 'pl', 'ro', 'hu'.",
     ),
   programme_term: z.string().describe("What the user calls a Programme."),
   class_term: z.string().describe("What the user calls a Class."),

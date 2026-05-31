@@ -153,7 +153,7 @@ const PAYMENT_SCHEDULE = {
         "Client is charged per session they attend. Amount is set per session. " +
         "Used when clients pay as they drop in, not in advance.",
       frequency_applicable: false,
-      use_cases: ["Drop-in classes", "Open attendance studios", "Pay-per-class"],
+      use_cases: ["Drop-in classes", "Open attendance businesses", "Pay-per-class"],
     },
     {
       value: "pay_as_you_go",

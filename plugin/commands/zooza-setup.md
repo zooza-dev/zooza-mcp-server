@@ -1,5 +1,5 @@
 ---
-description: One-time Zooza setup — teaches Claude your studio's vocabulary so it understands your terms in every future session.
+description: One-time Zooza setup — teaches Claude your business vocabulary so it understands your terms in every future session.
 argument-hint: ""
 ---
 
