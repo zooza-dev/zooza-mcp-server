@@ -2,19 +2,18 @@
   <img src="https://www.zooza.online/wp-content/uploads/2025/02/zooza-logo.png" alt="Zooza" width="200" />
 </p>
 
-<h1 align="center">Zooza MCP Server</h1>
+<h1 align="center">Zooza MCP Server — AI-Powered Class Management for Activity Businesses</h1>
 
 <p align="center">
-  <strong>Your entire activity business — one conversation.</strong><br/>
-  AI-powered scheduling, attendance tracking, and class management for dance schools,<br/>
-  language academies, STEAM programmes, sports clubs, baby classes, and franchise networks.
+  An open-source <a href="https://modelcontextprotocol.io">Model Context Protocol (MCP)</a> server that connects Claude, ChatGPT, and other AI assistants directly to your Zooza account.<br/>
+  Natural language scheduling, attendance tracking, and class management — no dashboard required.
 </p>
 
 <p align="center">
-  <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-6366f1?style=flat-square" alt="MCP compatible"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License"/></a>
-  <a href="https://zooza.online"><img src="https://img.shields.io/badge/Zooza-official-f97316?style=flat-square" alt="Official"/></a>
-  <a href="https://mcp.zooza.app/mcp"><img src="https://img.shields.io/badge/endpoint-live-22c55e?style=flat-square" alt="Live endpoint"/></a>
+  <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-6366f1?style=flat-square" alt="Model Context Protocol server"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="Open source — MIT License"/></a>
+  <a href="https://zooza.online"><img src="https://img.shields.io/badge/Zooza-official-f97316?style=flat-square" alt="Official Zooza integration"/></a>
+  <a href="https://mcp.zooza.app/mcp"><img src="https://img.shields.io/badge/endpoint-live-22c55e?style=flat-square" alt="Live MCP endpoint"/></a>
 </p>
 
 <p align="center">
@@ -27,21 +26,30 @@
 
 ---
 
-## Stop managing your activity business from 6 different screens
+## See it in action
 
-Running a dance school, language academy, STEAM programme, sports club, baby class, summer camp, or multi-site franchise means constantly switching between your scheduling tool, your booking list, your attendance tracker, your payment dashboard — and still missing things.
+[![Watch the Zooza MCP demo on YouTube](https://img.youtube.com/vi/XPtMB_Id-Fo/maxresdefault.jpg)](https://youtu.be/XPtMB_Id-Fo)
 
-**Zooza MCP connects Claude directly to your Zooza account.** Ask Claude to take the register for tonight's class, create next term's timetable, check who hasn't paid, or preview a full schedule before it goes live — all in one conversation, with no dashboard hunting.
+---
 
-> **Zooza serves 500,000+ learners across activity businesses worldwide** — from single-location baby class providers to international franchise networks running dance, language, STEAM, sports, and movement programmes. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+## What this is
 
-**New to Zooza?** [Create a free account at signup.zooza.online](https://signup.zooza.online) — then connect Claude in 2 minutes.
+**Zooza MCP Server** is a free, open-source Model Context Protocol (MCP) integration for [Zooza](https://zooza.online) — the class management and scheduling software for dance schools, language academies, swim schools, music schools, STEAM programmes, sports clubs, and other activity businesses.
+
+It lets studio managers, school administrators, and franchise operators manage schedules, track attendance, create classes, handle bookings, and query their data through natural language conversation — using Claude, ChatGPT, or any MCP-compatible AI client — without opening the Zooza dashboard.
+
+> **Zooza powers 500,000+ learners across Slovakia, the Czech Republic, Germany, the UK, and beyond** — from single-location dance schools to international franchise networks. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+
+**New to Zooza?** [Create a free account at signup.zooza.online](https://signup.zooza.online) — it takes under 2 minutes.
 
 ---
 
 ## What you can do
 
 ### Take attendance
+
+<img src="docs/screenshots/screenshot-programmes.png" alt="Show active programmes in Claude" width="720"/>
+
 ```
 "Open the register for tonight's adult ballet class."
 "Who was absent from Saturday's Spanish beginners session?"
@@ -50,11 +58,16 @@ Running a dance school, language academy, STEAM programme, sports club, baby cla
 ```
 
 ### Build a term from scratch
+
+<img src="docs/screenshots/screenshot-create-class.png" alt="Create a new class in Claude" width="720"/>
+
 ```
 "Create a new Spanish for beginners course for Spring 2026 at the city centre location.
  Classes every Tuesday 16:00–17:00 for 12 weeks, starting 3 March.
  Assign trainer Tomáš Novák and preview the full schedule before I confirm."
 ```
+
+<img src="docs/screenshots/screenshot-schedule-preview.png" alt="Schedule preview before confirming" width="720"/>
 
 ```
 "Set up our summer robotics camp — Monday to Friday, 9:00–13:00, for 4 weeks in July.
@@ -62,22 +75,23 @@ Running a dance school, language academy, STEAM programme, sports club, baby cla
 ```
 
 ### Get instant answers
+
 ```
 "Which programmes are running this billing period?"
 "Who's teaching dance on Monday evenings?"
-"What locations do we have available?"
 "Which STEAM courses still have free capacity this term?"
 "What sessions are scheduled for tomorrow?"
 ```
 
-### Manage bookings and payments
+### Manage bookings
+
 ```
 "Show unpaid registrations from this season."
 "Which clients are on the waiting list for Saturday gymnastics?"
 "How many spots are left in the beginner English course?"
 ```
 
-No clicking through menus. No switching tabs. Just ask — Claude handles the lookups, rosters, previews, and confirmations.
+No clicking through menus. No switching tabs. No automation scripts. Just ask — Claude handles the lookups, rosters, previews, and confirmations.
 
 ---
 
@@ -87,14 +101,14 @@ No clicking through menus. No switching tabs. Just ask — Claude handles the lo
 |---|---|
 | [Claude Desktop](https://claude.ai/download) | Native MCP over HTTPS |
 | [Claude Code](https://claude.ai/code) | Plugin zip or manual `.mcp.json` |
-| [ChatGPT](https://chatgpt.com) | OpenAI Actions — domain verified |
+| [ChatGPT](https://chatgpt.com) | OpenAI Actions — domain verified at `mcp.zooza.app` |
 | Any MCP-compatible client | Streamable HTTP — `https://mcp.zooza.app/mcp` |
 
 ---
 
 ## Connect in 2 minutes
 
-**Don't have a Zooza account yet?** [Sign up free at signup.zooza.online](https://signup.zooza.online) — it takes under 2 minutes.
+**Don't have a Zooza account yet?** [Sign up free at signup.zooza.online](https://signup.zooza.online)
 
 ### Claude Desktop
 
@@ -115,35 +129,57 @@ File location:
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
-Restart Claude Desktop. On first use, you'll be prompted to sign in to your Zooza account — no API keys, no setup, just your existing login.
+Restart Claude Desktop. On first use, you'll be prompted to sign in to your Zooza account — no API keys, no extra setup, just your existing login.
 
 ### Claude Code
 
-Download the latest `zooza-plugin-*.zip` from [Releases](../../releases) and run:
+Download the latest plugin from [Releases](../../releases) (file named `zooza-plugin-v*.zip`) and run:
 
 ```
-/install-plugin zooza-plugin-*.zip
+/install-plugin zooza-plugin-v*.zip
 ```
 
-The plugin includes the MCP connection config, guided workflow skills, and automatic session context — so Claude always knows which activity business it's working in.
+The plugin includes the MCP connection config, guided workflow skills, and automatic session context.
+
+> **Note:** Five of the 19 tools (`get_terminology`, `explain_data_model`, `list_message_merge_vars`, `list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
 
 ---
 
 ## How it works
 
 ```
-You → Claude → Zooza MCP Server → Zooza API → Your data
+You → Claude / ChatGPT → Zooza MCP Server → Zooza API → Your data
 ```
 
 The MCP server is **stateless and hosted by Zooza** at `mcp.zooza.app`. You don't run anything locally. Every request is authenticated against your Zooza account — Claude can only see and change what you're already allowed to access in the dashboard.
+
+**Every write operation requires explicit confirmation** before anything is committed — Claude shows you what it's about to create or change, and only proceeds when you confirm.
+
+**Regions:** EU (SK/CZ/DE/RO/HU/IT/PL), UK, US, and Asia regions are all supported. Your account is automatically routed to the correct regional infrastructure.
 
 **Multi-location and franchise accounts:** Claude will ask which location to operate on at the start of each session. You can switch mid-conversation — useful for comparing across sites or managing a network.
 
 ---
 
+## Languages & regions
+
+Zooza MCP is designed for multilingual, multi-market operation. It understands regional terminology differences out of the box:
+
+| Market | Language | How Zooza users say it |
+|---|---|---|
+| Slovakia | Slovak | kurzy (programmes), hodiny (sessions), dochádzka (attendance) |
+| Czech Republic | Czech | kurzy / lekce (sessions), evidence docházky (attendance) |
+| Germany / Austria | German | Kurse (courses), Stunden (sessions), Stundenplan (schedule) |
+| UK | English | terms, registers, classes |
+| Romania, Hungary, Italy, Poland | Local + English | supported |
+
+The `negotiate_terminology` tool lets Claude learn your studio's specific vocabulary once and use it in every future conversation — so if you call programmes "kurzy" and sessions "hodiny," Claude will always respond in your terms.
+
+---
+
 ## Available tools
 
-19 tools covering scheduling, attendance tracking, class management, and Zooza domain knowledge — with no API calls for reference lookups.
+19 tools covering scheduling, attendance tracking, class management, and Zooza domain knowledge.
 
 ### Scheduling & class management
 
@@ -172,68 +208,71 @@ The MCP server is **stateless and hosted by Zooza** at `mcp.zooza.app`. You don'
 | `find_trainers` | List trainers available at a location |
 | `find_places` | List rooms and locations for a company |
 
-### Free tools — Zooza domain knowledge (no API calls)
+### Free tools — Zooza domain knowledge (no API calls, no account needed)
 
-These tools carry Zooza-specific knowledge and are available without any API credentials. Useful for orientation, onboarding, and message composition.
+These five tools carry Zooza-specific knowledge and work without credentials — no Zooza account required. Useful for exploring the data model, preparing messages, and setting up vocabulary before connecting live data.
 
 | Tool | What it does |
 |---|---|
 | `get_terminology` | Translate Zooza terms by region — e.g. "Programme" vs "Course" vs "Kurz" |
 | `explain_data_model` | Explain how Zooza entities relate (Programme → Class → Session → Registration) |
-| `list_message_merge_vars` | Full catalogue of merge variables available in Zooza messages |
+| `list_message_merge_vars` | Full catalogue of merge variables for Zooza message templates |
 | `list_schedule_patterns` | Reference for recurrence patterns (weekly, bi-weekly, block, camp) |
-| `negotiate_terminology` | Interview the operator and save their studio's vocabulary to Claude memory |
+| `negotiate_terminology` | Save your studio's vocabulary to Claude memory for future sessions |
 
 ### Utilities
 
 | Tool | What it does |
 |---|---|
 | `get_skill` | Load a guided playbook for multi-step workflows |
-| `submit_feedback` | Submit a feature request or bug report directly to the Zooza engineering team |
+| `submit_feedback` | Submit a feature request or bug report to the Zooza engineering team |
 
 ---
 
 ## Skills — guided activity workflows
 
-Skills teach Claude how to combine tools correctly for real operational scenarios. Claude loads the right skill automatically when it detects a matching request.
+Skills are playbooks that teach Claude how to combine tools correctly for real operational scenarios. Claude loads the right skill automatically when it detects a matching request.
 
 | Skill | What it handles |
 |---|---|
-| `class-management` | Full guided flow: interview → schedule preview → confirmation. Use this when creating any new class with recurring sessions. |
+| `class-management` | Full guided flow: interview → schedule preview → confirmation. Use when creating any class with recurring sessions. |
 | `business-model-validator` | Validate a proposed programme structure against Zooza's pricing and billing model before building it. |
-| `negotiate-terminology` | Interview the operator about their vocabulary (do they say "kurzy" or "hodiny"?) and save the profile to Claude memory. |
+| `negotiate-terminology` | Interview the operator about their vocabulary and save the profile to Claude memory. |
 
 **Coming next:** `cancel_day` · `transfer_booking` · `initiate_refund`
 
 ---
 
-## Security
+## Security & compliance
 
 - **TLS** on all traffic between your AI client and `mcp.zooza.app`
 - **OAuth 2.0** — Claude receives a scoped token tied to your Zooza identity, not your password
 - **Permission inheritance** — Claude can only do what your Zooza account allows
-- **No conversation storage** — the MCP server is stateless; your prompts are not logged
-- **Confirmation before write** — all operations that create or change records require explicit confirmation before anything is committed
+- **Confirmation before write** — all operations that create or change records require explicit confirmation
+- **No conversation storage** — the MCP server is stateless; your prompts are not logged by the MCP layer
+- **GDPR-ready** — Zooza processes data in accordance with GDPR. See the [Privacy Policy](https://www.zooza.online/privacy-policy/) and [Terms of Personal Data Processing](https://www.zooza.online/terms-of-personal-data-processing/). EU accounts are routed to EU-region infrastructure.
+- **Regional data routing** — EU, UK, US, and Asia regions each route to their own infrastructure; your JWT determines the region automatically
 
-> **Note on prompt injection:** As with any AI integration, be cautious about AI-readable content in your Zooza data (e.g. programme names) that could attempt to influence Claude's behaviour. All write operations require explicit confirmation before anything is committed.
+> Queries to Zooza MCP may be processed by your chosen AI provider (Anthropic, OpenAI, etc.). Review their data policies alongside Zooza's when evaluating compliance requirements. All write operations require explicit confirmation before execution.
 
 ---
 
 ## What Zooza is
 
-[Zooza](https://zooza.online) is an end-to-end management platform built for children's activity and education businesses:
+[Zooza](https://zooza.online) is an end-to-end class management and scheduling software platform for activity schools and studios:
 
-**Dance & movement** — dance academies, gymnastics, baby movement, yoga for kids  
+**Dance & movement** — dance academies, gymnastics, baby movement classes, yoga  
 **Language & education** — language schools, tutoring centres, STEAM / robotics / coding  
-**Sports** — martial arts, swimming, tennis academies, sports franchises  
+**Sports** — martial arts, swim schools, tennis academies, sports clubs and franchises  
 **Camps & seasonal** — summer camps, holiday programmes, weekend workshops  
+**Music** — music schools, instrument lessons, group and individual programmes  
 **Fitness & wellness** — fitness studios, pilates, baby & toddler classes  
 
 All running on one platform, from a single location to an international franchise network.
 
-It handles the full operational lifecycle: **programme setup, class scheduling, client bookings and registrations, attendance tracking, payment management, parent communication, and multi-location reporting** — all in one system, designed to scale from a single location to an international franchise network.
+Zooza handles the full operational lifecycle: **programme setup, class scheduling, client bookings and registrations, attendance tracking, payment management, parent communication, and multi-location reporting** — designed to automate the manual work that currently lives in spreadsheets, WhatsApp groups, and six different dashboard tabs.
 
-Zooza MCP extends this platform to AI. Instead of clicking through dashboards, your team — from activity managers to franchise operators — can operate Zooza through natural conversation using Claude, ChatGPT, or any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+Zooza MCP extends this platform to AI. Instead of clicking through dashboards, your team — from activity managers to franchise operators — can operate Zooza through natural language conversation using Claude, ChatGPT, or any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ---
 
@@ -264,6 +303,8 @@ cp .env.example .env   # fill in credentials
 npm run dev            # http://localhost:3001/mcp
 ```
 
+Want to self-host, contribute, or build on top of this? The setup takes under 5 minutes — see the [architecture section](#architecture) below.
+
 ### Environment variables
 
 | Variable | Required | Description |
@@ -273,6 +314,7 @@ npm run dev            # http://localhost:3001/mcp
 | `MCP_RESOURCE_URL` | prod | Public URL of this MCP server |
 | `MCP_AUTH_SERVER_URL` | prod | Zooza OAuth server base URL |
 | `PORT` | no | HTTP port (default `3001`) |
+| `ZOOZA_SERVER_REGION` | no | `eu` (default) / `uk` / `us` / `asia` |
 | `ZOOZA_ALLOW_HARDCODED_AUTH` | dev only | Set `true` to skip JWT validation locally |
 | `ZOOZA_API_TOKEN` | dev only | Dev-fallback token (only with hardcoded auth enabled) |
 | `AUDIT_LOG_PATH` | no | Per-tool-call JSONL audit log path (default `logs/audit.log`) |
@@ -288,33 +330,26 @@ curl -sS http://localhost:3001/mcp \
 
 ### Debug bookend workflow
 
-Every tool invocation appends one JSON line to `logs/audit.log` (or whatever
-`AUDIT_LOG_PATH` points at). Each entry carries `request_id`, `tool`, `args`,
-`outcome`, `result`-or-`error`, and `duration_ms` — enough to reconstruct
-what the server saw without scraping container logs.
+Every tool call appends one JSON line to `logs/audit.log`. Each entry carries `request_id`, `tool`, `args`, `outcome`, `result`-or-`error`, and `duration_ms`.
 
-When you're testing a tool and want Claude to inspect what happened inside the
-server, use this bookend pattern:
-
-1. **You:** "I'm about to call `find_events`."
-2. **Claude** marks a watermark — `wc -l logs/audit.log`.
-3. **You** run the tool from your MCP client.
-4. **You:** "done."
-5. **Claude** reads the lines past the watermark and reports tool name, args,
-   outcome, duration, and any error — no extra MCP tool, no log shipping
-   required.
+Bookend pattern for debugging:
+1. "I'm about to call `find_events`." → Claude records the log line count
+2. Run the tool from your MCP client
+3. "done." → Claude reads the new lines and reports what the server saw
 
 ### Architecture
 
 ```
-Claude (any MCP client)
+Claude / ChatGPT (any MCP client)
     │  Streamable HTTP over TLS
     ▼
-mcp.zooza.app  (Node.js / TypeScript)
-    │  OAuth 2.0 JWT validation
+mcp.zooza.app  (Node.js / TypeScript — stateless)
+    │  OAuth 2.0 JWT validation + regional routing
     ▼
-Zooza API  (your data, your rules)
+Zooza API  (your data, your permissions)
 ```
+
+The skills layer is a differentiator worth noting: skills are `.md` playbooks delivered as MCP `prompts` resources. An operator installs them locally (`/install-plugin`) and Claude loads the relevant one automatically. If you're building a vertical MCP server for another domain, the skills architecture is reusable — it separates "what tools do" from "how to use them together."
 
 </details>
 
@@ -325,10 +360,12 @@ Zooza API  (your data, your rules)
 **[help.zooza.online](https://help.zooza.online)** — Full documentation  
 **[zooza.online](https://zooza.online)** — Platform website  
 **[hello@zooza.online](mailto:hello@zooza.online)** — Get in touch  
-**[signup.zooza.online](https://signup.zooza.online)** — Create a Zooza account
+**[signup.zooza.online](https://signup.zooza.online)** — Create a Zooza account  
+
+If this saves you time, a ⭐ helps others find it.
 
 ---
 
 <p align="center">
-  Built by <a href="https://zooza.online">Zooza</a> — the platform that keeps children's activity businesses running.
+  Built by <a href="https://zooza.online">Zooza</a> — class management and scheduling software for activity schools and studios.
 </p>
