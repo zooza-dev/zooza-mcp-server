@@ -27,11 +27,9 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "npm run compile:terminology && npm run compile:merge-vars && tsc -p tsconfig.json && npm run compile:ui",
+    "build": "npm run compile:terminology && npm run compile:merge-vars && tsc -p tsconfig.json",
     "compile:terminology": "tsx scripts/compile-terminology.ts",
     "compile:merge-vars": "tsx scripts/compile-merge-vars.ts",
-    "compile:ui": "tsx scripts/compile-ui.ts",
-    "build:apps-harness": "tsx scripts/compile-ui.ts && tsx scripts/build-apps-harness.ts",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -44,11 +42,9 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@modelcontextprotocol/ext-apps": "^1.7.2",
     "@types/express": "^4.17.21",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.0",
-    "esbuild": "^0.28.0",
     "js-yaml": "^4.1.0",
     "tsx": "^4.20.0",
     "typescript": "^5.7.0",

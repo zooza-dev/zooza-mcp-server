@@ -257,7 +257,7 @@ export interface PaymentScheduleTemplateDto {
   discount?: string;
 }
 
-// ─── find_events / get_attendance_roster / mark_attendance ───────────────────
+// ─── find_events / get_attendance / mark_attendance ─────────────────────────
 // Shared types for the attendance tooling pillar (ZMCP-20260527-002, -003, -004).
 
 /** Per-event attendance counters surfaced by find_events. Derived from
@@ -340,20 +340,20 @@ export interface MarkAttendanceResult {
   succeeded: number;
   failed: number;
   results: MarkAttendanceRow[];
-  /** Current event-level summary state — same shape as roster's. Surfaced
+  /** Current event-level summary state — same shape as get_attendance's. Surfaced
    *  here so after-mark the LLM can offer add_session_summary without
    *  a separate read. */
   summary: EventSummaryState;
 }
 
-/** Per-row entrance-voucher state surfaced by get_attendance_roster.
+/** Per-row entrance-voucher state surfaced by get_attendance.
  *  Non-null only when the attendee's course has registration_type="open". */
-export interface RosterVoucher {
+export interface AttendanceVoucher {
   unused_entrance_vouchers: number;
   credit_id: number | null;
 }
 
-/** Identity block for one party on a roster row.
+/** Identity block for one party on an attendance row.
  *
  *  Zooza's data model splits each registration into TWO people:
  *  - **attendee** (api-v1 field: `customer`) — the person who actually
@@ -365,29 +365,29 @@ export interface RosterVoucher {
  *
  *  When the attendee IS the client (adult attending themselves), the two
  *  blocks carry the same data. */
-export interface RosterPerson {
+export interface AttendancePerson {
   name: string;
   user_id: number;
   email: string | null;
   phone: string | null;
 }
 
-export interface RosterAttendeeIdentity extends RosterPerson {
+export interface AttendeeIdentity extends AttendancePerson {
   date_of_birth: string | null;
 }
 
-/** One attendee row in get_attendance_roster output. */
-export interface RosterAttendee {
+/** One attendee row in get_attendance output. */
+export interface AttendanceRow {
   registration_id: number;
   /** Pre-formatted one-line display label. When attendee == client, just
    *  the one name (e.g. "Martin Rapavy"). When they differ, the attendee
    *  with the client in parens (e.g. "Jozko Jozko (Martin Rapavy)") so
-   *  the LLM can list a roster without needing to compose names itself. */
+   *  the LLM can list attendees without needing to compose names itself. */
   display_name: string;
   /** Person who attends (customer in api-v1). Often a child. */
-  attendee: RosterAttendeeIdentity;
+  attendee: AttendeeIdentity;
   /** Account holder / payer (buyer in api-v1). Contact info lives here. */
-  client: RosterPerson;
+  client: AttendancePerson;
   status: string;
   is_trial: boolean;
   /** V1: always null. See spec ZMCP-20260527-003 Notes — derivation requires
@@ -402,10 +402,10 @@ export interface RosterAttendee {
   /** Statuses THIS caller is permitted to set for THIS attendee. Computed
    *  per row using the rules mirrored from `class/Attendance.php:1358-1367`. */
   allowed_statuses: string[];
-  entrance_voucher: RosterVoucher | null;
+  entrance_voucher: AttendanceVoucher | null;
 }
 
-export interface RosterResult {
+export interface AttendanceResult {
   // JSON-object DTO returned as structuredContent; index signature makes it
   // assignable to the MCP SDK's `Record<string, unknown>`.
   [key: string]: unknown;
@@ -423,7 +423,7 @@ export interface RosterResult {
   /** Current event-level summary state. Lets the LLM decide whether to
    *  offer add_session_summary as a follow-up without a second tool call. */
   summary: EventSummaryState;
-  attendees: RosterAttendee[];
+  attendees: AttendanceRow[];
 }
 
 /** Raw nested person block on an attendance row (customer or buyer). */
@@ -472,7 +472,7 @@ export interface RawAttendanceRow {
 /** Raw event row from /v1/events?filter=filter — the collection path,
  *  which (unlike the bare /v1/events/{id} detail path) embeds the FULL
  *  course object including track_attendance, registration_type, and
- *  other course fields. Both get_attendance_roster and mark_attendance
+ *  other course fields. Both get_attendance and mark_attendance
  *  use the collection-with-ids form to fetch a single event so the
  *  embedded course is populated. */
 export interface RawEventDetail {
@@ -487,14 +487,14 @@ export interface RawEventDetail {
     track_attendance?: boolean | number | string;
   };
   // Summary state — surfaced for the add_session_summary follow-up and
-  // for the hint blocks on roster/mark_attendance responses.
+  // for the hint blocks on get_attendance/mark_attendance responses.
   summary?: string | null;
   summary_public?: string | null;
   summary_public_locked?: boolean | number | null;
   summary_public_filled_at?: string | null;
 }
 
-/** Event-level summary state — surfaced as a hint by get_attendance_roster
+/** Event-level summary state — surfaced as a hint by get_attendance
  *  and mark_attendance so the LLM can offer add_session_summary as a
  *  follow-up without a separate read. Also returned by add_session_summary
  *  itself as the post-write echo. */

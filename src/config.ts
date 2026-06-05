@@ -129,13 +129,6 @@ export const config = {
     // on first write.
     logPath: optional("AUDIT_LOG_PATH", "logs/audit.log"),
   },
-  features: {
-    // MCP Apps interactive roster card (ZMCP-20260529-001, EXPERIMENTAL).
-    // When true, get_attendance_roster advertises a `ui://` App resource so
-    // MCP-Apps-capable hosts (Claude.ai connectors) render an interactive card.
-    // Off by default — text + structuredContent remains the universal path.
-    rosterAppResource: bool("ZOOZA_FEATURE_ROSTER_APP", false),
-  },
   // OpenAI ChatGPT App domain verification token.
   // Set OPENAI_DOMAIN_CHALLENGE_TOKEN in the deployment env to enable the
   // /.well-known/openai-apps-challenge endpoint required for ChatGPT MCP submission.

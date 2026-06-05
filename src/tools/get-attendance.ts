@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { config } from "../config.js";
 import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
@@ -12,11 +13,11 @@ import type {
   RawAttendancePerson,
   RawAttendanceRow,
   RawEventDetail,
-  RosterAttendee,
-  RosterAttendeeIdentity,
-  RosterPerson,
-  RosterResult,
-  RosterVoucher,
+  AttendanceRow,
+  AttendeeIdentity,
+  AttendancePerson,
+  AttendanceResult,
+  AttendanceVoucher,
 } from "./types.js";
 
 const SUMMARY_WRITER_ROLES = new Set(["owner", "assistant"]);
@@ -24,12 +25,12 @@ const SUMMARY_WRITER_ROLES = new Set(["owner", "assistant"]);
 const ALL_ALLOWED = ["attended", "noshow", "canceled", "going", "ignore"] as const;
 const RESTRICTED_ALLOWED = ["attended", "noshow", "ignore"] as const;
 
-export const getAttendanceRosterTitle = "Get the attendance roster for one event";
+export const getAttendanceTitle = "View attendance for one class session";
 
-export const getAttendanceRosterDescription =
-  "Read the attendee roster for **one event** (a single session of a class). Pass an `event_id`; the tool returns who is enrolled, each attendee's current attendance value (if already marked), and per-row context the LLM needs to mark attendance correctly: `allowed_statuses[]` (the statuses the **current caller** is permitted to set for THIS attendee), `is_trial` / `is_last_trial_session` flags, warnings about cross-company or cascade-sensitive (full2) cases, and — for open-type registrations only — `entrance_voucher` info (how many unused vouchers the attendee has, and whether one is already spent on this event). Use this **before** `mark_attendance` whenever the user has not already dictated the full list of attendees and marks — typically: \"open the register for X,\" \"who's enrolled in tomorrow's class,\" \"show me Monday's roster.\" If the event's course has attendance tracking disabled, the tool returns an `attendance_tracking_disabled` error rather than an empty roster. This tool is read-only — it never writes attendance, notes, or summaries.\n\n**Attendee vs client (critical for children's-class programmes).** Each row carries TWO people:\n- `attendee` — who actually shows up to the session. Often a child (Zooza data-model name: `customer`). May have `user_id: 0` when they aren't a registered account holder, which is normal for children. `attendee.date_of_birth` is available.\n- `client` — the account holder / payer (Zooza data-model name: `buyer`). Usually the parent. Has a real `user_id`. Contact info (`email`, `phone`) lives on the client when the attendee is a child; copy from client when speaking to / messaging the family.\n- `display_name` — a pre-formatted one-line label. When attendee == client (adult attending themselves), just the one name. When they differ, `attendee_name (client_name)` — e.g. `\"Jozko Jozko (Martin Rapavy)\"`. Use this when listing the roster; the LLM doesn't need to compose it from scratch.\n\nResponse shape notes:\n- `allowed_statuses[]` already factors in the caller's role, `company.trainer_attendance_management`, and the row's cross-company state. Do not propose a status not in this array — refuse locally and explain instead of calling `mark_attendance` to discover the constraint.\n- `is_last_trial_session` is currently `null` in V1 (derivation requires either a new api-v1 field or extra per-row lookups; deferred). Treat `is_trial=true` as the trigger for caution — a future enrichment will tighten this.\n- `entrance_voucher` is non-null only when `course.registration_type=\"open\"`. Check it before setting `mark_attendance`'s `use_voucher=true` on a `going` write.\n- `summary` block at the top level surfaces whether this event already has a public / internal session summary (`public_set` / `internal_set`), whether the public one is locked, and whether the caller's role is permitted to write summaries (`writable_by_caller`). After the user has marked attendance, the LLM can use this to offer `add_session_summary` as a follow-up when appropriate.";
+export const getAttendanceDescription =
+  "Read who's enrolled in **one event** (a single session of a class) and their current attendance, so you can show the list and then mark it. Pass an `event_id`; the tool returns each enrolled attendee, their current attendance value (if already marked), and per-row context the LLM needs to mark attendance correctly: `allowed_statuses[]` (the statuses the **current caller** is permitted to set for THIS attendee), `is_trial` / `is_last_trial_session` flags, warnings about cross-company or cascade-sensitive (full2) cases, and — for open-type registrations only — `entrance_voucher` info (how many unused vouchers the attendee has, and whether one is already spent on this event). Use this **before** `mark_attendance` whenever the user has not already dictated the full list of attendees and marks — typically: \"open attendance for X,\" \"who's enrolled in tomorrow's class,\" \"show me Monday's attendance.\" If the event's course has attendance tracking disabled, the tool returns an `attendance_tracking_disabled` error rather than an empty list. This tool is read-only — it never writes attendance, notes, or summaries.\n\n**Talking to the user — vocabulary.** Zooza's customers are activity brands — dance, swim, language, sport, STEAM schools. Call this **\"attendance,\" \"the attendance list,\" \"the class list,\" or \"who's coming.\"** Don't expose the tool name or use sports/HR jargon (\"roster\") — it reads as foreign to these businesses. When the user asks to \"see attendance\" / \"open the register\" / \"who's in Monday's class,\" just call this tool and render the list directly.\n\n**Attendee vs client (critical for children's-class programmes).** Each row carries TWO people:\n- `attendee` — who actually shows up to the session. Often a child (Zooza data-model name: `customer`). May have `user_id: 0` when they aren't a registered account holder, which is normal for children. `attendee.date_of_birth` is available.\n- `client` — the account holder / payer (Zooza data-model name: `buyer`). Usually the parent. Has a real `user_id`. Contact info (`email`, `phone`) lives on the client when the attendee is a child; copy from client when speaking to / messaging the family.\n- `display_name` — a pre-formatted one-line label. When attendee == client (adult attending themselves), just the one name. When they differ, `attendee_name (client_name)` — e.g. `\"Jozko Jozko (Martin Rapavy)\"`. Use this when listing attendees; the LLM doesn't need to compose it from scratch.\n\nResponse shape notes:\n- `allowed_statuses[]` already factors in the caller's role, `company.trainer_attendance_management`, and the row's cross-company state. Do not propose a status not in this array — refuse locally and explain instead of calling `mark_attendance` to discover the constraint.\n- `is_last_trial_session` is currently `null` in V1 (derivation requires either a new api-v1 field or extra per-row lookups; deferred). Treat `is_trial=true` as the trigger for caution — a future enrichment will tighten this.\n- `entrance_voucher` is non-null only when `course.registration_type=\"open\"`. Check it before setting `mark_attendance`'s `use_voucher=true` on a `going` write.\n- `summary` block at the top level surfaces whether this event already has a public / internal session summary (`public_set` / `internal_set`), whether the public one is locked, and whether the caller's role is permitted to write summaries (`writable_by_caller`). After the user has marked attendance, the LLM can use this to offer `add_session_summary` as a follow-up when appropriate.";
 
-export const getAttendanceRosterInputSchema = {
+export const getAttendanceInputSchema = {
   company_id: companyIdSchema,
   event_id: z
     .number()
@@ -38,15 +39,15 @@ export const getAttendanceRosterInputSchema = {
     .describe("Target event id (one session of a class). Required."),
 };
 
-const inputSchema = z.object(getAttendanceRosterInputSchema);
+const inputSchema = z.object(getAttendanceInputSchema);
 
-export async function runGetAttendanceRoster(
+export async function runGetAttendance(
   rawInput: unknown,
   auth: ZoozaAuth,
 ): Promise<{
   isError?: boolean;
   content: Array<{ type: "text"; text: string }>;
-  structuredContent?: RosterResult;
+  structuredContent?: AttendanceResult;
 }> {
   const parsed = inputSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -69,7 +70,7 @@ export async function runGetAttendanceRoster(
     // track_attendance / registration_type / attendance_management all null).
     // Confirmed empirically against api-v1; ZMCP-20260527-003 originally
     // assumed the detail path was sufficient.
-    const [roster, eventCollection, caller] = await Promise.all([
+    const [attendanceRows, eventCollection, caller] = await Promise.all([
       zoozaFetch<RawAttendanceRow[] | { data?: RawAttendanceRow[] }>(
         "/attendance",
         { query: { event_id: input.event_id } },
@@ -84,28 +85,28 @@ export async function runGetAttendanceRoster(
     ]);
     const eventDetail = eventCollection?.data?.[0];
 
-    // Precheck: hard error rather than ambiguous empty roster.
+    // Precheck: hard error rather than ambiguous empty attendance list.
     const trackAttendance = eventDetail?.course?.track_attendance;
     if (!isTrackable(trackAttendance)) {
       return errorResult(
-        "attendance_tracking_disabled: Attendance tracking is disabled for this event's course — no roster available.",
+        "attendance_tracking_disabled: Attendance tracking is disabled for this event's course — no attendance list available.",
       );
     }
 
-    const rows = unwrapList<RawAttendanceRow>(roster).records;
+    const rows = unwrapList<RawAttendanceRow>(attendanceRows).records;
 
     const courseRegistrationType =
       pickStr(eventDetail?.course?.registration_type) ?? "";
     // `attendance_management` is a REGISTRATION-level field (values default /
     // limited / king_of_schedule, drives cancellation cascade), NOT a course
     // field — api-v1 confirmed it never appears on the course object (handoff
-    // 2026-05-28-attendance-field-shapes). It rides on each roster row; within
+    // 2026-05-28-attendance-field-shapes). It rides on each attendance row; within
     // one event every row carries the same value.
     const courseAttendanceManagement =
       pickStr(rows[0]?.attendance_management) ?? "default";
     const courseId = eventDetail?.course?.id ?? eventDetail?.course_id ?? 0;
 
-    const attendees: RosterAttendee[] = rows.map((row) =>
+    const attendees: AttendanceRow[] = rows.map((row) =>
       projectAttendee(
         row,
         courseRegistrationType,
@@ -114,7 +115,7 @@ export async function runGetAttendanceRoster(
       ),
     );
 
-    const result: RosterResult = {
+    const result: AttendanceResult = {
       event_id: input.event_id,
       course: {
         id: courseId,
@@ -131,9 +132,12 @@ export async function runGetAttendanceRoster(
     };
 
     return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      // Branded markdown table for display (Option 2). The full machine-readable
+      // result rides in structuredContent below — that's the model's source for
+      // mark_attendance (registration_id, allowed_statuses, voucher).
+      content: [{ type: "text", text: renderAttendanceMarkdown(result) }],
       // structuredContent sidecar: lets MCP-Apps hosts hydrate the interactive
-      // roster card (ZMCP-20260529-001) and lets text clients chain on the
+      // attendance card and lets text clients chain on the
       // parsed object instead of re-parsing the text blob.
       structuredContent: result,
     };
@@ -142,7 +146,7 @@ export async function runGetAttendanceRoster(
       // /v1/events/{id} or /v1/attendance returning 4xx — the most common
       // case is event_not_found; surface the upstream message verbatim.
       return errorResult(
-        `Could not load roster (api-v1 ${error.status}: ${error.humanMessage}).`,
+        `Could not load attendance (api-v1 ${error.status}: ${error.humanMessage}).`,
       );
     }
     return errorResult(error instanceof Error ? error.message : String(error));
@@ -154,7 +158,7 @@ function projectAttendee(
   courseRegistrationType: string,
   callerCompanyId: number,
   caller: CallerContext | null,
-): RosterAttendee {
+): AttendanceRow {
   const status = pickStr(row.status) ?? "";
   const cross_company =
     typeof row.company_id === "number" &&
@@ -172,7 +176,7 @@ function projectAttendee(
   // Attendee = customer in api-v1's data model. Fall back to ef_full_name
   // when the legacy shape doesn't carry a customer block; ef_full_name is
   // a free-text extra field the operator can set per-attendee.
-  const attendee: RosterAttendeeIdentity = {
+  const attendee: AttendeeIdentity = {
     name:
       personName(row.customer) ||
       pickStr(row.ef_full_name) ||
@@ -187,7 +191,7 @@ function projectAttendee(
   // Client = buyer in api-v1's data model. Top-level email/phone reflect
   // the buyer in practice; use buyer.person_data when present, else fall
   // back to those top-level fields (legacy shape).
-  const client: RosterPerson = {
+  const client: AttendancePerson = {
     name: personName(row.buyer) || pickStr(row.full_name) || "",
     user_id: toInt(row.buyer?.user_id ?? row.user_id),
     email:
@@ -241,6 +245,93 @@ export function projectSummaryState(
   };
 }
 
+// --- Branded markdown rendering (ZMCP-20260529-001, Option 2) -----------------
+// The display text is a ready-made markdown table, not a JSON dump — Claude
+// passes clean markdown through to the user far more often than it paraphrases
+// JSON. The machine-readable detail (registration_id, allowed_statuses, voucher)
+// stays in `structuredContent`, which is the model's source for mark_attendance.
+
+const STATUS_DISPLAY: Record<string, { emoji: string; label: string }> = {
+  attended: { emoji: "🟢", label: "Present" },
+  going: { emoji: "🟧", label: "Going" },
+  noshow: { emoji: "🔴", label: "No-show" },
+  canceled: { emoji: "⚪", label: "Cancelled" },
+  ignore: { emoji: "⚫", label: "Ignore" },
+};
+
+// Show the Zooza icon at the top of the branded reply. The image URL is derived
+// from the server's public origin (config.auth.resourceUrl), so it's correct in
+// every environment — e.g. https://mcp.zooza.app/icon.png in prod. Set to false
+// to drop the inline logo. Hosts that rebuild the table from structuredContent
+// (e.g. Claude) ignore it; faithful markdown hosts render it.
+const SHOW_LOGO = true;
+function logoUrl(): string {
+  if (!SHOW_LOGO) return "";
+  try {
+    return new URL(config.auth.resourceUrl).origin + "/icon.png";
+  } catch {
+    return "";
+  }
+}
+
+function escapeCell(s: string): string {
+  return s.replace(/\|/g, "\\|").replace(/\n/g, " ").trim();
+}
+
+function statusCell(status: string): string {
+  const d = STATUS_DISPLAY[status];
+  if (d) return `${d.emoji} ${d.label}`;
+  return status ? escapeCell(status) : "⬜ Unmarked";
+}
+
+function contactCell(a: AttendanceRow): string {
+  const email = a.client?.email || a.attendee?.email || "";
+  const phone = a.client?.phone || a.attendee?.phone || "";
+  return escapeCell([email, phone].filter(Boolean).join(" · ")) || "—";
+}
+
+function renderAttendanceMarkdown(result: AttendanceResult): string {
+  const rows = result.attendees ?? [];
+  const t = result.totals;
+  const lines: string[] = [];
+  const logo = logoUrl();
+  if (logo) lines.push(`![Zooza](${logo})`, "");
+  lines.push(`**Attendance — event #${result.event_id}**`, "");
+
+  if (rows.length === 0) {
+    lines.push("_No one is enrolled in this session._");
+    return lines.join("\n");
+  }
+
+  lines.push("| Attendee | Status | Contact |", "| --- | --- | --- |");
+  for (const a of rows) {
+    const badges = [
+      a.is_trial ? "🔸 trial" : "",
+      a.entrance_voucher && a.entrance_voucher.unused_entrance_vouchers > 0 ? "🎟️ voucher" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const name =
+      escapeCell(a.display_name || a.attendee?.name || `#${a.registration_id}`) +
+      (badges ? ` ${badges}` : "");
+    lines.push(`| ${name} | ${statusCell(a.status)} | ${contactCell(a)} |`);
+  }
+
+  lines.push(
+    "",
+    `**${t.enrolled} enrolled · ${t.marked} marked${t.trial ? ` · ${t.trial} trial` : ""}**`,
+  );
+
+  const allowed = Array.from(new Set(rows.flatMap((a) => a.allowed_statuses ?? [])));
+  if (allowed.length > 0) {
+    lines.push(
+      "",
+      `Set status: ${allowed.map((s) => STATUS_DISPLAY[s]?.label ?? s).join(" · ")}`,
+    );
+  }
+  return lines.join("\n");
+}
+
 function personName(p?: RawAttendancePerson): string {
   if (!p) return "";
   const first = pickStr(p.first_name) ?? "";
@@ -251,7 +342,7 @@ function personName(p?: RawAttendancePerson): string {
 /**
  * Build the one-line display label. When attendee == client (adult
  * self-attending), the single name; when they differ, `attendee (client)`
- * so the LLM can list a roster without re-rendering names downstream.
+ * so the LLM can list attendees without re-rendering names downstream.
  */
 function buildDisplayName(attendeeName: string, clientName: string): string {
   if (!attendeeName) return clientName;
@@ -301,7 +392,7 @@ export function computeAllowedStatuses(
 function projectVoucher(
   row: RawAttendanceRow,
   courseRegistrationType: string,
-): RosterVoucher | null {
+): AttendanceVoucher | null {
   if (courseRegistrationType !== "open") return null;
   const v = row.entrance_voucher;
   // Open-type without a voucher block — surface zeros so the LLM knows
@@ -318,7 +409,7 @@ function projectVoucher(
 function isTrackable(v: unknown): boolean {
   if (v === undefined || v === null) {
     // Field missing — fail closed; we'd rather error than risk surfacing
-    // a roster for a course that doesn't actually track attendance.
+    // attendance for a course that doesn't actually track attendance.
     return false;
   }
   if (typeof v === "boolean") return v;

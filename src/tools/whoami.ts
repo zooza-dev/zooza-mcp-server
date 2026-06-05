@@ -15,7 +15,7 @@ How to interpret the response:
 - 'status: "api_error"' — api-v1 unreachable. Surface 'status_message' and suggest retry.
 
 Identity fields (use these to scope follow-up calls to the calling user):
-- 'identity.user_id' — the caller's Zooza user id. Pass this as 'trainer_id' to filter find_events / get_attendance_roster / etc. to the user's OWN data whenever the user says "my sessions," "my classes today," "what am I teaching tomorrow," etc. Without it, find_events returns ALL company events, not just the caller's.
+- 'identity.user_id' — the caller's Zooza user id. Pass this as 'trainer_id' to filter find_events / get_attendance / etc. to the user's OWN data whenever the user says "my sessions," "my classes today," "what am I teaching tomorrow," etc. Without it, find_events returns ALL company events, not just the caller's.
 - 'identity.email', 'identity.name' — for display only.
 
 Regional context fields (use these to adapt behaviour):

@@ -4,7 +4,7 @@ import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { type CallerContext, getCallerContext } from "./caller-context.js";
 import { companyIdSchema, TRIAL_STATUSES, unwrapList } from "./common.js";
-import { projectSummaryState } from "./get-attendance-roster.js";
+import { projectSummaryState } from "./get-attendance.js";
 import type {
   MarkAttendanceResult,
   MarkAttendanceRow,
@@ -23,7 +23,7 @@ const ATTENDANCE_VALUES = [
 export const markAttendanceTitle = "Mark per-attendee attendance on one event";
 
 export const markAttendanceDescription =
-  "Record per-attendee attendance for **one event** (a single session of a class — e.g. \"Monday Ballet on 2026-06-03 at 09:00\"). Pass an `event_id` and a list of attendees, each with their own attendance value (`attended`, `noshow`, `canceled`, `going`, `ignore`). Each value is set on **that one attendee for that one event**, never on the event as a whole. The tool writes each attendee individually and returns a per-row outcome. Use this **after** you already know the event and the attendees you want to mark — typically because the user dictated them or because you previously called `get_attendance_roster`. If you don't yet know which event or who's enrolled, call `find_events` or `get_attendance_roster` first. This tool does **not** cancel or reschedule the event itself or handle trialist follow-ups — those are separate tools.\n\n**Follow-up chaining.** The response includes a top-level `summary` block with `public_set` / `internal_set` / `writable_by_caller` flags. After a successful mark, if `summary.public_set=false` AND `summary.writable_by_caller=true`, proactively offer the user the option to write a parent-visible recap via `add_session_summary`. If `writable_by_caller=false`, don't offer (the caller's role can't write summaries). If `public_set=true`, don't volunteer an update unless asked.\n\n**Trial follow-ups.** A per-row `pending_action: \"trial_followup\"` (with `todo_id`) means that attendee just completed their trial by being marked `attended` — a follow-up (parent feedback + continuing-class recommendation) is now pending. Tell the user it's waiting and offer to handle it; the attendance skill resolves it against the todo. This tool only surfaces the hint — it does not orchestrate the follow-up. If the field is absent, there's nothing pending.\n\nAttendance value semantics:\n- `attended` — attendee was present.\n- `noshow` — attendee did not show up and did not warn.\n- `canceled` — attendee cancelled (admin-recorded). Triggers server-side make-up credit creation automatically when the programme allows it; do not call any other tool to issue credits.\n- `going` — pre-event RSVP / \"planning to attend.\" Restricted for member/receptionist roles under `trainer_attendance_management=\"limited\"`.\n- `ignore` — hide this event from the attendee's history (Zooza-specific; rare).\n\n`use_voucher` is a tentative V1 design: only meaningful when `attendance=\"going\"` AND `course.registration_type=\"open\"`. Check the attendee's `entrance_voucher.unused_entrance_vouchers > 0` (from `get_attendance_roster`) before setting it to true; the server silently downgrades to cash debt when no voucher is available.";
+  "Record per-attendee attendance for **one event** (a single session of a class — e.g. \"Monday Ballet on 2026-06-03 at 09:00\"). Pass an `event_id` and a list of attendees, each with their own attendance value (`attended`, `noshow`, `canceled`, `going`, `ignore`). Each value is set on **that one attendee for that one event**, never on the event as a whole. The tool writes each attendee individually and returns a per-row outcome. Use this **after** you already know the event and the attendees you want to mark — typically because the user dictated them or because you previously called `get_attendance`. If you don't yet know which event or who's enrolled, call `find_events` or `get_attendance` first. This tool does **not** cancel or reschedule the event itself or handle trialist follow-ups — those are separate tools.\n\n**Follow-up chaining.** The response includes a top-level `summary` block with `public_set` / `internal_set` / `writable_by_caller` flags. After a successful mark, if `summary.public_set=false` AND `summary.writable_by_caller=true`, proactively offer the user the option to write a parent-visible recap via `add_session_summary`. If `writable_by_caller=false`, don't offer (the caller's role can't write summaries). If `public_set=true`, don't volunteer an update unless asked.\n\n**Trial follow-ups.** A per-row `pending_action: \"trial_followup\"` (with `todo_id`) means that attendee just completed their trial by being marked `attended` — a follow-up (parent feedback + continuing-class recommendation) is now pending. Tell the user it's waiting and offer to handle it; the attendance skill resolves it against the todo. This tool only surfaces the hint — it does not orchestrate the follow-up. If the field is absent, there's nothing pending.\n\nAttendance value semantics:\n- `attended` — attendee was present.\n- `noshow` — attendee did not show up and did not warn.\n- `canceled` — attendee cancelled (admin-recorded). Triggers server-side make-up credit creation automatically when the programme allows it; do not call any other tool to issue credits.\n- `going` — pre-event RSVP / \"planning to attend.\" Restricted for member/receptionist roles under `trainer_attendance_management=\"limited\"`.\n- `ignore` — hide this event from the attendee's history (Zooza-specific; rare).\n\n`use_voucher` is a tentative V1 design: only meaningful when `attendance=\"going\"` AND `course.registration_type=\"open\"`. Check the attendee's `entrance_voucher.unused_entrance_vouchers > 0` (from `get_attendance`) before setting it to true; the server silently downgrades to cash debt when no voucher is available.";
 
 const attendeeSchema = z.object({
   registration_id: z.number().int().positive(),
@@ -65,17 +65,17 @@ export async function runMarkAttendance(
 
   const callAuth = withCompany(auth, input.company_id!);
 
-  // Pre-flight: roster + event (via collection path) in parallel. Either
-  // failure aborts the whole call with a clean message rather than fanning
-  // out N PUTs that will all fail identically. We use the collection path
-  // /events?filter=filter&ids=N instead of /events/{id} because the detail
-  // path returns a stubbed course block with track_attendance unset —
-  // see get-attendance-roster.ts for the same rationale.
-  let roster: RawAttendanceRow[];
+  // Pre-flight: attendance list + event (via collection path) in parallel.
+  // Either failure aborts the whole call with a clean message rather than
+  // fanning out N PUTs that will all fail identically. We use the collection
+  // path /events?filter=filter&ids=N instead of /events/{id} because the
+  // detail path returns a stubbed course block with track_attendance unset —
+  // see get-attendance.ts for the same rationale.
+  let enrolledRows: RawAttendanceRow[];
   let eventDetail: RawEventDetail | undefined;
   let caller: CallerContext | null = null;
   try {
-    const [rosterRaw, eventCollection, callerCtx] = await Promise.all([
+    const [attendanceRaw, eventCollection, callerCtx] = await Promise.all([
       zoozaFetch<RawAttendanceRow[] | { data?: RawAttendanceRow[] }>(
         "/attendance",
         { query: { event_id: input.event_id } },
@@ -91,7 +91,7 @@ export async function runMarkAttendance(
       // falls back to false, which is safe).
       safeCallerContext(callAuth),
     ]);
-    roster = unwrapList<RawAttendanceRow>(rosterRaw).records;
+    enrolledRows = unwrapList<RawAttendanceRow>(attendanceRaw).records;
     eventDetail = eventCollection?.data?.[0];
     caller = callerCtx;
   } catch (error) {
@@ -110,10 +110,10 @@ export async function runMarkAttendance(
     );
   }
 
-  const rosterIndex = new Map<number, RawAttendanceRow>();
-  for (const row of roster) {
+  const enrolledIndex = new Map<number, RawAttendanceRow>();
+  for (const row of enrolledRows) {
     if (typeof row.registration_id === "number") {
-      rosterIndex.set(row.registration_id, row);
+      enrolledIndex.set(row.registration_id, row);
     }
   }
 
@@ -122,13 +122,13 @@ export async function runMarkAttendance(
   // each call idempotent, so a retry on transient failure is safe.
   const results: MarkAttendanceRow[] = [];
   for (const attendee of input.attendees) {
-    if (!rosterIndex.has(attendee.registration_id)) {
+    if (!enrolledIndex.has(attendee.registration_id)) {
       results.push({
         registration_id: attendee.registration_id,
         attendance: attendee.attendance,
         status: "error",
-        error_code: "not_in_roster",
-        error_message: `Registration ${attendee.registration_id} is not on the roster for event ${input.event_id}.`,
+        error_code: "not_enrolled",
+        error_message: `Registration ${attendee.registration_id} is not enrolled in this class session (event ${input.event_id}).`,
       });
       continue;
     }
@@ -170,11 +170,11 @@ export async function runMarkAttendance(
   // the write loop and in PARALLEL — the reads are independent and read-only, so
   // a slow todos endpoint never stalls the attendance writes. Best-effort: a
   // missing/erroring endpoint just omits the hint. Gated to attended-on-a-trial
-  // rows (pre-flight roster status) to avoid needless reads.
+  // rows (pre-flight attendance status) to avoid needless reads.
   const trialFollowupTargets = results.filter((r) => {
     if (r.status !== "ok" || r.attendance !== "attended") return false;
-    const rosterStatus = rosterIndex.get(r.registration_id)?.status;
-    return typeof rosterStatus === "string" && TRIAL_STATUSES.has(rosterStatus);
+    const currentStatus = enrolledIndex.get(r.registration_id)?.status;
+    return typeof currentStatus === "string" && TRIAL_STATUSES.has(currentStatus);
   });
   await Promise.all(
     trialFollowupTargets.map(async (r) => {

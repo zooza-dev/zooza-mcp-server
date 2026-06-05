@@ -23,7 +23,7 @@ export const companyIdSchema = z
 
 /**
  * Registration statuses that mean "still in trial". Single source of truth for
- * the attendance tools: `get_attendance_roster` derives `is_trial` from it, and
+ * the attendance tools: `get_attendance` derives `is_trial` from it, and
  * `mark_attendance` uses it to gate the trial-followup todo lookup. Keep in sync
  * with api-v1's trial status enum.
  */
@@ -44,7 +44,7 @@ export function pickStr(v: unknown): string | undefined {
  * Normalise api-v1's two list shapes — a bare `T[]` or an
  * `{ data, total, settings }` envelope — into one predictable result.
  *
- * Every `find_*` tool (and the attendance roster reads) was repeating
+ * Every `find_*` tool (and the attendance reads) was repeating
  * `const isBare = Array.isArray(raw); const records = isBare ? raw : raw.data ?? []`
  * plus the matching `total` / `settings` fallbacks. Centralising it means a
  * future change to api-v1's wrapper key (e.g. `data` → `results`) is a one-line

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeAllowedStatuses } from "./get-attendance-roster.js";
+import { computeAllowedStatuses } from "./get-attendance.js";
 
 /**
  * Verifies the allowed_statuses gate against api-v1's confirmed rule

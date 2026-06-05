@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import express from "express";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -14,6 +12,7 @@ import {
 import { hasScope, type Scope, SCOPE_READ, SCOPE_WRITE } from "./auth/scopes.js";
 import type { RequestAuthContext } from "./auth/types.js";
 import { config } from "./config.js";
+import { ZOOZA_ICON_PNG_BASE64 } from "./icon.js";
 import { buildSkillInstructions, loadAllSkills } from "./skills.js";
 import { TERMINOLOGY_INSTRUCTIONS, TERMINOLOGY_INDEX } from "./terminology/index.js";
 import {
@@ -41,11 +40,11 @@ import {
   runFindEvents,
 } from "./tools/find-events.js";
 import {
-  getAttendanceRosterDescription,
-  getAttendanceRosterInputSchema,
-  getAttendanceRosterTitle,
-  runGetAttendanceRoster,
-} from "./tools/get-attendance-roster.js";
+  getAttendanceDescription,
+  getAttendanceInputSchema,
+  getAttendanceTitle,
+  runGetAttendance,
+} from "./tools/get-attendance.js";
 import {
   markAttendanceDescription,
   markAttendanceInputSchema,
@@ -132,30 +131,38 @@ const COMBINED_INSTRUCTIONS = [TERMINOLOGY_INSTRUCTIONS, SKILL_INSTRUCTIONS]
   .filter(Boolean)
   .join("\n\n---\n\n");
 
-// MCP App view resource (ZMCP-20260529-001, EXPERIMENTAL). The bundled HTML is
-// produced by `npm run compile:ui`; read once and cached. CWD is the repo root
-// under both `npm start` (node dist/index.js) and `npm run dev` (tsx).
-const ROSTER_VIEW_URI = "ui://zooza/attendance-roster";
-// MCP Apps MIME type (the `RESOURCE_MIME_TYPE` constant in
-// @modelcontextprotocol/ext-apps). Hardcoded so the server runtime carries NO
-// dependency on that package — only the esbuild-bundled browser view imports it
-// at build time. This keeps the server bootable even when ext-apps isn't in the
-// runtime node_modules and the feature flag is off.
-const ROSTER_VIEW_MIME = "text/html;profile=mcp-app";
-let rosterViewCache: string | null = null;
-function loadRosterView(): string {
-  if (rosterViewCache === null) {
-    rosterViewCache = readFileSync(resolve(process.cwd(), "dist/ui/attendance-roster.html"), "utf8");
+// Connector icon — Zooza "Z" mark (brand orange on white). PNG is the
+// MUST-support icon format per the MCP spec; the SVG is a secondary entry for
+// hosts that prefer vector.
+const ZOOZA_ICON_PNG = Buffer.from(ZOOZA_ICON_PNG_BASE64, "base64");
+const ZOOZA_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">' +
+  '<rect width="120" height="120" fill="#ffffff"/>' +
+  '<g transform="translate(11,4) scale(0.85)"><path fill="#FA6900" d="M66.2,83.3l23.5-2.9v17.4l-65.9,17.9l40.8-68.4L31.4,43V17l60.1,16.6L66.2,83.3z"/></g>' +
+  "</svg>";
+// Public origin for the same-origin icon URL — the canonical form the Claude
+// Connectors Directory (and faithful hosts) fetch. Derived from the configured
+// resource URL: in prod MCP_RESOURCE_URL=https://mcp.zooza.app/mcp → origin
+// https://mcp.zooza.app, so the icon is https://mcp.zooza.app/icon.png. Returns
+// "" only if the URL can't be parsed (then we advertise only the data URI).
+function iconOrigin(): string {
+  try {
+    return new URL(config.auth.resourceUrl).origin;
+  } catch {
+    return "";
   }
-  return rosterViewCache;
 }
+// Self-contained PNG data URI — a universal fallback advertised alongside the
+// hosted URL so the logo still resolves when the origin isn't fetchable (local
+// dev, sandboxed hosts). The /icon.png + /icon.svg HTTP routes back the URL form.
+const ZOOZA_ICON_PNG_DATA_URI = `data:image/png;base64,${ZOOZA_ICON_PNG_BASE64}`;
 
 type ToolResult = {
   isError?: boolean;
   content: Array<{ type: "text"; text: string }>;
   // Carried through the wrapper chain so a future wrapper that reconstructs the
   // result can't silently drop the App-card / chaining sidecar (find_events,
-  // get_attendance_roster). Wrappers must preserve it.
+  // get_attendance). Wrappers must preserve it.
   structuredContent?: Record<string, unknown>;
 };
 
@@ -229,7 +236,21 @@ function resolveCompanyId<Args extends Record<string, unknown>>(
 
 function createMcpServer(ctx: RequestAuthContext): McpServer {
   const server = new McpServer(
-    { name: "zooza-mcp", version: "0.1.0" },
+    {
+      name: "zooza-mcp",
+      version: "0.1.0",
+      title: "Zooza",
+      // Directory-submission canonical: same-origin HTTPS PNG first (256×256,
+      // the MUST-support format), then the self-contained data URI as fallback.
+      // SVG is intentionally omitted — it's SHOULD-only and several hosts reject
+      // it; the /icon.svg route stays for hosts that ask for it by URL.
+      icons: [
+        ...(iconOrigin()
+          ? [{ src: iconOrigin() + "/icon.png", mimeType: "image/png", sizes: ["256x256"] }]
+          : []),
+        { src: ZOOZA_ICON_PNG_DATA_URI, mimeType: "image/png", sizes: ["256x256"] },
+      ],
+    },
     COMBINED_INSTRUCTIONS ? { instructions: COMBINED_INSTRUCTIONS } : undefined,
   );
 
@@ -254,26 +275,6 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       ],
     }),
   );
-
-  // MCP App view — interactive attendance roster (ZMCP-20260529-001, EXPERIMENTAL,
-  // gated by config.features.rosterAppResource). The bundled HTML is produced by
-  // `npm run compile:ui` into dist/ui/. Hosts without MCP Apps support ignore the
-  // tool's `_meta.ui` and fall back to the text + structuredContent path.
-  if (config.features.rosterAppResource) {
-    server.registerResource(
-      "Attendance roster",
-      ROSTER_VIEW_URI,
-      {
-        description: "Interactive attendance register for one event.",
-        mimeType: ROSTER_VIEW_MIME,
-      },
-      async () => ({
-        contents: [
-          { uri: ROSTER_VIEW_URI, mimeType: ROSTER_VIEW_MIME, text: loadRosterView() },
-        ],
-      }),
-    );
-  }
 
   // Free tool — no Zooza API call, no company_id needed
   server.registerTool(
@@ -442,32 +443,20 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "get_attendance_roster",
+    "get_attendance",
     {
-      title: getAttendanceRosterTitle,
-      description: getAttendanceRosterDescription,
-      inputSchema: getAttendanceRosterInputSchema,
+      title: getAttendanceTitle,
+      description: getAttendanceDescription,
+      inputSchema: getAttendanceInputSchema,
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
-      // EXPERIMENTAL: advertise the interactive roster card to MCP-Apps hosts.
-      // Emit BOTH the modern (`ui.resourceUri`) and legacy (`ui/resourceUri`)
-      // metadata keys — this is what ext-apps' `registerAppTool` does for
-      // compatibility with hosts that read the older flat key.
-      ...(config.features.rosterAppResource
-        ? {
-            _meta: {
-              ui: { resourceUri: ROSTER_VIEW_URI },
-              "ui/resourceUri": ROSTER_VIEW_URI,
-            },
-          }
-        : {}),
     },
     audit(
-      "get_attendance_roster",
+      "get_attendance",
       ctx,
       scopeGuard(
         SCOPE_READ,
         ctx,
-        resolveCompanyId(ctx, async (args) => runGetAttendanceRoster(args, ctx.auth)),
+        resolveCompanyId(ctx, async (args) => runGetAttendance(args, ctx.auth)),
       ),
     ),
   );
@@ -714,6 +703,26 @@ function sendChallenge(res: express.Response, err: AuthChallengeError): void {
 
 async function main(): Promise<void> {
   const app = express();
+
+  // CORS — ChatGPT (Apps SDK) and other browser-based hosts issue a preflight
+  // against /mcp and fetch the discovery/icon routes cross-origin. MCP auth is
+  // a Bearer header (no cookies), so reflecting the origin with `*` is safe.
+  app.use((req, res, next) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+    res.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID",
+    );
+    res.set("Access-Control-Expose-Headers", "Mcp-Session-Id, WWW-Authenticate");
+    res.set("Access-Control-Max-Age", "86400");
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   app.use(express.json({ limit: "4mb" }));
 
   // Request log — useful for diagnosing OAuth-discovery / connector flows.
@@ -728,6 +737,16 @@ async function main(): Promise<void> {
 
   app.get("/healthz", (_req, res) => {
     res.json({ status: "ok", service: "zooza-mcp" });
+  });
+
+  // Connector icon — served unauthenticated so hosts can fetch the brand avatar
+  // (referenced from serverInfo.icons). PNG is primary (/icon.png, /favicon.ico);
+  // SVG offered at /icon.svg for hosts that prefer it.
+  app.get(["/icon.png", "/favicon.ico"], (_req, res) => {
+    res.type("image/png").set("Cache-Control", "public, max-age=3600").send(ZOOZA_ICON_PNG);
+  });
+  app.get("/icon.svg", (_req, res) => {
+    res.type("image/svg+xml").set("Cache-Control", "public, max-age=3600").send(ZOOZA_ICON_SVG);
   });
 
   // OpenAI ChatGPT App domain verification — place token in OPENAI_DOMAIN_CHALLENGE_TOKEN env var.

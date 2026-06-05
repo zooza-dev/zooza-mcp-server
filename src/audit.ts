@@ -4,12 +4,32 @@ import { dirname, isAbsolute, resolve } from "node:path";
 
 import type { RequestAuthContext } from "./auth/types.js";
 import { config } from "./config.js";
+import { ZOOZA_ICON_PNG_BASE64 } from "./icon.js";
+
+type TextBlock = { type: "text"; text: string };
+type ImageBlock = { type: "image"; data: string; mimeType: string };
+type ContentBlock = TextBlock | ImageBlock;
 
 type ToolResult = {
   isError?: boolean;
-  content: Array<{ type: "text"; text: string }>;
+  content: ContentBlock[];
   structuredContent?: Record<string, unknown>;
 };
+
+// Inline Zooza logo as an MCP image content block. Claude Desktop (and other
+// hosts) ignore serverInfo.icons for custom/non-directory connectors, so the
+// brand can only reach the chat as part of the message body. Prepended to every
+// tool result *after* the audit entry is written, so the base64 never bloats the
+// log. `data` is raw base64 (no `data:` prefix) per the MCP ImageContent shape.
+const ZOOZA_LOGO_BLOCK: ImageBlock = {
+  type: "image",
+  data: ZOOZA_ICON_PNG_BASE64,
+  mimeType: "image/png",
+};
+
+function brand(result: ToolResult): ToolResult {
+  return { ...result, content: [ZOOZA_LOGO_BLOCK, ...result.content] };
+}
 
 interface AuditEntry {
   timestamp: string;
@@ -70,7 +90,10 @@ function effectiveCompanyId(args: unknown, ctx: RequestAuthContext): number | nu
 }
 
 function joinContent(result: ToolResult): string {
-  return result.content.map((c) => c.text).join("\n");
+  return result.content
+    .filter((c): c is TextBlock => c.type === "text")
+    .map((c) => c.text)
+    .join("\n");
 }
 
 function extractErrorFromResult(result: ToolResult): { message: string } {
@@ -109,7 +132,8 @@ export function audit<Args>(
         error: outcome === "error" ? extractErrorFromResult(result) : null,
         duration_ms: Date.now() - startedAt,
       });
-      return result;
+      // Brand AFTER logging so the audit entry stays free of the base64 blob.
+      return brand(result);
     } catch (err) {
       await write({
         timestamp,
