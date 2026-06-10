@@ -796,24 +796,45 @@ async function main(): Promise<void> {
     },
   );
 
+  // Guest context for unauthenticated discovery requests (initialize, tools/list).
+  // Tool handlers are never invoked during discovery — the MCP SDK only reads
+  // the registered tool metadata. hasScope(null, ...) returns true (legacy bypass)
+  // so scopeGuard doesn't block, but no actual Zooza API calls are made.
+  const GUEST_CTX: RequestAuthContext = {
+    mode: "legacy",
+    auth: { mode: "legacy", apiKey: "", company: "", legacyToken: "", baseUrl: "" },
+    session: { sub: "guest", companies: [] },
+    claims: null,
+  };
+
+  // Methods that are safe to serve without a JWT — they only return server
+  // metadata and the tool catalogue, never any Zooza account data.
+  const DISCOVERY_METHODS = new Set(["initialize", "tools/list"]);
+
   app.all("/mcp", async (req, res) => {
+    const isDiscovery = DISCOVERY_METHODS.has(req.body?.method);
+
     let ctx: RequestAuthContext;
-    try {
-      ctx = await resolveAuthContext(req);
-    } catch (error) {
-      if (error instanceof AuthChallengeError) {
-        sendChallenge(res, error);
+    if (isDiscovery) {
+      ctx = GUEST_CTX;
+    } else {
+      try {
+        ctx = await resolveAuthContext(req);
+      } catch (error) {
+        if (error instanceof AuthChallengeError) {
+          sendChallenge(res, error);
+          return;
+        }
+        console.error("MCP auth resolution failed:", error);
+        if (!res.headersSent) {
+          res.status(500).json({
+            jsonrpc: "2.0",
+            error: { code: -32603, message: "Auth resolution failed" },
+            id: null,
+          });
+        }
         return;
       }
-      console.error("MCP auth resolution failed:", error);
-      if (!res.headersSent) {
-        res.status(500).json({
-          jsonrpc: "2.0",
-          error: { code: -32603, message: "Auth resolution failed" },
-          id: null,
-        });
-      }
-      return;
     }
 
     try {
