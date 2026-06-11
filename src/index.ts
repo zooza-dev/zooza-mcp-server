@@ -15,6 +15,7 @@ import { config } from "./config.js";
 import { ZOOZA_ICON_PNG_BASE64 } from "./icon.js";
 import { buildSkillInstructions, loadAllSkills } from "./skills.js";
 import { TERMINOLOGY_INSTRUCTIONS, TERMINOLOGY_INDEX } from "./terminology/index.js";
+import { ROUTING_INSTRUCTIONS } from "./instructions.js";
 import {
   commitClassDescription,
   commitClassInputSchema,
@@ -112,6 +113,24 @@ import {
   runListMessageMergeVars,
 } from "./tools/list-message-merge-vars.js";
 import {
+  listMessageTemplatesDescription,
+  listMessageTemplatesInputSchema,
+  listMessageTemplatesTitle,
+  runListMessageTemplates,
+} from "./tools/list-message-templates.js";
+import {
+  prepareMessageDescription,
+  prepareMessageInputSchema,
+  prepareMessageTitle,
+  runPrepareMessage,
+} from "./tools/prepare-message.js";
+import {
+  commitMessageDescription,
+  commitMessageInputSchema,
+  commitMessageTitle,
+  runCommitMessage,
+} from "./tools/commit-message.js";
+import {
   listSchedulePatternsDescription,
   listSchedulePatternsInputSchema,
   listSchedulePatternsTitle,
@@ -127,7 +146,7 @@ import {
 const SKILLS = loadAllSkills();
 const SKILL_INSTRUCTIONS = buildSkillInstructions(SKILLS);
 
-const COMBINED_INSTRUCTIONS = [TERMINOLOGY_INSTRUCTIONS, SKILL_INSTRUCTIONS]
+const COMBINED_INSTRUCTIONS = [ROUTING_INSTRUCTIONS, TERMINOLOGY_INSTRUCTIONS, SKILL_INSTRUCTIONS]
   .filter(Boolean)
   .join("\n\n---\n\n");
 
@@ -161,8 +180,8 @@ type ToolResult = {
   isError?: boolean;
   content: Array<{ type: "text"; text: string }>;
   // Carried through the wrapper chain so a future wrapper that reconstructs the
-  // result can't silently drop the App-card / chaining sidecar (find_events,
-  // get_attendance). Wrappers must preserve it.
+  // result can't silently drop the App-card / chaining sidecar (sessions_find_events,
+  // sessions_get_attendance). Wrappers must preserve it.
   structuredContent?: Record<string, unknown>;
 };
 
@@ -302,26 +321,26 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
 
   // Free tool — no Zooza API call, no company_id needed
   server.registerTool(
-    "list_message_merge_vars",
+    "comms_list_merge_vars",
     {
       title: listMessageMergeVarsTitle,
       description: listMessageMergeVarsDescription,
       inputSchema: listMessageMergeVarsInputSchema,
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
-    audit("list_message_merge_vars", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runListMessageMergeVars(args))),
+    audit("comms_list_merge_vars", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runListMessageMergeVars(args))),
   );
 
   // Free tool — no Zooza API call, no company_id needed
   server.registerTool(
-    "list_schedule_patterns",
+    "classes_list_schedule_patterns",
     {
       title: listSchedulePatternsTitle,
       description: listSchedulePatternsDescription,
       inputSchema: listSchedulePatternsInputSchema,
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
-    audit("list_schedule_patterns", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runListSchedulePatterns(args))),
+    audit("classes_list_schedule_patterns", ctx, scopeGuard(SCOPE_READ, ctx, async (args) => runListSchedulePatterns(args))),
   );
 
   // Free tool — no Zooza API call, no company_id needed
@@ -348,7 +367,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "find_courses",
+    "classes_find_courses",
     {
       title: findCoursesTitle,
       description: findCoursesDescription,
@@ -356,7 +375,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
-      "find_courses",
+      "classes_find_courses",
       ctx,
       scopeGuard(
         SCOPE_READ,
@@ -367,7 +386,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "find_billing_periods",
+    "classes_find_billing_periods",
     {
       title: findBillingPeriodsTitle,
       description: findBillingPeriodsDescription,
@@ -375,7 +394,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
-      "find_billing_periods",
+      "classes_find_billing_periods",
       ctx,
       scopeGuard(
         SCOPE_READ,
@@ -386,7 +405,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "find_trainers",
+    "trainers_find",
     {
       title: findTrainersTitle,
       description: findTrainersDescription,
@@ -394,7 +413,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
-      "find_trainers",
+      "trainers_find",
       ctx,
       scopeGuard(
         SCOPE_READ,
@@ -405,7 +424,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "find_places",
+    "classes_find_places",
     {
       title: findPlacesTitle,
       description: findPlacesDescription,
@@ -413,7 +432,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
-      "find_places",
+      "classes_find_places",
       ctx,
       scopeGuard(
         SCOPE_READ,
@@ -424,7 +443,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "find_events",
+    "sessions_find_events",
     {
       title: findEventsTitle,
       description: findEventsDescription,
@@ -432,7 +451,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
-      "find_events",
+      "sessions_find_events",
       ctx,
       scopeGuard(
         SCOPE_READ,
@@ -443,7 +462,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "get_attendance",
+    "sessions_get_attendance",
     {
       title: getAttendanceTitle,
       description: getAttendanceDescription,
@@ -451,7 +470,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
-      "get_attendance",
+      "sessions_get_attendance",
       ctx,
       scopeGuard(
         SCOPE_READ,
@@ -462,7 +481,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "mark_attendance",
+    "sessions_mark_attendance",
     {
       title: markAttendanceTitle,
       description: markAttendanceDescription,
@@ -475,7 +494,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       },
     },
     audit(
-      "mark_attendance",
+      "sessions_mark_attendance",
       ctx,
       scopeGuard(
         SCOPE_WRITE,
@@ -486,7 +505,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "add_session_summary",
+    "sessions_add_summary",
     {
       title: addSessionSummaryTitle,
       description: addSessionSummaryDescription,
@@ -499,7 +518,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       },
     },
     audit(
-      "add_session_summary",
+      "sessions_add_summary",
       ctx,
       scopeGuard(
         SCOPE_WRITE,
@@ -510,7 +529,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "preview_schedule",
+    "classes_preview_schedule",
     {
       title: previewScheduleTitle,
       description: previewScheduleDescription,
@@ -518,7 +537,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
-      "preview_schedule",
+      "classes_preview_schedule",
       ctx,
       scopeGuard(
         SCOPE_READ,
@@ -529,7 +548,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "preview_events",
+    "classes_preview_events",
     {
       title: previewEventsTitle,
       description: previewEventsDescription,
@@ -537,7 +556,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit(
-      "preview_events",
+      "classes_preview_events",
       ctx,
       scopeGuard(
         SCOPE_READ,
@@ -548,7 +567,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
-    "commit_class",
+    "classes_commit_class",
     {
       title: commitClassTitle,
       description: commitClassDescription,
@@ -556,13 +575,74 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
       annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: false },
     },
     audit(
-      "commit_class",
+      "classes_commit_class",
       ctx,
       scopeGuard(
         SCOPE_WRITE,
         ctx,
         resolveCompanyId(ctx, async (args) => runCommitClass(args, ctx.auth)),
       ),
+    ),
+  );
+
+  server.registerTool(
+    "comms_list_templates",
+    {
+      title: listMessageTemplatesTitle,
+      description: listMessageTemplatesDescription,
+      inputSchema: listMessageTemplatesInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "comms_list_templates",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runListMessageTemplates(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "comms_prepare_message",
+    {
+      title: prepareMessageTitle,
+      description: prepareMessageDescription,
+      inputSchema: prepareMessageInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "comms_prepare_message",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runPrepareMessage(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // No resolveCompanyId — the company is frozen inside the plan the token
+  // points at; commit-time args must not be able to redirect it.
+  server.registerTool(
+    "comms_commit_message",
+    {
+      title: commitMessageTitle,
+      description: commitMessageDescription,
+      inputSchema: commitMessageInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        // Sends real email to real clients — reaches outside the Zooza stack.
+        openWorldHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "comms_commit_message",
+      ctx,
+      scopeGuard(SCOPE_WRITE, ctx, async (args) => runCommitMessage(args, ctx.auth)),
     ),
   );
 
@@ -637,7 +717,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
 
   // --- Standalone open-conversation prompts ---
 
-  // "Show my programmes" — lists all programmes via find_courses, no filters.
+  // "Show my programmes" — lists all programmes via classes_find_courses, no filters.
   server.registerPrompt(
     "show-programmes",
     {

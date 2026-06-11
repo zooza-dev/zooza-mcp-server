@@ -18,7 +18,7 @@ const WEEKDAYS: [Weekday, ...Weekday[]] = ["mon", "tue", "wed", "thu", "fri", "s
 export const previewEventsTitle = "Preview class session dates";
 
 export const previewEventsDescription =
-  "Expands one or more recurrence patterns and/or ad-hoc dates into the concrete list of class sessions, honouring holiday-skip flags. Stateless — performs no writes. Call this once per pattern the user describes during class creation. Accumulate the returned sessions across multiple calls (Claude side) until the user says they're done, then pass the full list to `commit_class`. Each block must carry EXACTLY ONE of `count` (stop after N sessions) or `until_date` (stop on a fixed date) — count mode is preferred when the user says \"X sessions\". A top-level `to_date` acts as a fallback `until_date` for any block that omits both. `place_id` is required so api-v1 can apply the correct subdivision-scoped school-holiday calendar.";
+  "Expands one or more recurrence patterns and/or ad-hoc dates into the concrete list of class sessions, honouring holiday-skip flags. Stateless — performs no writes. Call this once per pattern the user describes during class creation. Accumulate the returned sessions across multiple calls (Claude side) until the user says they're done, then pass the full list to `classes_commit_class`. Each block must carry EXACTLY ONE of `count` (stop after N sessions) or `until_date` (stop on a fixed date) — count mode is preferred when the user says \"X sessions\". A top-level `to_date` acts as a fallback `until_date` for any block that omits both. `place_id` is required so api-v1 can apply the correct subdivision-scoped school-holiday calendar.";
 
 export const previewEventsInputSchema = {
   company_id: companyIdSchema,

@@ -105,7 +105,7 @@ const ENTITIES: EntityDef[] = [
       },
     ],
     ai_notes:
-      "In tool calls the entity is called 'course' (find_courses, course_id). " +
+      "In tool calls the entity is called 'course' (classes_find_courses, course_id). " +
       "In user language it is almost always called 'programme', 'kurz' (SK/CZ), " +
       "'kurzus' (HU), or 'corso' (IT). Never call it 'class' to users.",
   },
@@ -305,7 +305,7 @@ const ENTITIES: EntityDef[] = [
       {
         name: "id",
         description:
-          "Integer trainer ID. Real trainers: returned by find_trainers. " +
+          "Integer trainer ID. Real trainers: returned by trainers_find. " +
           "Virtual trainers (system-wide, no user account): " +
           "9000000000001 = To be decided, " +
           "9000000000002 = Trainer unassigned, " +
@@ -316,7 +316,7 @@ const ENTITIES: EntityDef[] = [
     ai_notes:
       "In Slovak/Czech: 'lektor', 'lektorka'. In German: 'Kursleiter/in'. " +
       "In Hungarian: 'oktató'. In Italian: 'istruttore/istruttrice'. " +
-      "Always use find_trainers to get the real ID — never guess.",
+      "Always use trainers_find to get the real ID — never guess.",
   },
 
   {
@@ -332,7 +332,7 @@ const ENTITIES: EntityDef[] = [
     key_fields: [
       {
         name: "id",
-        description: "Integer place ID. Always use find_places — never hardcode.",
+        description: "Integer place ID. Always use classes_find_places — never hardcode.",
       },
       {
         name: "rooms",
@@ -342,7 +342,7 @@ const ENTITIES: EntityDef[] = [
     do_not_confuse_with: [],
     ai_notes:
       "In Slovak: 'miesto', 'sála'. In German: 'Ort', 'Studio'. " +
-      "Always use find_places to resolve the place ID.",
+      "Always use classes_find_places to resolve the place ID.",
   },
 ];
 

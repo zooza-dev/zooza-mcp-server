@@ -22,7 +22,7 @@ const SCHEDULE_TYPES: [ScheduleType, ...ScheduleType[]] = [
 export const previewScheduleTitle = "Preview a class schedule shell";
 
 export const previewScheduleDescription =
-  "Resolves a new class's *schedule shell* — the course, venue, trainer, capacity, prices, billing period, and default payment templates — and returns the result alongside any warnings. Performs no writes. Use this first in a class-creation flow to confirm the basic class settings with the user before collecting session dates via `preview_events` and committing via `commit_class`. Defaults are copied from the parent course where the caller hasn't specified them (capacity from `target_audience`, prices from the course's pricing fields). Always surface the `warnings[]` array to the user — entries about `online_registration` and `billing_period_id` are real decisions to confirm, not noise. For lead-collection classes (`schedule_type: lead_collection`), the events step is skipped entirely after this preview.\n\n`name` is OPTIONAL — do NOT pass it unless the user explicitly asked for a custom class name. End-user-facing display is auto-rendered by api-v1 as `{course_name} {class_name} {session_dates}`, so leaving it blank gives users the most informative label by default. Only set `name` when the user says something like 'call it \"Morning Yoga Group A\"'.";
+  "Resolves a new class's *schedule shell* — the course, venue, trainer, capacity, prices, billing period, and default payment templates — and returns the result alongside any warnings. Performs no writes. Use this first in a class-creation flow to confirm the basic class settings with the user before collecting session dates via `classes_preview_events` and committing via `classes_commit_class`. Defaults are copied from the parent course where the caller hasn't specified them (capacity from `target_audience`, prices from the course's pricing fields). Always surface the `warnings[]` array to the user — entries about `online_registration` and `billing_period_id` are real decisions to confirm, not noise. For lead-collection classes (`schedule_type: lead_collection`), the events step is skipped entirely after this preview.\n\n`name` is OPTIONAL — do NOT pass it unless the user explicitly asked for a custom class name. End-user-facing display is auto-rendered by api-v1 as `{course_name} {class_name} {session_dates}`, so leaving it blank gives users the most informative label by default. Only set `name` when the user says something like 'call it \"Morning Yoga Group A\"'.";
 
 export const previewScheduleInputSchema = {
   company_id: companyIdSchema,
@@ -84,7 +84,7 @@ export async function runPreviewSchedule(
   } catch (error) {
     return zoozaErrorResult(
       error,
-      `Course ${input.course_id} not found in company ${input.company_id}. Use find_courses to look up by name.`,
+      `Course ${input.course_id} not found in company ${input.company_id}. Use classes_find_courses to look up by name.`,
     );
   }
 
@@ -94,7 +94,7 @@ export async function runPreviewSchedule(
   } catch (error) {
     return zoozaErrorResult(
       error,
-      `Place ${input.place_id} not found. Use find_places to look up by name.`,
+      `Place ${input.place_id} not found. Use classes_find_places to look up by name.`,
     );
   }
 
@@ -234,7 +234,7 @@ function buildWarnings(
   }
   if (input.billing_period_id === undefined) {
     warnings.push(
-      "billing_period_id not provided — api-v1 will fall back to the most recent active billing period. Ask the user which billing period applies before committing (use find_billing_periods once available).",
+      "billing_period_id not provided — api-v1 will fall back to the most recent active billing period. Ask the user which billing period applies before committing (use classes_find_billing_periods once available).",
     );
   }
   return warnings;

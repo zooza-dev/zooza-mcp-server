@@ -141,7 +141,7 @@ export interface FindMatchesEnvelope<T> {
   echo: Record<string, unknown>;
 }
 
-/** Curated match shape for find_courses — see ZMCP-20260523-001. */
+/** Curated match shape for classes_find_courses — see ZMCP-20260523-001. */
 export interface CourseMatch {
   id: number;
   name: string;
@@ -157,7 +157,7 @@ export interface CourseMatch {
   registrations_count: number;
 }
 
-/** Raw course record from /v1/courses — superset of CourseDto, only the fields find_courses reads. */
+/** Raw course record from /v1/courses — superset of CourseDto, only the fields classes_find_courses reads. */
 export interface RawCourseRecord {
   id: number;
   name: string;
@@ -173,7 +173,7 @@ export interface RawCourseRecord {
   __calc__registrations_count?: number | string;
 }
 
-/** Curated match shape for find_billing_periods — see ZMCP-20260523-004. */
+/** Curated match shape for classes_find_billing_periods — see ZMCP-20260523-004. */
 export interface BillingPeriodMatch {
   id: number;
   name: string;
@@ -187,7 +187,7 @@ export interface RawBillingPeriodRecord {
   active?: boolean;
 }
 
-/** Curated match shape for find_trainers — see ZMCP-20260523-003. */
+/** Curated match shape for trainers_find — see ZMCP-20260523-003. */
 export interface TrainerMatch {
   id: number;
   full_name: string;
@@ -211,7 +211,7 @@ export interface RawUserRecord {
   role?: { role?: string } | string;
 }
 
-/** Curated match shape for find_places — see ZMCP-20260523-002. */
+/** Curated match shape for classes_find_places — see ZMCP-20260523-002. */
 export interface PlaceMatch {
   id: number;
   name: string;
@@ -257,10 +257,10 @@ export interface PaymentScheduleTemplateDto {
   discount?: string;
 }
 
-// ─── find_events / get_attendance / mark_attendance ─────────────────────────
+// ─── sessions_find_events / sessions_get_attendance / sessions_mark_attendance ─────────────────────────
 // Shared types for the attendance tooling pillar (ZMCP-20260527-002, -003, -004).
 
-/** Per-event attendance counters surfaced by find_events. Derived from
+/** Per-event attendance counters surfaced by sessions_find_events. Derived from
  *  api-v1's materialised `__calc__attendance__*` columns. Sums of
  *  `registrations.slots`, not COUNTs (one registration can book multiple slots). */
 export interface AttendanceCounts {
@@ -272,7 +272,7 @@ export interface AttendanceCounts {
   waitlist: number;
 }
 
-/** Curated event row for find_events output. Trimmed from the full api-v1
+/** Curated event row for sessions_find_events output. Trimmed from the full api-v1
  *  /v1/events row + embedded sub-resources for reasoning-ready LLM use. */
 export interface EventMatch {
   event_id: number;
@@ -340,13 +340,13 @@ export interface MarkAttendanceResult {
   succeeded: number;
   failed: number;
   results: MarkAttendanceRow[];
-  /** Current event-level summary state — same shape as get_attendance's. Surfaced
-   *  here so after-mark the LLM can offer add_session_summary without
+  /** Current event-level summary state — same shape as sessions_get_attendance's. Surfaced
+   *  here so after-mark the LLM can offer sessions_add_summary without
    *  a separate read. */
   summary: EventSummaryState;
 }
 
-/** Per-row entrance-voucher state surfaced by get_attendance.
+/** Per-row entrance-voucher state surfaced by sessions_get_attendance.
  *  Non-null only when the attendee's course has registration_type="open". */
 export interface AttendanceVoucher {
   unused_entrance_vouchers: number;
@@ -376,7 +376,7 @@ export interface AttendeeIdentity extends AttendancePerson {
   date_of_birth: string | null;
 }
 
-/** One attendee row in get_attendance output. */
+/** One attendee row in sessions_get_attendance output. */
 export interface AttendanceRow {
   registration_id: number;
   /** Pre-formatted one-line display label. When attendee == client, just
@@ -421,7 +421,7 @@ export interface AttendanceResult {
     trial: number;
   };
   /** Current event-level summary state. Lets the LLM decide whether to
-   *  offer add_session_summary as a follow-up without a second tool call. */
+   *  offer sessions_add_summary as a follow-up without a second tool call. */
   summary: EventSummaryState;
   attendees: AttendanceRow[];
 }
@@ -472,7 +472,7 @@ export interface RawAttendanceRow {
 /** Raw event row from /v1/events?filter=filter — the collection path,
  *  which (unlike the bare /v1/events/{id} detail path) embeds the FULL
  *  course object including track_attendance, registration_type, and
- *  other course fields. Both get_attendance and mark_attendance
+ *  other course fields. Both sessions_get_attendance and sessions_mark_attendance
  *  use the collection-with-ids form to fetch a single event so the
  *  embedded course is populated. */
 export interface RawEventDetail {
@@ -486,17 +486,17 @@ export interface RawEventDetail {
      *  Only populated via the collection path; absent on the detail path. */
     track_attendance?: boolean | number | string;
   };
-  // Summary state — surfaced for the add_session_summary follow-up and
-  // for the hint blocks on get_attendance/mark_attendance responses.
+  // Summary state — surfaced for the sessions_add_summary follow-up and
+  // for the hint blocks on sessions_get_attendance/sessions_mark_attendance responses.
   summary?: string | null;
   summary_public?: string | null;
   summary_public_locked?: boolean | number | null;
   summary_public_filled_at?: string | null;
 }
 
-/** Event-level summary state — surfaced as a hint by get_attendance
- *  and mark_attendance so the LLM can offer add_session_summary as a
- *  follow-up without a separate read. Also returned by add_session_summary
+/** Event-level summary state — surfaced as a hint by sessions_get_attendance
+ *  and sessions_mark_attendance so the LLM can offer sessions_add_summary as a
+ *  follow-up without a separate read. Also returned by sessions_add_summary
  *  itself as the post-write echo. */
 export interface EventSummaryState {
   public_set: boolean;
@@ -508,7 +508,7 @@ export interface EventSummaryState {
   writable_by_caller: boolean;
 }
 
-/** Per-field write outcome inside add_session_summary's response. */
+/** Per-field write outcome inside sessions_add_summary's response. */
 export type AddSessionSummaryFieldStatus = "ok" | "error" | "skipped";
 
 export interface AddSessionSummaryFieldResult {
@@ -534,7 +534,7 @@ export interface AddSessionSummaryResult {
 }
 
 /** Raw event row from api-v1 /v1/events?filter=filter — the modern
- *  collection path. Only fields find_events consumes are typed; everything
+ *  collection path. Only fields sessions_find_events consumes are typed; everything
  *  else is intentionally untyped (read-and-discard at projection). */
 export interface RawEventRecord {
   id: number;

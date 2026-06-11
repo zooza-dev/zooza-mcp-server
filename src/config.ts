@@ -45,7 +45,7 @@ function parseRegionBaseUrls(): Record<string, string> {
  * translation keys `enums__trainers__*`). They have no `users` row, no role,
  * and `/v1/users` never returns them — but api-v1 accepts them as valid
  * `trainer_id` values when creating / editing schedules and events. We surface
- * them via `find_trainers` so the operator can pick them by name.
+ * them via `trainers_find` so the operator can pick them by name.
  */
 const BUILT_IN_VIRTUAL_TRAINERS: ReadonlyArray<{ id: number; name: string }> = [
   { id: 9000000000001, name: "To be decided" },

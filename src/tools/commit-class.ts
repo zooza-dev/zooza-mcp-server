@@ -13,7 +13,7 @@ const SCHEDULE_TYPES: [ScheduleType, ...ScheduleType[]] = [
 export const commitClassTitle = "Commit a class (schedule + events)";
 
 export const commitClassDescription =
-  "Writes a class to api-v1 in one shot: creates the schedule, attaches any selected payment templates (bundled inline), and posts the assembled events array. Call this only after the user has confirmed the class shell (from `preview_schedule`) and the full event list (accumulated from one or more `preview_events` calls). For lead-collection classes, pass `events: []`. Returns the created schedule's id and url plus the list of created event ids. If api-v1 silently skips any events (a known quirk), the tool surfaces the mismatch as an error so the caller knows the partial state.\n\n`schedule.name` is OPTIONAL — omit unless the user explicitly asked for a custom class name. api-v1 auto-renders `{course_name} {class_name} {session_dates}` end-user-facing when name is absent.";
+  "Writes a class to api-v1 in one shot: creates the schedule, attaches any selected payment templates (bundled inline), and posts the assembled events array. Call this only after the user has confirmed the class shell (from `classes_preview_schedule`) and the full event list (accumulated from one or more `classes_preview_events` calls). For lead-collection classes, pass `events: []`. Returns the created schedule's id and url plus the list of created event ids. If api-v1 silently skips any events (a known quirk), the tool surfaces the mismatch as an error so the caller knows the partial state.\n\n`schedule.name` is OPTIONAL — omit unless the user explicitly asked for a custom class name. api-v1 auto-renders `{course_name} {class_name} {session_dates}` end-user-facing when name is absent.";
 
 const scheduleShape = z.object({
   course_id: z.number().int().positive(),
@@ -109,7 +109,7 @@ export async function runCommitClass(
   }
   if (schedule.schedule_type === "fixed_period" && input.events.length === 0) {
     return errorResult(
-      "Fixed-period classes need at least one event. Add sessions via preview_events first.",
+      "Fixed-period classes need at least one event. Add sessions via classes_preview_events first.",
     );
   }
 

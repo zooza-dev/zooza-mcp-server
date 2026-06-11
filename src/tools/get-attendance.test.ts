@@ -43,7 +43,7 @@ describe("computeAllowedStatuses", () => {
   });
 
   it("is optimistic (full set) when role is unknown and same-company", () => {
-    // whoami fetch failed → role null → don't block blindly (mark_attendance
+    // whoami fetch failed → role null → don't block blindly (sessions_mark_attendance
     // surfaces low_permissions per-row instead).
     expect(computeAllowedStatuses(null, "limited", false)).toEqual(FULL);
   });

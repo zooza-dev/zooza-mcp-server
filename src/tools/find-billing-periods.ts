@@ -13,7 +13,7 @@ import type {
 export const findBillingPeriodsTitle = "Find billing periods";
 
 export const findBillingPeriodsDescription =
-  "List the company's billing periods, optionally filtered by name. Returns a slim list of `{id, name, active}`. Active periods only by default; pass `include_inactive: true` to see deactivated ones too. Used by the class-management flow when `preview_schedule` warns about a missing `billing_period_id` — the user picks a period from the returned list. Volume is small (typically <30 per company); the tool fetches all and filters MCP-side. No pagination.";
+  "List the company's billing periods, optionally filtered by name. Returns a slim list of `{id, name, active}`. Active periods only by default; pass `include_inactive: true` to see deactivated ones too. Used by the class-management flow when `classes_preview_schedule` warns about a missing `billing_period_id` — the user picks a period from the returned list. Volume is small (typically <30 per company); the tool fetches all and filters MCP-side. No pagination.";
 
 export const findBillingPeriodsInputSchema = {
   company_id: companyIdSchema,

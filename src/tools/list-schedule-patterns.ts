@@ -5,7 +5,7 @@ export const listSchedulePatternsTitle = "List valid Zooza schedule patterns";
 export const listSchedulePatternsDescription =
   "Returns all valid field values for building class schedules and payment plans in Zooza. " +
   "No Zooza API call — hardcoded from Events_Preview.php and Payment_Schedule.php. " +
-  "Call this BEFORE preview_schedule or commit_class to avoid validation errors. " +
+  "Call this BEFORE classes_preview_schedule or classes_commit_class to avoid validation errors. " +
   "Critical: weekdays must be 3-letter lowercase (mon/tue/wed...), NOT 'monday' or '1'. " +
   "Critical: until_date and count are mutually exclusive — sending both causes an API error. " +
   'Examples: domain="event_generation" → cadences, weekdays, time format; ' +
@@ -25,7 +25,7 @@ export const listSchedulePatternsInputSchema = {
 
 const EVENT_GENERATION = {
   description:
-    "Parameters for the schedule block passed to preview_schedule and commit_class. " +
+    "Parameters for the schedule block passed to classes_preview_schedule and classes_commit_class. " +
     "Each block defines one repeating pattern (cadence + weekdays + time + termination).",
   cadences: [
     {

@@ -13,7 +13,7 @@ At the start of every conversation where Zooza tools are used:
      > (you call programmes '**{programme_term}**', sessions '**{session_term}**', ...)."
    - Use the profile `mappings` when interpreting user requests and calling tools.
      Translate the user's terms to Zooza canonical terms before passing them to tools.
-     Example: user says "kurzy" → resolve to Programme before calling `find_courses`.
+     Example: user says "kurzy" → resolve to Programme before calling `classes_find_courses`.
 
 3. **If no profile exists:**
    - Mention once per session:

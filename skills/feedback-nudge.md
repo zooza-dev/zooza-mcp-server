@@ -14,7 +14,7 @@ This skill controls **when** to offer feedback and **how** to draft + anonymize 
 
 ## Triggers — when to offer proactively
 
-1. **Successful write/commit + 7-day cool-off.** After a write/commit MCP tool returns success (e.g. `commit_class`, future `commit_refund`), AND `whoami.last_feedback_at` is `null` or more than 7 days ago. Phrase:
+1. **Successful write/commit + 7-day cool-off.** After a write/commit MCP tool returns success (e.g. `classes_commit_class`, future `commit_refund`), AND `whoami.last_feedback_at` is `null` or more than 7 days ago. Phrase:
 
    > *"Glad that worked! Quick optional ask: any feedback for the engineering team while it's fresh?"*
 

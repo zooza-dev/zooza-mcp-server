@@ -23,8 +23,8 @@ export const companyIdSchema = z
 
 /**
  * Registration statuses that mean "still in trial". Single source of truth for
- * the attendance tools: `get_attendance` derives `is_trial` from it, and
- * `mark_attendance` uses it to gate the trial-followup todo lookup. Keep in sync
+ * the attendance tools: `sessions_get_attendance` derives `is_trial` from it, and
+ * `sessions_mark_attendance` uses it to gate the trial-followup todo lookup. Keep in sync
  * with api-v1's trial status enum.
  */
 export const TRIAL_STATUSES = new Set(["trial_started", "trial_not_started"]);

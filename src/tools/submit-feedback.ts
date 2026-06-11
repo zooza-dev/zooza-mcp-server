@@ -40,7 +40,7 @@ export const submitFeedbackInputSchema = {
     .string()
     .optional()
     .describe(
-      "Optional. Snake-case name of the MCP tool the feedback is about (e.g. 'create_class', 'find_courses'). For path='internal' it's embedded in the issue header; for path='github' it's omitted from the URL (mildly fingerprinting).",
+      "Optional. Snake-case name of the MCP tool the feedback is about (e.g. 'create_class', 'classes_find_courses'). For path='internal' it's embedded in the issue header; for path='github' it's omitted from the URL (mildly fingerprinting).",
     ),
 };
 

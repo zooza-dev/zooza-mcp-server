@@ -1,7 +1,7 @@
 ---
 name: class-management
 title: Create a new class
-description: Guided flow for creating a new Zooza class — interview the user, accumulate session patterns, commit. Used in conjunction with the preview_schedule, preview_events, and commit_class MCP tools.
+description: Guided flow for creating a new Zooza class — interview the user, accumulate session patterns, commit. Used in conjunction with the classes_preview_schedule, classes_preview_events, and classes_commit_class MCP tools.
 ---
 
 # Class management
@@ -30,11 +30,11 @@ The user's pattern is assembled across multiple turns. Gather it iteratively.
 
 **Precondition:** by this point you should already know which `company_id` to work in (the session bootstrap covers this — call `whoami` first if you somehow skipped it). Pass `company_id` to every `find_*`, `preview_*` and `commit_*` call below.
 
-Ask the user (one combined prompt is fine), and resolve each via the matching `find_*` tool before passing to `preview_schedule`:
+Ask the user (one combined prompt is fine), and resolve each via the matching `find_*` tool before passing to `classes_preview_schedule`:
 
-- **Which course?** If they name it (or use any substring), call `find_courses({ company_id, name: <substring> })`. Render matches as `id | name | target_audience | price | schedules_count`. One match → confirm with the user; multiple → ask them to pick; zero → broaden the search or accept that no such course exists. If they gave a numeric id upfront, accept it without calling `find_courses`.
-- **At which venue?** Call `find_places({ company_id, name: <substring> })` (or `{ company_id, city: <substring> }` for multi-venue companies). Render `id | name | city | street | rooms` — rooms come pre-inlined. If the operator names a specific room, surface its capacity in the confirmation.
-- **Primary trainer?** If the user names a person (or a substring), call `find_trainers({ company_id, name: <substring> })` and render `id | full_name | email`. Active team members only by default; pass `include_inactive: true` only if the operator explicitly asks for a former trainer. Note: api-v1 returns ANY company team member who could be assigned (`owner`, `member`, `external_member`, `assistant`, `main_member`) — not a separate "trainer" role.
+- **Which course?** If they name it (or use any substring), call `classes_find_courses({ company_id, name: <substring> })`. Render matches as `id | name | target_audience | price | schedules_count`. One match → confirm with the user; multiple → ask them to pick; zero → broaden the search or accept that no such course exists. If they gave a numeric id upfront, accept it without calling `classes_find_courses`.
+- **At which venue?** Call `classes_find_places({ company_id, name: <substring> })` (or `{ company_id, city: <substring> }` for multi-venue companies). Render `id | name | city | street | rooms` — rooms come pre-inlined. If the operator names a specific room, surface its capacity in the confirmation.
+- **Primary trainer?** If the user names a person (or a substring), call `trainers_find({ company_id, name: <substring> })` and render `id | full_name | email`. Active team members only by default; pass `include_inactive: true` only if the operator explicitly asks for a former trainer. Note: api-v1 returns ANY company team member who could be assigned (`owner`, `member`, `external_member`, `assistant`, `main_member`) — not a separate "trainer" role.
 
   If the user **doesn't name a trainer** (e.g. "leave it open", "we'll figure it out", "no trainer yet", or simply skips the question), don't pick a real person — offer Zooza's three built-in placeholders and ask the user to pick:
 
@@ -44,13 +44,13 @@ Ask the user (one combined prompt is fine), and resolve each via the matching `f
   | `9000000000002` | **Trainer unassigned** | the operator explicitly does not want to assign anyone (e.g. self-led class, walk-in studio time) |
   | `9000000000003` | **Guest trainer** | sessions will be run by visiting / rotating guests rather than a fixed staff trainer |
 
-  These ids are hardcoded constants — do not look them up via `find_trainers`. If the user gives no signal at all, default to `9000000000001` ("To be decided") and tell the user that's what you picked so they can override.
+  These ids are hardcoded constants — do not look them up via `trainers_find`. If the user gives no signal at all, default to `9000000000001` ("To be decided") and tell the user that's what you picked so they can override.
 
-Composite trainer lookups: if the operator says *"who teaches at Centrum Rafael?"* or *"who teaches Yoga?"*, call `find_trainers({ place_id })` or `find_trainers({ course_id })` respectively — both filters compose.
+Composite trainer lookups: if the operator says *"who teaches at Centrum Rafael?"* or *"who teaches Yoga?"*, call `trainers_find({ place_id })` or `trainers_find({ course_id })` respectively — both filters compose.
 
 Capture any other inputs the user already mentioned (capacity, prices, schedule_type, `online_registration`, `billing_period_id`).
 
-Call `preview_schedule` with those inputs. Render the resolved shell as a compact table:
+Call `classes_preview_schedule` with those inputs. Render the resolved shell as a compact table:
 
 | Field | Value | Note |
 | --- | --- | --- |
@@ -66,15 +66,15 @@ Call `preview_schedule` with those inputs. Render the resolved shell as a compac
 Then list `warnings[]` verbatim under a short heading. **Treat every warning as a question to the user, not a footnote** — in particular:
 
 - If a warning mentions `online_registration` defaulting to true, explicitly ask: *"Should this class be published on the public website for online enrollment, or kept private?"*
-- If a warning mentions `billing_period_id` falling back, call `find_billing_periods({ company_id })` (returns all active periods, typically 1–30 per company) and offer them as a table (`id | name | active`). Ask the operator to pick. If the company has only one active period, name it and ask "use this one?"
+- If a warning mentions `billing_period_id` falling back, call `classes_find_billing_periods({ company_id })` (returns all active periods, typically 1–30 per company) and offer them as a table (`id | name | active`). Ask the operator to pick. If the company has only one active period, name it and ask "use this one?"
 
-Ask the user to **confirm the shell** before adding sessions. If they want to change a default, capture the change and re-call `preview_schedule`.
+Ask the user to **confirm the shell** before adding sessions. If they want to change a default, capture the change and re-call `classes_preview_schedule`.
 
 ### Step 2 — Loop: collect session patterns
 
 Ask: **"What's the session pattern?"**
 
-Translate the user's natural-language answer into the `preview_events` input. **Prefer `count` mode when the user names a number of sessions** — it avoids guessing a `to_date`.
+Translate the user's natural-language answer into the `classes_preview_events` input. **Prefer `count` mode when the user names a number of sessions** — it avoids guessing a `to_date`.
 
 | User says | Map to |
 | --- | --- |
@@ -88,9 +88,9 @@ Translate the user's natural-language answer into the `preview_events` input. **
 Rules:
 - Each block needs **exactly one** of `count` or `until_date`. Don't pass both.
 - The top-level `to_date` is only a *fallback* for blocks that omit both — prefer being explicit per block.
-- `place_id` always comes from the resolved shell. Pass it on every `preview_events` call.
+- `place_id` always comes from the resolved shell. Pass it on every `classes_preview_events` call.
 
-Call `preview_events`. Render the returned events as a markdown table, **grouped by month**:
+Call `classes_preview_events`. Render the returned events as a markdown table, **grouped by month**:
 
 ```
 ### May 2026
@@ -107,11 +107,11 @@ If `skipped[]` is non-empty, list those separately:
 
 > ⚠ Holidays skipped: 2026-05-30 (national holiday — Constitution Day), 2026-07-14 (custom — "Studio closed").
 
-**Append the returned events to a running list** in your memory. Track *all* events accumulated so far across multiple `preview_events` calls. The order in the table should be chronological (sort by `date_string` then `time_minutes`).
+**Append the returned events to a running list** in your memory. Track *all* events accumulated so far across multiple `classes_preview_events` calls. The order in the table should be chronological (sort by `date_string` then `time_minutes`).
 
 Then ask: **"Any more sessions to add, or are we done?"**
 
-If more: collect the next pattern, call `preview_events` again, append to the running list, re-render the **combined** table (the user sees the full picture growing). If the new pattern produces dates that collide with existing ones (same date + time), flag the collision and ask the user to resolve.
+If more: collect the next pattern, call `classes_preview_events` again, append to the running list, re-render the **combined** table (the user sees the full picture growing). If the new pattern produces dates that collide with existing ones (same date + time), flag the collision and ask the user to resolve.
 
 If done: move to Step 3.
 
@@ -119,13 +119,13 @@ If done: move to Step 3.
 
 Show the user the **full accumulated table** one more time with the schedule shell summarised at the top. Include the total session count. Ask one last "OK to create?"
 
-On yes: call `commit_class` with:
+On yes: call `classes_commit_class` with:
 
 - `schedule`: the resolved shell from Step 1
 - `events`: the full accumulated array (each event needs `date_string`, `time_minutes`, `duration`, `billable`, optionally `trainer_id` if overriding the primary)
 - `payment_schedule_template_ids`: from the resolved shell
 
-On error from `commit_class`, surface the api-v1 message verbatim and offer to retry. **If the schedule was created but events failed**, the error message will say so — tell the user explicitly, give them the schedule id, and offer either to retry `POST /v1/events` (we don't have a direct tool yet — note this) or to delete the orphan schedule.
+On error from `classes_commit_class`, surface the api-v1 message verbatim and offer to retry. **If the schedule was created but events failed**, the error message will say so — tell the user explicitly, give them the schedule id, and offer either to retry `POST /v1/events` (we don't have a direct tool yet — note this) or to delete the orphan schedule.
 
 On success, render:
 
@@ -140,7 +140,7 @@ If `registration_url_active === false`, append " (not live yet — publish the c
 
 ## Disambiguation rules
 
-- **Trainer name → id.** If the user names a trainer ("with Martin"), look up via `find_trainers({ name: "Martin" })` and disambiguate on multiple matches. If the user doesn't name a trainer, do NOT call `find_trainers` — offer the three placeholder ids from Step 1 (`9000000000001` To be decided, `9000000000002` Trainer unassigned, `9000000000003` Guest trainer) and let the user choose; default to `9000000000001` only if they decline to pick.
+- **Trainer name → id.** If the user names a trainer ("with Martin"), look up via `trainers_find({ name: "Martin" })` and disambiguate on multiple matches. If the user doesn't name a trainer, do NOT call `trainers_find` — offer the three placeholder ids from Step 1 (`9000000000001` To be decided, `9000000000002` Trainer unassigned, `9000000000003` Guest trainer) and let the user choose; default to `9000000000001` only if they decline to pick.
 - **Course / venue ambiguity.** Never guess. List candidates and ask.
 - **Time formats.** Convert "1pm" → `780` minutes, "13:30" → `810`. If the user gives a time outside reasonable working hours (before 6am or after 11pm), confirm before previewing.
 - **Date phrasing.** "next Monday", "every Monday in May", "from June through August" — resolve to ISO dates using today's date as the anchor. Always show the resolved `from_date` (and `until_date`, if used) back to the user before previewing.
@@ -149,7 +149,7 @@ If `registration_url_active === false`, append " (not live yet — publish the c
 ## Edge cases
 
 - **Lead-collection classes** (`schedule_type: "lead_collection"`) have no events. If the user says "I just want to gauge interest" or "no fixed dates yet, just collecting signups," set `schedule_type: "lead_collection"` and **skip Step 2 entirely**. Go straight from Step 1 to Step 3 with `events: []`.
-- **Pricing-copied warning.** If `preview_schedule.warnings` includes a price-copied-from-course note, mention it. If the user intended `0` for some price, they can override explicitly.
+- **Pricing-copied warning.** If `classes_preview_schedule.warnings` includes a price-copied-from-course note, mention it. If the user intended `0` for some price, they can override explicitly.
 - **Capacity vs room capacity.** Non-blocking warning; show verbatim and let the user decide.
 - **`count_unreachable_in_window`.** api-v1 caps the search at 2 years. If the user asks for a session count that can't fit (e.g. "monthly cadence, 50 sessions" → 4+ years), the call errors with this message — explain the cap and ask whether to reduce the count or use `until_date` instead.
-- **Calendar shift between preview and commit.** Not a v1 concern (we don't expose `skip_*` flags yet), but if you ever do: call `preview_events` once more right before commit with the same inputs to verify the dates haven't changed underneath you.
+- **Calendar shift between preview and commit.** Not a v1 concern (we don't expose `skip_*` flags yet), but if you ever do: call `classes_preview_events` once more right before commit with the same inputs to verify the dates haven't changed underneath you.

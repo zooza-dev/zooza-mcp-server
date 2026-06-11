@@ -141,7 +141,7 @@ Download the latest plugin from [Releases](../../releases) (file named `zooza-pl
 
 The plugin includes the MCP connection config, guided workflow skills, and automatic session context.
 
-> **Note:** Five of the 19 tools (`get_terminology`, `explain_data_model`, `list_message_merge_vars`, `list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
+> **Note:** Five of the 19 tools (`get_terminology`, `explain_data_model`, `comms_list_merge_vars`, `classes_list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
 
 ---
 
@@ -185,28 +185,28 @@ The `negotiate_terminology` tool lets Claude learn your studio's specific vocabu
 
 | Tool | What it does |
 |---|---|
-| `preview_schedule` | Preview a recurring class schedule before committing |
-| `preview_events` | Preview individual sessions across a date range |
-| `commit_class` | Create a class with a full recurring session schedule |
+| `classes_preview_schedule` | Preview a recurring class schedule before committing |
+| `classes_preview_events` | Preview individual sessions across a date range |
+| `classes_commit_class` | Create a class with a full recurring session schedule |
 
 ### Attendance
 
 | Tool | What it does |
 |---|---|
-| `find_events` | Find scheduled sessions by date, trainer, or programme |
+| `sessions_find_events` | Find scheduled sessions by date, trainer, or programme |
 | `get_attendance_roster` | Get the full register for one session — who is enrolled and their current status |
-| `mark_attendance` | Record attendance for each participant (attended / absent / late-cancel) |
-| `add_session_summary` | Add a coach note or session summary to a completed event |
+| `sessions_mark_attendance` | Record attendance for each participant (attended / absent / late-cancel) |
+| `sessions_add_summary` | Add a coach note or session summary to a completed event |
 
 ### Lookups
 
 | Tool | What it does |
 |---|---|
 | `whoami` | Identify the connected user and list accessible companies/locations |
-| `find_courses` | Search programmes by billing period, name, or status |
-| `find_billing_periods` | List billing periods (seasons/terms) for a company |
-| `find_trainers` | List trainers available at a location |
-| `find_places` | List rooms and locations for a company |
+| `classes_find_courses` | Search programmes by billing period, name, or status |
+| `classes_find_billing_periods` | List billing periods (seasons/terms) for a company |
+| `trainers_find` | List trainers available at a location |
+| `classes_find_places` | List rooms and locations for a company |
 
 ### Free tools — Zooza domain knowledge (no API calls, no account needed)
 
@@ -216,8 +216,8 @@ These five tools carry Zooza-specific knowledge and work without credentials —
 |---|---|
 | `get_terminology` | Translate Zooza terms by region — e.g. "Programme" vs "Course" vs "Kurz" |
 | `explain_data_model` | Explain how Zooza entities relate (Programme → Class → Session → Registration) |
-| `list_message_merge_vars` | Full catalogue of merge variables for Zooza message templates |
-| `list_schedule_patterns` | Reference for recurrence patterns (weekly, bi-weekly, block, camp) |
+| `comms_list_merge_vars` | Full catalogue of merge variables for Zooza message templates |
+| `classes_list_schedule_patterns` | Reference for recurrence patterns (weekly, bi-weekly, block, camp) |
 | `negotiate_terminology` | Save your studio's vocabulary to Claude memory for future sessions |
 
 ### Utilities
@@ -333,7 +333,7 @@ curl -sS http://localhost:3001/mcp \
 Every tool call appends one JSON line to `logs/audit.log`. Each entry carries `request_id`, `tool`, `args`, `outcome`, `result`-or-`error`, and `duration_ms`.
 
 Bookend pattern for debugging:
-1. "I'm about to call `find_events`." → Claude records the log line count
+1. "I'm about to call `sessions_find_events`." → Claude records the log line count
 2. Run the tool from your MCP client
 3. "done." → Claude reads the new lines and reports what the server saw
 
