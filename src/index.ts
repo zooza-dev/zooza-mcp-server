@@ -142,11 +142,30 @@ import {
   submitFeedbackInputSchema,
   submitFeedbackTitle,
 } from "./tools/submit-feedback.js";
+import {
+  renderArtifactHtml,
+  runShowReport,
+  showReportDescription,
+  showReportInputSchema,
+  showReportTitle,
+} from "./tools/show-report.js";
+import { ensureBranding, fetchCompanyBranding } from "./auth/branding.js";
+import { getSession } from "./auth/session-store.js";
+import { ZoozaApiError, zoozaFetch } from "./zooza.js";
+import { resolveReportToken } from "./reports-token.js";
+import { fetchBusinessDashboard } from "./reports-data.js";
+import {
+  getReportDataDescription,
+  getReportDataInputSchema,
+  getReportDataTitle,
+  runGetReportData,
+} from "./tools/get-report-data.js";
+import { REPORTS_INSTRUCTIONS } from "./instructions.js";
 
 const SKILLS = loadAllSkills();
 const SKILL_INSTRUCTIONS = buildSkillInstructions(SKILLS);
 
-const COMBINED_INSTRUCTIONS = [ROUTING_INSTRUCTIONS, TERMINOLOGY_INSTRUCTIONS, SKILL_INSTRUCTIONS]
+const COMBINED_INSTRUCTIONS = [ROUTING_INSTRUCTIONS,TERMINOLOGY_INSTRUCTIONS, SKILL_INSTRUCTIONS, REPORTS_INSTRUCTIONS]
   .filter(Boolean)
   .join("\n\n---\n\n");
 
@@ -660,6 +679,53 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
     audit("submit_feedback", ctx, scopeGuard(SCOPE_WRITE, ctx, async (args) => runSubmitFeedback(args, ctx))),
   );
 
+  // Client reports app (ZMCP-20260612-002). Browser-link tool for the full multi-tab
+  // dashboard EXAMPLE. OFF by default (ZOOZA_ENABLE_REPORT_LINK): the client deliverable
+  // is a composed artifact (reports_get_data + report-compose), not a link — registering
+  // it made the model keep handing out links. (Dropped by the main merge; restored.)
+  if (config.zooza.enableReportLink) {
+    server.registerTool(
+      "reports_show_report",
+      {
+        title: showReportTitle,
+        description: showReportDescription,
+        inputSchema: showReportInputSchema,
+        annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+      },
+      audit(
+        "reports_show_report",
+        ctx,
+        scopeGuard(
+          SCOPE_READ,
+          ctx,
+          resolveCompanyId(ctx, async (args) => runShowReport(args, ctx)),
+        ),
+      ),
+    );
+  }
+
+  // Real report data for LLM-composed client reports (ZMCP-20260612-003). The anti-
+  // fabrication anchor — numbers shown to clients come from here, never the model.
+  // (Dropped by the main merge; restored.)
+  server.registerTool(
+    "reports_get_data",
+    {
+      title: getReportDataTitle,
+      description: getReportDataDescription,
+      inputSchema: getReportDataInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "reports_get_data",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runGetReportData(args, ctx)),
+      ),
+    ),
+  );
+
   const skillNames = SKILLS.map((s) => s.name);
   const skillNameList = skillNames.length > 0 ? skillNames.join(", ") : "(none)";
 
@@ -827,6 +893,66 @@ async function main(): Promise<void> {
   });
   app.get("/icon.svg", (_req, res) => {
     res.type("image/svg+xml").set("Cache-Control", "public, max-age=3600").send(ZOOZA_ICON_SVG);
+  });
+
+  // Client reports app — browser page (ZMCP-20260612-002). Most chat hosts can't fetch
+  // MCP resources model-side, so reports_show_report's directive includes this URL for
+  // the user to OPEN IN A BROWSER. Without a token it renders the anonymized demo
+  // dataset (safe public). With a valid ?token= (minted by reports_show_report during
+  // an authenticated tool call) the page additionally gets the company's branding
+  // baked in, and its inline script fetches live data from /reports/data below.
+  app.get("/reports", async (req, res) => {
+    try {
+      const entry = resolveReportToken(
+        typeof req.query.token === "string" ? req.query.token : undefined,
+      );
+      let branding = null;
+      if (entry) {
+        const session = getSession(entry.sub);
+        branding = session
+          ? await ensureBranding(session, entry.auth, entry.companyId)
+          : await fetchCompanyBranding(entry.auth, entry.companyId);
+      }
+      res
+        .type("text/html")
+        .set("Cache-Control", "no-cache")
+        .send(renderArtifactHtml(branding));
+    } catch {
+      res.status(503).json({ error: "reports artifact unavailable on this deployment" });
+    }
+  });
+
+  // Live data for the reports page. The browser page holds only the opaque token; the
+  // MCP server replays the snapshotted auth against api-v1 server-side. Fixed 12-month
+  // window — the in-page period picker filters client-side without refetching.
+  app.get("/reports/data", async (req, res) => {
+    const entry = resolveReportToken(
+      typeof req.query.token === "string" ? req.query.token : undefined,
+    );
+    if (!entry) {
+      res.status(401).json({
+        error: "invalid_or_expired_token",
+        message: "Ask for the report again in chat to get a fresh link.",
+      });
+      return;
+    }
+    const to = new Date();
+    const from = new Date(to.getFullYear(), to.getMonth() - 11, 1);
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+    try {
+      // entry.auth already carries the caller's company (applied via withCompany when
+      // the token was minted) — replay it verbatim against api-v1.
+      const payload = await fetchBusinessDashboard(entry.auth, { from: fmt(from), to: fmt(to) });
+      res.set("Cache-Control", "private, max-age=60").json(payload);
+    } catch (err) {
+      const status = err instanceof ZoozaApiError ? err.status : 502;
+      console.error("[reports/data] upstream failed:", err instanceof Error ? err.message : err);
+      res.status(status >= 400 && status < 600 ? status : 502).json({
+        error: "upstream_failed",
+        message: "Zooza data is temporarily unavailable — the page will fall back to demo data.",
+      });
+    }
   });
 
   // OpenAI ChatGPT App domain verification — place token in OPENAI_DOMAIN_CHALLENGE_TOKEN env var.

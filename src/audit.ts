@@ -28,6 +28,9 @@ const ZOOZA_LOGO_BLOCK: ImageBlock = {
 };
 
 function brand(result: ToolResult): ToolResult {
+  // Off for the Cowork live-artifact bridge — its callMcpTool return validator
+  // rejects non-text content blocks, so the image breaks every bridge call.
+  if (!config.zooza.brandImage) return result;
   return { ...result, content: [ZOOZA_LOGO_BLOCK, ...result.content] };
 }
 

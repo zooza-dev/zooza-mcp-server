@@ -87,6 +87,19 @@ export const config = {
     // windows may flip the flag without redeploy.
     legacyToken: allowHardcoded ? required("ZOOZA_API_TOKEN") : optional("ZOOZA_API_TOKEN", ""),
     legacyCompany: allowHardcoded ? required("ZOOZA_API_COMPANY") : optional("ZOOZA_API_COMPANY", ""),
+    // Prepend the Zooza logo as an `image` content block on every tool result.
+    // On by default so chat hosts (Claude Desktop) brand replies. MUST be off
+    // for the Cowork live-artifact bridge: `CoworkArtifactBridge.callMcpTool`
+    // rejects results containing non-text content blocks, so the image makes
+    // EVERY bridge call fail validation (verified via whoami control probe).
+    brandImage: bool("ZOOZA_BRAND_IMAGE", true),
+    // Register the reports_show_report tool (returns a browser link to the full
+    // multi-tab dashboard EXAMPLE). OFF by default: the client deliverable is a
+    // focused report ARTIFACT the model composes in-conversation from
+    // reports_get_data, not a link. When registered, its description out-competes
+    // the compose flow and the model keeps handing out links. Flip on only for
+    // internal/dev use of the example dashboard.
+    enableReportLink: bool("ZOOZA_ENABLE_REPORT_LINK", false),
   },
   auth: {
     allowHardcoded,

@@ -40,6 +40,9 @@ export interface CompanyRef {
 export interface SessionState {
   sub: string;
   companies: CompanyRef[];
+  /** Per-company branding cache (logo data URI, primary color) — warmed by whoami,
+   *  consumed when serving the reports artifact resource. See auth/branding.ts. */
+  branding?: Map<number, import("./branding.js").CompanyBranding>;
 }
 
 /**

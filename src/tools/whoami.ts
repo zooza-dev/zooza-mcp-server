@@ -1,7 +1,11 @@
+import { ensureBranding } from "../auth/branding.js";
 import { extractCompanies } from "../auth/companies.js";
 import type { RequestAuthContext } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { pickStr } from "./common.js";
+
+/** Warm branding for at most this many companies per whoami (logo downloads cost time). */
+const BRANDING_WARM_LIMIT = 3;
 
 export const whoamiTitle = "Who am I?";
 
@@ -27,6 +31,9 @@ Regional context fields (use these to adapt behaviour):
 
 Use 'company.region' and 'company.language' to resolve terminology: a Slovak company saying "kurz" means Programme; a Czech company saying "lekce" means Session. When region context is available, skip asking the user to clarify language.
 
+Branding (per company in 'companies[].branding'):
+- 'branding.logo' (boolean) and 'branding.primary_color' (#hex or null) report what brand assets were cached for this company. The actual logo is held server-side and is injected automatically into the client reports artifact (reports_show_report) — you never handle the image yourself. Null branding = fetch failed or nothing configured; the artifact falls back to default Zooza styling.
+
 Feedback context (used by the 'feedback-nudge' skill):
 - 'last_feedback_at' — ISO timestamp of the user's last MCP feedback submission, or null if never. Drives the skill's 7-day cool-off on proactive feedback nudges.
 - 'feedback_count' — total submissions to date (0 if never).
@@ -51,6 +58,9 @@ interface WhoamiCompany {
   language: string | null;
   locale: string | null;
   currency: string | null;
+  /** Brand summary — the full assets (logo data URI) stay in the server-side cache
+   *  and are injected into the reports artifact; only presence is surfaced here. */
+  branding?: { logo: boolean; primary_color: string | null } | null;
 }
 
 interface WhoamiResult {
@@ -166,12 +176,29 @@ export async function runWhoami(
     });
   }
 
+  // Warm the per-company branding cache (logo as data URI + primary color) so the
+  // reports artifact opens already styled with the client's brand. Soft, parallel,
+  // capped — a missing logo must never slow whoami down or fail it.
+  const brandedCompanies = await Promise.all(
+    enrichedCompanies.map(async (c, idx) => {
+      if (idx >= BRANDING_WARM_LIMIT) return { ...c, branding: null };
+      const b = await ensureBranding(ctx.session, ctx.auth, c.id);
+      return {
+        ...c,
+        branding: {
+          logo: b.logo_data_uri !== null,
+          primary_color: b.primary_color,
+        },
+      };
+    }),
+  );
+
   return ok({
     status: "ok",
     status_message: "Authenticated. Pick a company_id from `companies` for follow-up tool calls.",
     server_region: serverRegion,
     identity,
-    companies: enrichedCompanies,
+    companies: brandedCompanies,
     scopes,
     token_state: "active",
     last_feedback_at: feedback.last_feedback_at,
