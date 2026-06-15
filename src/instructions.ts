@@ -8,7 +8,7 @@
 
 export const ROUTING_INSTRUCTIONS = `WHICH TOOLS TO REACH FOR
 • Who am I / which company / what do Zooza's words mean → whoami, get_terminology, negotiate_terminology, explain_data_model
-• What we offer — programmes, classes, schedules, venues, billing periods (term blocks) → classes_* (resolve ids first: classes_find_courses, classes_find_places, classes_find_billing_periods; create flow: classes_preview_schedule → classes_preview_events → classes_commit_class)
+• What we offer — programmes, classes, schedules, venues, billing periods (term blocks) → classes_* (resolve ids first: classes_find_courses for a PROGRAMME → course_id; classes_find_classes for a CLASS/group by name → schedule_id; classes_find_places, classes_find_billing_periods; create flow: classes_preview_schedule → classes_preview_events → classes_commit_class)
 • This week's sessions, attendance, session notes → sessions_* (resolve event ids first: sessions_find_events)
 • Trainers / instructors → trainers_find
 • Messaging clients — templates, merge variables, sending email → comms_* (comms_list_templates for what exists, comms_list_merge_vars for *|TAGS|*; send flow: comms_prepare_message → show plan, get explicit confirmation → comms_commit_message)

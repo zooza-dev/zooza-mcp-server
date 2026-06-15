@@ -173,6 +173,54 @@ export interface RawCourseRecord {
   __calc__registrations_count?: number | string;
 }
 
+/** Curated match shape for classes_find_classes — see ZMCP-20260615-001.
+ *  `start`/`end`/`time` + `trainer_name`/`place_name` are the disambiguators when
+ *  several classes share a name; `schedule_id` is the resolve payload (feeds
+ *  comms_prepare_message audience.schedule_id). `course_name` is intentionally
+ *  ABSENT: the /schedules collection path does not honor load_course, so only
+ *  course_id is available without a second call — resolve the name with
+ *  classes_find_courses if needed. */
+export interface ScheduleMatch {
+  schedule_id: number;
+  name: string;
+  course_id: number;
+  start: string;
+  end: string;
+  time: string;
+  trainer_id: number;
+  trainer_name: string;
+  place_id: number;
+  place_name: string;
+  capacity: number;
+  registrations_count: number;
+  status: string;
+}
+
+/** Raw schedule record from /v1/schedules (collection path, load_trainer=1).
+ *  Only the fields classes_find_classes reads are typed. */
+export interface RawScheduleRecord {
+  id: number;
+  name?: string;
+  course_id?: number;
+  start?: string;
+  end?: string;
+  time?: string;
+  trainer_id?: number;
+  place_id?: number;
+  capacity?: number | string;
+  status?: string;
+  /** Denormalised venue name (Schedule::place()). */
+  __calc__course_place?: string;
+  /** Materialised active-registration count (Schedule __calc__registered). */
+  __calc__registered?: number | string;
+  /** Present only when the request passed load_trainer=1. */
+  trainer?: {
+    id?: number;
+    first_name?: string;
+    last_name?: string;
+  };
+}
+
 /** Curated match shape for classes_find_billing_periods — see ZMCP-20260523-004. */
 export interface BillingPeriodMatch {
   id: number;

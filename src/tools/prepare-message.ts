@@ -17,7 +17,9 @@ export const prepareMessageDescription =
   "it will be sent, warnings (unknown merge tags, zero recipients), and a single-use `token`. Show this plan to the " +
   "operator and get their explicit confirmation, then call comms_commit_message with the token to actually send. " +
   "Call comms_prepare_message again with adjusted filters to refine the audience — it is free and repeatable. " +
-  "Resolve names to ids first (classes_find_courses, sessions_find_events); never guess ids.";
+  "Resolve names to ids first: classes_find_courses for a course/programme → course_id, " +
+  "classes_find_classes for a class/group by name → schedule_id, sessions_find_events for a single session → event_id; " +
+  "never guess ids.";
 
 const audienceSchema = z
   .object({
@@ -185,7 +187,7 @@ export async function runPrepareMessage(
     return errorResult(
       "audience must contain at least one of: course_id, schedule_id, registration_id, user_id, segment_id, labels. " +
         "Ask the operator who the message is for — a whole programme, one class, or a single client — then resolve " +
-        "the id with classes_find_courses / sessions_find_events.",
+        "the id: classes_find_courses → course_id, classes_find_classes → schedule_id, sessions_find_events → event_id.",
     );
   }
 
