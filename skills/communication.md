@@ -92,8 +92,10 @@ Then read the result — there are two outcomes:
   2. ONLY if they explicitly say yes, call `comms_commit_message` **again** with the **same
      token** and `confirm_large_send: true`. That releases the send directly — the operator does
      not need to open the app. Confirm the job id afterwards.
-  3. If they say no, send nothing. Leave it parked; if the result included an `approval_url`,
-     mention they can review or approve it in the app later. Do not set `confirm_large_send`.
+  3. If they say no, send nothing and do not set `confirm_large_send`. The job stays parked —
+     tell the operator it is waiting for approval in **Zooza admin → Messages** and they can
+     review or release it there whenever they want. If the result included an `approval_url`,
+     give them that direct link too; if not, the plain "Zooza admin → Messages" path still works.
 
 ### 6b. SECOND CONFIRMATION — the recipient count is not optional
 
