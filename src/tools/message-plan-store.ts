@@ -26,6 +26,15 @@ export interface MessagePlan {
   bcc?: string;
   schedule_at?: { date: string; hour: number; minute: number };
   recipient_count: number;
+  /**
+   * Set by comms_commit_message once the upstream job has been CREATED but came
+   * back `pending_approval` (audience above the company's approval threshold).
+   * Its presence means "the job exists; a second, explicit operator confirmation
+   * is needed to release it" — the second commit call approves this job id
+   * instead of creating a duplicate. Stays unset for under-threshold sends,
+   * which complete in a single call.
+   */
+  created_job_id?: number;
 }
 
 interface StoredPlan {
@@ -77,6 +86,17 @@ export function getPlan(token: string, now: number = Date.now()): PlanLookup {
 export function markPlanUsed(token: string): void {
   const entry = store.get(token);
   if (entry) entry.used = true;
+}
+
+/**
+ * Records the created (but not-yet-approved) job id on a plan whose audience
+ * exceeded the company's approval threshold. The token is intentionally NOT
+ * consumed here — it must survive to the second commit call that approves the
+ * job after the operator's explicit second confirmation.
+ */
+export function recordPlanJob(token: string, jobId: number): void {
+  const entry = store.get(token);
+  if (entry) entry.plan.created_job_id = jobId;
 }
 
 /** Test helper — never call from tool code. */

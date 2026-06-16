@@ -78,14 +78,38 @@ Only after the operator explicitly says yes, call `comms_commit_message` with th
 Tokens are single-use and expire in 15 minutes — if expired, re-prepare and re-confirm; never
 treat re-preparation as pre-approved.
 
-Afterwards, tell the operator the job id and that progress is tracked in Zooza admin → Messages.
-If `approval_required: true`, explain the send exceeds the company's approval threshold and must
-be approved in Zooza admin before anything goes out — that is a safety feature, not an error.
+Then read the result — there are two outcomes:
+
+- **Sent** (normal case) — the result has a `job_id` and `status` (e.g. `queued`). Tell the
+  operator the job id and that progress is tracked in Zooza admin → Messages. Done.
+
+- **`requires_second_confirmation: true`** (the audience is above the company's approval
+  threshold) — **nothing has been sent yet.** The job exists but is parked. This is the safety
+  gate for large sends. Do NOT call anything else automatically. Instead:
+  1. Tell the operator the **exact recipient count** from the result and ask a clear, second
+     question naming that number — e.g. *"This will email all 105 clients, which is above your
+     account's approval limit. Are you sure you want to send to all 105?"*
+  2. ONLY if they explicitly say yes, call `comms_commit_message` **again** with the **same
+     token** and `confirm_large_send: true`. That releases the send directly — the operator does
+     not need to open the app. Confirm the job id afterwards.
+  3. If they say no, send nothing. Leave it parked; if the result included an `approval_url`,
+     mention they can review or approve it in the app later. Do not set `confirm_large_send`.
+
+### 6b. SECOND CONFIRMATION — the recipient count is not optional
+
+The second confirmation MUST state the real recipient count from the result. Never approve a
+large send with a vague "ok?" — the whole point of this gate is that a human consciously agreed
+to reach that many people. Treat "yes, send the plan" from step 6 as confirmation for the
+*content and audience*, NOT as permission to cross the approval threshold — that needs its own
+explicit yes.
 
 ## Hard rules
 
 - NEVER call `comms_commit_message` without showing the plan and receiving an explicit yes in
   this conversation. "Send it" before any plan exists is intent, not confirmation.
+- NEVER set `confirm_large_send: true` on the first commit call, and never set it without a
+  distinct second yes from the operator that named the recipient count. A `pending_approval`
+  result means stop and ask — not retry.
 - NEVER work around a 0-recipient plan by broadening the audience without telling the operator.
 - One commit per confirmation. A new send — even "the same message again" — starts at step 5.
 - WhatsApp and SMS are not available yet; if asked, say email is supported today and the others
