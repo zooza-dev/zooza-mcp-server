@@ -221,6 +221,57 @@ export interface RawScheduleRecord {
   };
 }
 
+/** Curated booking row for bookings_find (default mode) — see ZMCP-20260615-002.
+ *  Resolves a BOOKING (registration) → `registration_id`. `client_name` is the
+ *  ENROLLED person (ef_full_name — the child in a kids' class), falling back to
+ *  the account holder; `user_id` is the account holder (the comms/payment target).
+ *  Course/schedule NAMES are intentionally ABSENT: build_advanced_query only joins
+ *  `course_name` / `schedule_name` in export mode (common.php:6478,6501), and export
+ *  bypasses pagination — a single paged call carries only the ids. Resolve names
+ *  with classes_find_courses / classes_find_classes if needed. */
+export interface RegistrationMatch {
+  registration_id: number;
+  user_id: number;
+  client_name: string;
+  email: string;
+  course_id: number;
+  schedule_id: number;
+  status: string;
+  payment_status: string;
+  payment_debt: number;
+}
+
+/** Curated client row for bookings_find `distinct: true` — one row per account
+ *  holder (GROUP BY user_id). Person fields only; the misleading per-booking
+ *  fields (status, payment, which class) are dropped because the row no longer
+ *  represents one booking. `client_name` here is the account holder. */
+export interface ClientMatch {
+  user_id: number;
+  client_name: string;
+  email: string;
+}
+
+/** Raw registration row from GET /v1/registrations?advanced_search=1 — only the
+ *  fields bookings_find projects are typed (the $select is large; common.php:6469+). */
+export interface RawRegistrationRecord {
+  registration_id?: number;
+  user_id?: number | string;
+  /** r.__users__full_name (common.php:6542) — the account holder / payer. */
+  full_name?: string;
+  /** r.__extra_fields__full_name AS ef_full_name (common.php:6572) — the enrolled
+   *  person (often the child); preferred for the roster display name. */
+  ef_full_name?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  course_id?: number;
+  schedule_id?: number;
+  status?: string;
+  payment_status?: string;
+  /** r.__calc__debt AS payment_debt (common.php:6544) — decimal, may arrive as string. */
+  payment_debt?: number | string;
+}
+
 /** Curated match shape for classes_find_billing_periods — see ZMCP-20260523-004. */
 export interface BillingPeriodMatch {
   id: number;

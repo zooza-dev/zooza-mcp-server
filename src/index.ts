@@ -29,6 +29,12 @@ import {
   runFindBillingPeriods,
 } from "./tools/find-billing-periods.js";
 import {
+  bookingsFindDescription,
+  bookingsFindInputSchema,
+  bookingsFindTitle,
+  runBookingsFind,
+} from "./tools/bookings-find.js";
+import {
   findClassesDescription,
   findClassesInputSchema,
   findClassesTitle,
@@ -413,6 +419,25 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
         SCOPE_READ,
         ctx,
         resolveCompanyId(ctx, async (args) => runFindClasses(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "bookings_find",
+    {
+      title: bookingsFindTitle,
+      description: bookingsFindDescription,
+      inputSchema: bookingsFindInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "bookings_find",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runBookingsFind(args, ctx.auth)),
       ),
     ),
   );
