@@ -217,21 +217,33 @@ Call `build_timetable` with:
 
 Read the result:
 
-- **`status: optimal | feasible`** → render the draft timetable, grouped by
-  weekday, then time:
+- **`status: optimal | feasible`** → render the draft timetable as a **weekly grid** —
+  days across the top (Mon–Sun, or just the planning weekdays), time down the left,
+  one row per grid step — the way the Zooza calendar shows it. This is a markdown
+  table laid out as a week, not an HTML/image artifact.
 
   ```
-  ### Monday
-  | Time | Class | Room | Trainer | Hist. slot score |
-  | --- | --- | --- | --- | --- |
-  | 15:30 | Ballet Mini | Centrum Rafael / Studio B | Jana | 53 |
-  ...
+  | Time | Mon | Tue | Wed | Thu | Fri |
+  | --- | --- | --- | --- | --- | --- |
+  | 15:30 | **Ballet Mini**<br>Studio B · Jana |  | **Swim Squad**<br>Pool · Peter |  |  |
+  | 16:30 |  | **Hip Hop**<br>Studio A · Mia |  |  |  |
   ```
 
-  Add a one-line **utilisation read-out** per trainer (how many classes, how many
-  distinct days) and per room, so the operator can sanity-check load and
-  compactness. Flag any continuity that was *broken* (a returning class that did
-  *not* keep its previous trainer) so it's a conscious choice.
+  Rows span from the earliest start to the latest end on the grid step; drop each
+  class tile in its slot — bold class name + room · trainer. Beneath the grid add a
+  one-line **utilisation read-out** per trainer (classes count, distinct days) and per
+  room so the operator can sanity-check load and compactness, and surface the per-slot
+  **historical score** as a footnote rather than a column. Flag any continuity that
+  was *broken* (a returning class that did *not* keep its previous trainer) so it's a
+  conscious choice.
+
+  **Rollover comparison.** When the draft is a rollover (a copy of the current
+  period), the operator wants to see *what changed*, not re-read identical slots.
+  Render the proposed period as the grid above and add a per-season caption carrying
+  what differs — e.g. _Current period: 12 classes · {date range}_ / _Proposed
+  (rollover, not created): 12 classes · {new date range}_ — then call out moved /
+  dropped / added classes explicitly (from the validator's diff). Do **not** dump two
+  full date-lists side by side.
 
 - **`status: infeasible`** (with `allow_drops: false`) → do **not** dump a bare
   failure. Read `diagnosis` and explain the binding constraint in plain language:

@@ -127,7 +127,9 @@ On yes: call `classes_commit_class` with:
 
 On error from `classes_commit_class`, surface the api-v1 message verbatim and offer to retry. **If the schedule was created but events failed**, the error message will say so — tell the user explicitly, give them the schedule id, and offer either to retry `POST /v1/events` (we don't have a direct tool yet — note this) or to delete the orphan schedule.
 
-On success, render:
+On success, render the confirmation, then the timetable, then offer the next action.
+
+**Confirmation block:**
 
 ```
 Created class **{name}** (schedule {id}). **{N} sessions** posted.
@@ -136,7 +138,45 @@ Created class **{name}** (schedule {id}). **{N} sessions** posted.
 **Registration:** {registration_url}
 ```
 
-If `registration_url_active === false`, append " (not live yet — publish the class via the admin URL to activate)" to the Registration line. If either URL came back `null` (api-v1 hiccup or older version), say so plainly rather than printing the literal "null". Then offer to start another class.
+If `registration_url_active === false`, append " (not live yet — publish the class via the admin URL to activate)" to the Registration line. If either URL came back `null` (api-v1 hiccup or older version), say so plainly rather than printing the literal "null".
+
+### Step 4 — Show the timetable
+
+This is the operator's payoff. Show the class as a **weekly grid** — days across the top (Mon–Sun), time down the left — so the operator sees where the class lands in a normal week, the way the Zooza calendar shows it. Show **one representative week**, not every dated session: the operator wants the week shape, not all N weeks enumerated.
+
+**This is a markdown table laid out as a week, NOT a graphical/HTML calendar.** It renders inline everywhere and sidesteps the connector's artifact bridge limits. Do not attempt to emit an HTML/image calendar artifact.
+
+**Reuse the accumulated events you already hold from Step 2 — do NOT re-fetch via `sessions_find_events`.** Collapse them to the recurring weekday+time pattern and draw the grid from that:
+
+- **Columns:** Mon–Sun.
+- **Rows:** one per hour, spanning from one hour before the earliest session start to the latest session end.
+- **Cell:** for each weekday+time the class runs, drop a tile — bold programme name + time range (multi-line via `<br>`). A multi-weekday class (e.g. Mon 10:00 + Wed 17:00) gets a tile in each column.
+- **Caption (one line above the grid):** human pattern · session count · first → last date · venue → room · capacity · price · trainer. This carries the full-duration info the single-week grid intentionally omits.
+
+```
+## {course_name} — weekly timetable
+
+_{pattern} · {N} sessions · {first_date} → {last_date} · {place} → {room} · cap {capacity} · €{price} · {trainer}_
+
+| Time | Mon | Tue | Wed | Thu | Fri | Sat | Sun |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 09:00 |  |  |  |  |  |  |  |
+| 10:00 | **{course_name}**<br>10:00–11:00 |  |  |  |  |  |  |
+| 11:00 |  |  |  |  |  |  |  |
+```
+
+**When the schedule is irregular, the single-week grid hides sessions — append the detail list.** A pattern is irregular when it has biweekly/monthly cadence, one-off `additional_dates`, holiday `skipped[]` entries, or different times/trainers across blocks. In those cases render the weekly grid **and** the month-grouped session list beneath it (`Day | Date | Time | Duration | Billable | Trainer`) so no session is hidden. For a clean weekly / multi-weekday pattern, grid + caption is complete on its own.
+
+**Then** offer to start another class.
+
+> **Viewing an existing class later.** Same render when the operator asks to see a class created earlier — fetch sessions via `sessions_find_events({ company_id, schedule_id })`, collapse them back to the weekday+time pattern, and draw the same weekly grid. No new tool needed.
+
+> **Copying a class to a new season.** When the operator copies a class forward (e.g. a 2025 class → a 2026 copy) and wants to compare, do **not** render two date-lists — the slot is identical (same weekday+time). Draw **one weekly grid** for the slot and put **one caption line per season** beneath it carrying what differs — the date range and session count:
+>
+> _Current (2025): Fri 11:00 · 11 sessions · 4 Jul → 12 Sep_
+> _Proposed copy (2026, not created): Fri 11:00 · 11 sessions · 3 Jul → 11 Sep_
+>
+> Fall back to week-by-week date lists only if the operator explicitly asks to eyeball every session.
 
 ## Disambiguation rules
 

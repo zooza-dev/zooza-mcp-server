@@ -14,7 +14,9 @@ export const ROUTING_INSTRUCTIONS = `WHICH TOOLS TO REACH FOR
 • Trainers / instructors → trainers_find
 • Messaging clients — templates, merge variables, sending email → comms_* (comms_list_templates for what exists, comms_list_merge_vars for *|TAGS|*; resolve specific recipients with bookings_find → registration_id / user_id; send flow: comms_prepare_message → show plan, get explicit confirmation → comms_commit_message)
 • Sending feedback or feature requests to Zooza → submit_feedback
-Writes that commit real changes are split into preview/prepare and commit steps (e.g. classes_preview_schedule before classes_commit_class) — ALWAYS show the preview to the user and get confirmation before calling any commit_* tool.`;
+Writes that commit real changes are split into preview/prepare and commit steps (e.g. classes_preview_schedule before classes_commit_class) — ALWAYS show the preview to the user and get confirmation before calling any commit_* tool.
+
+SHOWING A CLASS'S SESSIONS (its timetable) — DEFAULT to a weekly GRID, never a flat date list. Any time you display the sessions of a class — a preview, after creating it, when viewing or COPYING an existing class, or a whole-period overview — render a markdown week grid: days across the top (Mon–Sun), time down the left, the class in its slot, exactly like the Zooza app calendar. Show ONE representative week and carry the run range + session count in a one-line caption (one caption per season when comparing an original against a copy). Draw a date list / timeline ONLY if the user explicitly asks to see every individual session date.`;
 /**
  * Tool-routing instructions merged into the MCP server's `instructions` field
  * (see COMBINED_INSTRUCTIONS in index.ts). Per the taxonomy spec ZMCP-20260611-007,
