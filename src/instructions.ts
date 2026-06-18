@@ -39,6 +39,7 @@ HARD RULES:
 • Every figure you show MUST come from reports_get_data verbatim. NEVER invent, estimate,
   or recompute numbers, and never draw a chart before calling it. No data → say so; do not
   fabricate a report.
-• Show only what the client asked. The full dashboard (reports_show_report / the /reports
-  page) is an internal EXAMPLE + component library, not the client deliverable.
+• Show only what the client asked. The full multi-tab dashboard
+  (artifacts/business-dashboard.html) is an internal EXAMPLE + component library, not the
+  client deliverable — compose a focused, single-question report instead.
 • For raw data to REASON over (not show), use the find_*/get_* tools.`;

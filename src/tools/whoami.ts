@@ -32,7 +32,7 @@ Regional context fields (use these to adapt behaviour):
 Use 'company.region' and 'company.language' to resolve terminology: a Slovak company saying "kurz" means Programme; a Czech company saying "lekce" means Session. When region context is available, skip asking the user to clarify language.
 
 Branding (per company in 'companies[].branding'):
-- 'branding.logo' (boolean) and 'branding.primary_color' (#hex or null) report what brand assets were cached for this company. The actual logo is held server-side and is injected automatically into the client reports artifact (reports_show_report) — you never handle the image yourself. Null branding = fetch failed or nothing configured; the artifact falls back to default Zooza styling.
+- 'branding.logo' (boolean) and 'branding.primary_color' (#hex or null) report what brand assets were cached for this company. Use 'primary_color' to brand a report artifact you compose for the client; the actual logo image is held server-side and never passes through you. Null branding = fetch failed or nothing configured; default to Zooza styling.
 
 Feedback context (used by the 'feedback-nudge' skill):
 - 'last_feedback_at' — ISO timestamp of the user's last MCP feedback submission, or null if never. Drives the skill's 7-day cool-off on proactive feedback nudges.

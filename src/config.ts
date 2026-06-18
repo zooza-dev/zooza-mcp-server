@@ -93,13 +93,6 @@ export const config = {
     // rejects results containing non-text content blocks, so the image makes
     // EVERY bridge call fail validation (verified via whoami control probe).
     brandImage: bool("ZOOZA_BRAND_IMAGE", true),
-    // Register the reports_show_report tool (returns a browser link to the full
-    // multi-tab dashboard EXAMPLE). OFF by default: the client deliverable is a
-    // focused report ARTIFACT the model composes in-conversation from
-    // reports_get_data, not a link. When registered, its description out-competes
-    // the compose flow and the model keeps handing out links. Flip on only for
-    // internal/dev use of the example dashboard.
-    enableReportLink: bool("ZOOZA_ENABLE_REPORT_LINK", false),
   },
   auth: {
     allowHardcoded,
