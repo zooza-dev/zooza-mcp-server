@@ -109,6 +109,91 @@ export async function fetchBusinessDashboard(
   );
 }
 
+// ── replacements (make-up credit demand vs supply) ────────────────────────────
+// Separate api-v1 endpoint (GET /credits?action=demand_supply): a live,
+// point-in-time picture — NOT month-ranged like business_dashboard. Demand =
+// unused, non-expired make-up/free credits per programme; supply = available
+// slots in that programme's eligible upcoming events. Spec SDD-20260520-001.
+
+interface DemandSupplyCourse {
+  course_id: number;
+  course_name: string;
+  scope_type: string | null;
+  flags: { waitlist_enabled: boolean; custom_replacements_enabled: boolean };
+  demand: { total_credits: number; expiring_7d: number; expiring_30d: number };
+  supply: { total_available_slots: number; events_with_slots: number };
+  ratio: number | null;
+  status: string;
+  hotspot_count: number;
+}
+
+interface DemandSupplyPayload {
+  company_id: number;
+  calculated_at?: string;
+  is_live?: boolean;
+  summary: {
+    total_unused_credits: number;
+    total_available_slots: number;
+    overall_ratio: number;
+    overall_status: string;
+    expiring_7d: number;
+    expiring_30d: number;
+  };
+  courses: DemandSupplyCourse[];
+}
+
+export async function fetchDemandSupply(auth: ZoozaAuth): Promise<DemandSupplyPayload> {
+  return zoozaFetch<DemandSupplyPayload>(
+    "/credits",
+    { query: { action: "demand_supply" } },
+    auth,
+  );
+}
+
+/**
+ * Focus the make-up demand/supply payload into the standard report shape.
+ * Point-in-time (live), so `period` is carried only for shape compatibility —
+ * the note states it is "as of now".
+ */
+export function focusReplacements(payload: DemandSupplyPayload, range: MonthRange): FocusResult {
+  const s = payload.summary ?? {
+    total_unused_credits: 0, total_available_slots: 0, overall_ratio: 0,
+    overall_status: "no_demand", expiring_7d: 0, expiring_30d: 0,
+  };
+  const courses = payload.courses ?? [];
+  const ranked = [...courses].sort((a, b) => (n(b.ratio) - n(a.ratio)));
+  const allRows = ranked.map((c) => ({
+    programme: c.course_name || `#${c.course_id}`,
+    unused_credits: n(c.demand?.total_credits),
+    available_slots: n(c.supply?.total_available_slots),
+    ratio: n(c.ratio),
+    status: c.status,
+    expiring_7d: n(c.demand?.expiring_7d),
+    hotspots: n(c.hotspot_count),
+  }));
+  const tight = courses.filter((c) => c.status === "oversaturated" || c.status === "tight").length;
+
+  return {
+    view: "replacements",
+    question: QUESTIONS.replacements,
+    period: range,
+    currency: "",
+    headline: {
+      total_unused_credits: s.total_unused_credits,
+      total_available_slots: s.total_available_slots,
+      overall_ratio: s.overall_ratio,
+      overall_status: s.overall_status,
+      expiring_7d: s.expiring_7d,
+      tight_or_oversaturated_programmes: tight,
+    },
+    rows: allRows.slice(0, ROW_CAP),
+    note: courses.length
+      ? `As of now (live): ${s.total_unused_credits} unused make-up credits vs ${s.total_available_slots} available slots — ratio ${s.overall_ratio} (${s.overall_status}). ${s.expiring_7d} expire within 7 days; ${tight} programme(s) tight or oversaturated.`
+      : "No outstanding make-up credits — clients have nothing pending to redeem.",
+    truncated: allRows.length > ROW_CAP,
+  };
+}
+
 // ── aggregation (mirrors the artifact) ────────────────────────────────────────
 
 const n = (v: unknown): number => {
@@ -167,6 +252,7 @@ const QUESTIONS: Record<string, string> = {
   trials: "How are trials converting?",
   retention: "Are my clients coming back?",
   clients_by_location: "How many clients do I have at each venue?",
+  replacements: "Can clients use their make-up credits, or are we overloaded?",
   summary: "How is my business doing overall?",
 };
 

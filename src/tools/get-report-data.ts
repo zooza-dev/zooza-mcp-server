@@ -5,6 +5,8 @@ import { ZoozaApiError } from "../zooza.js";
 import {
   defaultRange,
   fetchBusinessDashboard,
+  fetchDemandSupply,
+  focusReplacements,
   focusReport,
   REPORT_VIEWS,
 } from "../reports-data.js";
@@ -21,7 +23,7 @@ import {
 export const getReportDataTitle = "Get real report data for a business question";
 
 export const getReportDataDescription =
-  `Return the REAL, pre-aggregated numbers for ONE business question about an activity brand — and the basis for SHOWING it. This is how you show an operator a report / dashboard / chart of their business numbers (occupancy, unpaid, churn, attendance, trials, retention, revenue, "how are we doing", per programme / venue / instructor): call this, then COMPOSE a focused report as an ARTIFACT in the conversation that renders in the side panel — do NOT hand the user a link or open a browser page. Views: ${REPORT_VIEWS.join(", ")}. The result has \`headline\` (computed key figures), \`rows\` (chart/table-ready, named, capped), \`note\` (a data-aware caption), \`currency\`, and \`period\`. RULES: every number you show the user MUST come from this result verbatim — never invent, estimate, or recompute figures, and never draw a chart without calling this first. Render charts with inline SVG/CSS — no external CDN or chart library (the artifact sandbox blocks them). If a view returns no rows, say so plainly. Follow get_skill("report-compose").`;
+  `Return the REAL, pre-aggregated numbers for ONE business question about an activity brand — and the basis for SHOWING it. This is how you show an operator a report / dashboard / chart of their business numbers (occupancy, unpaid, churn, attendance, trials, retention, revenue, "how are we doing", per programme / venue / instructor): call this, then COMPOSE a focused report as an ARTIFACT in the conversation that renders in the side panel — do NOT hand the user a link or open a browser page. Views: ${REPORT_VIEWS.join(", ")}. Use view="replacements" for ANY question about make-up / replacement credits — "unused make-ups", "expiring make-ups", "credits", "náhrady / náhradné hodiny", "are we overloaded on make-ups", make-up demand vs available slots per programme (this IS the credits report; Zooza HAS make-up credits even though they are not in the business_dashboard views). The result has \`headline\` (computed key figures), \`rows\` (chart/table-ready, named, capped), \`note\` (a data-aware caption), \`currency\`, and \`period\`. RULES: every number you show the user MUST come from this result verbatim — never invent, estimate, or recompute figures, and never draw a chart without calling this first. Render charts with inline SVG/CSS — no external CDN or chart library (the artifact sandbox blocks them). If a view returns no rows, say so plainly. Follow get_skill("report-compose").`;
 
 export const getReportDataInputSchema = {
   view: z
@@ -75,6 +77,11 @@ export async function runGetReportData(
   const auth = withCompany(ctx.auth, companyId);
 
   try {
+    if (view === "replacements") {
+      const ds = await fetchDemandSupply(auth);
+      const focused = focusReplacements(ds, range);
+      return { content: [{ type: "text", text: JSON.stringify(focused, null, 2) }] };
+    }
     const payload = await fetchBusinessDashboard(auth, range);
     const focused = focusReport(payload, view, range);
     return { content: [{ type: "text", text: JSON.stringify(focused, null, 2) }] };

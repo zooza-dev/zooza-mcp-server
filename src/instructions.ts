@@ -27,7 +27,10 @@ SHOWING A CLASS'S SESSIONS (its timetable) — DEFAULT to a weekly GRID, never a
 export const REPORTS_INSTRUCTIONS = `REPORTS — composing a custom report a client asks to SEE.
 When an activity-brand operator asks to see / show / build a report, dashboard, chart, or
 visual of their business numbers (occupancy, unpaid, churn, attendance, trials, retention,
-revenue, "how are we doing", per-programme / venue / instructor performance):
+revenue, "how are we doing", per-programme / venue / instructor performance — and make-up /
+replacement credit pressure: "unused/expiring make-ups", "credits", "náhrady", "are we
+overloaded on make-ups" → reports_get_data view="replacements". Zooza HAS make-up credits;
+never tell a user credits don't exist):
 
 1. Get the skill: get_skill("report-compose") — the playbook for building a focused report
    the client owns. (Vague question → get_skill("report-discovery") to find the view first.)

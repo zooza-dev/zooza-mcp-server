@@ -8,11 +8,12 @@ export const explainDataModelDescription =
   "No Zooza API call is made — purely hardcoded domain knowledge. " +
   "Call this before any class-creation, booking, or attendance tool to avoid entity confusion. " +
   'Examples: entity="programme" → registration_type enums; entity="booking" → status values; ' +
+  'entity="credit" → make-up / replacement entitlements (the "unused/expired make-ups" and "credits" concept); ' +
   "empty call → full hierarchy with all entities.";
 
 export const explainDataModelInputSchema = {
   entity: z
-    .enum(["programme", "class", "session", "booking", "attendance", "trainer", "place"])
+    .enum(["programme", "class", "session", "booking", "attendance", "credit", "trainer", "place"])
     .optional()
     .describe(
       "Return full detail for this entity only. Omit to get the complete hierarchy summary.",
@@ -285,11 +286,71 @@ const ENTITIES: EntityDef[] = [
           "Booking = client is enrolled in the Class. Attendance = did they come to THIS Session. " +
           "You can have a Booking with no Attendance records if attendance hasn't been marked yet.",
       },
+      {
+        entity: "credit",
+        reason:
+          "An Attendance of type 'replacement' is the make-up SESSION RECORD (the client actually attending a make-up). " +
+          "A Credit is the ENTITLEMENT to a make-up earned earlier. Counting replacement attendances ≠ counting unused make-up credits.",
+      },
     ],
     ai_notes:
       "Attendance is always scoped to one Session. To mark attendance for multiple " +
       "sessions, call the attendance tool once per session. " +
-      "'Nahradná hodina' (SK) / 'náhradní lekce' (CZ) = make-up session = type 'replacement'.",
+      "'Nahradná hodina' (SK) / 'náhradní lekce' (CZ) = make-up session = type 'replacement'. " +
+      "For 'how many unused/expiring make-up credits / náhrady do clients hold' use the Credit entity + reports_get_data view='replacements', NOT attendance counts.",
+  },
+
+  {
+    id: "credit",
+    canonical_name: "Make-up credit",
+    api_name: "Credit",
+    role:
+      "An entitlement token a client earns when they cancel or miss a session in time — it lets them book a make-up " +
+      "(replacement) session later. Also covers free-event and discount credits. This is the DEMAND side of make-ups: " +
+      "an unused credit is an outstanding promise the business must let the client redeem before it expires. " +
+      "Credits DO exist as a first-class entity (api-v1 `credits` table) — do not tell users Zooza has no credits.",
+    parent: "booking",
+    children: [],
+    key_fields: [
+      {
+        name: "type",
+        description: "What the credit entitles.",
+        values: [
+          { value: "replacement", label: "Make-up credit", notes: "Earned from a missed/cancelled session; redeemed for a make-up" },
+          { value: "replacement_transfer", label: "Transferred make-up", notes: "Make-up credit moved from another booking/company" },
+          { value: "free_event", label: "Free event credit", notes: "Entitles a free session" },
+          { value: "discount", label: "Discount credit", notes: "Monetary discount on a future booking" },
+        ],
+      },
+      {
+        name: "usage",
+        description: "Whether the credit has been consumed.",
+        values: [
+          { value: "not_used", label: "Unused", notes: "Outstanding and still redeemable — this is what 'unused replacements' means" },
+          { value: "used", label: "Used", notes: "Already redeemed for a session" },
+          { value: "canceled", label: "Cancelled", notes: "Voided, no longer redeemable" },
+        ],
+      },
+      {
+        name: "expiration",
+        description:
+          "Datetime after which an unused credit can no longer be redeemed. Null = never expires. " +
+          "An 'expired' credit is one past this date but still usage='not_used'.",
+      },
+    ],
+    do_not_confuse_with: [
+      {
+        entity: "attendance",
+        reason:
+          "A Credit is the ENTITLEMENT to a make-up (demand side). An Attendance of type 'replacement' is the make-up " +
+          "session record itself. One unused credit may later become one replacement attendance.",
+      },
+    ],
+    ai_notes:
+      "User language: 'credit', 'make-up', 'unused/expired make-up', SK/CZ 'náhrada', 'kredit', 'náhradná hodina' (the entitlement). " +
+      "Reachable via the credits API (GET /credits?usages=not_used&types=replacement,replacement_transfer,free_event) and, aggregated, " +
+      "via reports_get_data view='replacements' (per-programme demand vs slot supply, expiry, hotspots). " +
+      "When a user asks about credits, unused/expiring make-ups, náhrady, or 'are we overloaded on make-ups' — this is the entity; answer with reports_get_data view='replacements'.",
   },
 
   {
@@ -350,7 +411,7 @@ const ENTITIES: EntityDef[] = [
 
 const inputSchema = z.object({
   entity: z
-    .enum(["programme", "class", "session", "booking", "attendance", "trainer", "place"])
+    .enum(["programme", "class", "session", "booking", "attendance", "credit", "trainer", "place"])
     .optional(),
 });
 
@@ -377,10 +438,12 @@ export async function runExplainDataModel(rawInput: unknown): Promise<{
 
   const HIERARCHY =
     "Programme → Class → Session\n" +
-    "Programme → Class → Booking → Attendance\n\n" +
+    "Programme → Class → Booking → Attendance\n" +
+    "Booking → Credit (make-up / replacement entitlement)\n\n" +
     "A Programme contains Classes.\n" +
     "A Class generates Sessions (scheduled meetings) and holds Bookings (client registrations).\n" +
-    "Each Booking × Session pair can have an Attendance record.";
+    "Each Booking × Session pair can have an Attendance record.\n" +
+    "A Booking can also generate Credits — make-up entitlements a client earns when a session is missed/cancelled, redeemable for a replacement session until they expire.";
 
   if (entity) {
     const def = ENTITIES.find((e) => e.id === entity);
