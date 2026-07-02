@@ -388,6 +388,10 @@ export interface EventMatch {
   place_name: string;
   event_number: string;
   capacity: number;
+  // Remaining places = capacity − going, floored at 0. null when capacity is 0
+  // (open/unlimited event), so "which sessions have free spots" is answerable
+  // without the caller re-deriving it from capacity and attendance_counts.going.
+  free_spots: number | null;
   attendance_counts: AttendanceCounts;
   segments: string[];
   is_substituted: boolean;

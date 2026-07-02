@@ -50,7 +50,8 @@ export const bookingsFindDescription =
   "and resolve them to a `registration_id`, or a client to a `user_id`. Use for \"is X enrolled?\", \"who's in " +
   'this class?", "who hasn\'t paid?" (set `payment_status:["unpaid","partially_paid"]`), and "find client X". ' +
   "Filter by `search` (loose: name/email/phone) or `name`, by `course_id`/`schedule_id` (resolve via " +
-  "classes_find_courses / classes_find_classes), `user_id`, `status`, `payment_status`. `distinct:true` returns " +
+  "classes_find_courses / classes_find_classes), `user_id`, `status`, `payment_status`, or booking date with " +
+  "`created_from`/`created_to` (the \"new registrations this week\" lever). `distinct:true` returns " +
   "one row per client (→ `user_id`) for person lookups. Chain a result's `registration_id` or `user_id` straight " +
   "into comms_prepare_message (`audience.registration_id` / `audience.user_id`). Class/programme NAMES aren't " +
   "returned — resolve the ids via classes_find_* if you need them. Defaults to active enrolments; guest, waitlist, " +
@@ -108,6 +109,20 @@ export const bookingsFindInputSchema = {
     .boolean()
     .optional()
     .describe("Default false. Set true to also include inactive customers."),
+  created_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "created_from must be YYYY-MM-DD")
+    .optional()
+    .describe(
+      "Only bookings CREATED on/after this date (YYYY-MM-DD, inclusive). The \"new registrations\" lever — " +
+        "e.g. created_from=<Monday> for this week's sign-ups. You supply the literal date; the api does no " +
+        "relative-date parsing.",
+    ),
+  created_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "created_to must be YYYY-MM-DD")
+    .optional()
+    .describe("Only bookings CREATED on/before this date (YYYY-MM-DD, inclusive). Pair with created_from for a window."),
   page: z.number().int().min(0).optional(),
   page_size: z.number().int().min(1).optional(),
 };
@@ -168,6 +183,10 @@ export async function runBookingsFind(
     query.billing_status = input.payment_status.join("|");
   }
   if (input.include_inactive) query.inactive_customers = 1;
+  // Registration created-date window → DATE(r.created) >= / <= (common.php:7118-7130).
+  // Pure pass-through of an existing advanced_search filter; api wants literal YYYY-MM-DD.
+  if (input.created_from) query.created_from = input.created_from;
+  if (input.created_to) query.created_to = input.created_to;
   // GROUP BY r.user_id server-side (common.php:7167); total becomes
   // COUNT(DISTINCT user_id) (common.php:7474). One row per client.
   if (input.distinct) query.distinct = 1;

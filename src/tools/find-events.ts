@@ -43,7 +43,7 @@ const numberOrNumberArray = z.union([
 export const findEventsTitle = "Find events (scheduled sessions)";
 
 export const findEventsDescription =
-  "List **events** (scheduled sessions of classes) in the caller's company. Use this whenever you need to resolve an `event_id` from natural language (\"my next class,\" \"Monday's ballet,\" \"all swim sessions this week,\" \"Sarah's classes tomorrow\") before chaining into another tool like `sessions_get_attendance` or `sessions_mark_attendance`. With no filters, returns **ALL upcoming scheduled sessions in the company** (closest first) — not just the caller's. Filters cover date window, course, schedule, trainer, place, room, segment, billing period, status, and event-type (over-capacity, substituted, cancelled, etc.). Each returned row includes denormalised names (trainer, place, event-number), the event's date and duration, capacity, and an `attendance_counts` object (`going`, `attended`, `noshow`, `canceled`, `canceled_late`, `waitlist`). Read-only — does not modify events.\n\n**Critical: \"my sessions\" / \"what am I teaching\" / \"my classes today\".** When the user is asking for THEIR OWN sessions (any first-person framing), you MUST pass `trainer_id` matching `whoami.identity.user_id`. Without it, this tool returns every trainer's events in the company — which is almost never what the user meant when they said \"my.\" The only exception: when the caller's role is `member` or `external_member`, the server silently auto-scopes to their assignments anyway; `meta.scoped_to` in the response flags when this has happened.\n\nFilter notes:\n- `trainer_id` matches across FIVE trainer relationships including pre-substitution and schedule-level extras. Treat it as \"events trainer X is connected to,\" not strictly \"events trainer X currently teaches.\"\n- `status` uses raw db terms: `scheduled` (default — only state attendance can be tracked on), `unplanned` (includes cancelled events), `finished`, or `any`.\n- `segment_id=[0]` is a sentinel matching events with NO segment assignment.\n- Counters in `attendance_counts` may be sub-second-stale; for real-time counts on one event, chain into `sessions_get_attendance`. DISPLAYING A CLASS'S TIMETABLE: when the user wants to SEE a class's sessions (e.g. viewing or COPYING a class), render them as a weekly GRID — days across the top (Mon–Sun), time down the left, like the Zooza app calendar — collapsed to the weekday+time pattern with the run range + session count in a one-line caption; list individual dates only if the user explicitly asks. (Display only — ignore when you are merely resolving an event_id to chain into another tool.)";
+  "List **events** (scheduled sessions of classes) in the caller's company. Use this whenever you need to resolve an `event_id` from natural language (\"my next class,\" \"Monday's ballet,\" \"all swim sessions this week,\" \"Sarah's classes tomorrow\") before chaining into another tool like `sessions_get_attendance` or `sessions_mark_attendance`. With no filters, returns **ALL upcoming scheduled sessions in the company** (closest first) — not just the caller's. Filters cover date window, course, schedule, trainer, place, room, segment, billing period, status, and event-type (over-capacity, substituted, cancelled, etc.). Each returned row includes denormalised names (trainer, place, event-number), the event's date and duration, `capacity`, `free_spots` (remaining places = capacity − going, or null for open/unlimited events — use this to answer \"which sessions still have space\"), and an `attendance_counts` object (`going`, `attended`, `noshow`, `canceled`, `canceled_late`, `waitlist`). Read-only — does not modify events.\n\n**Critical: \"my sessions\" / \"what am I teaching\" / \"my classes today\".** When the user is asking for THEIR OWN sessions (any first-person framing), you MUST pass `trainer_id` matching `whoami.identity.user_id`. Without it, this tool returns every trainer's events in the company — which is almost never what the user meant when they said \"my.\" The only exception: when the caller's role is `member` or `external_member`, the server silently auto-scopes to their assignments anyway; `meta.scoped_to` in the response flags when this has happened.\n\nFilter notes:\n- `trainer_id` matches across FIVE trainer relationships including pre-substitution and schedule-level extras. Treat it as \"events trainer X is connected to,\" not strictly \"events trainer X currently teaches.\"\n- `status` uses raw db terms: `scheduled` (default — only state attendance can be tracked on), `unplanned` (includes cancelled events), `finished`, or `any`.\n- `segment_id=[0]` is a sentinel matching events with NO segment assignment.\n- Counters in `attendance_counts` may be sub-second-stale; for real-time counts on one event, chain into `sessions_get_attendance`. DISPLAYING A CLASS'S TIMETABLE: when the user wants to SEE a class's sessions (e.g. viewing or COPYING a class), render them as a weekly GRID — days across the top (Mon–Sun), time down the left, like the Zooza app calendar — collapsed to the weekday+time pattern with the run range + session count in a one-line caption; list individual dates only if the user explicitly asks. (Display only — ignore when you are merely resolving an event_id to chain into another tool.)";
 
 export const findEventsInputSchema = {
   company_id: companyIdSchema,
@@ -329,7 +329,8 @@ function formatEventLine(ev: EventMatch): string {
   // informative.
   const going = ev.attendance_counts.going;
   if (ev.capacity > 0) {
-    parts.push(`(${going}/${ev.capacity})`);
+    const free = ev.free_spots ?? 0;
+    parts.push(`(${going}/${ev.capacity}, ${free} free)`);
   } else if (going > 0) {
     parts.push(`(${going} going)`);
   }
@@ -376,6 +377,10 @@ function projectEvent(r: RawEventRecord): EventMatch {
   const place_name = pickStr(r.__calc__event_place) ?? "";
   const event_number = stringify(r.__calc__event_number);
   const capacity = toInt(r.schedule?.capacity);
+  // Derived remaining places. capacity=0 means open/unlimited → null (no cap to
+  // subtract against), mirroring the markdown hint below which shows a bare
+  // "going" count in that case.
+  const free_spots = capacity > 0 ? Math.max(0, capacity - attendance_counts.going) : null;
   const has_public_summary =
     typeof r.summary_public === "string" && r.summary_public.trim().length > 0;
   const cancellation_reasoning_public =
@@ -399,6 +404,7 @@ function projectEvent(r: RawEventRecord): EventMatch {
     place_name,
     event_number,
     capacity,
+    free_spots,
     attendance_counts,
     segments,
     is_substituted: !!r.substituted,

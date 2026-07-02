@@ -25,9 +25,32 @@ const audienceSchema = z
   .object({
     course_id: z.number().int().positive().optional().describe("Everyone registered in this course/programme."),
     schedule_id: z.number().int().positive().optional().describe("Everyone in this class (schedule)."),
-    registration_id: z.number().int().positive().optional().describe("One specific booking."),
+    registration_id: z
+      .union([z.number().int().positive(), z.array(z.number().int().positive()).nonempty()])
+      .optional()
+      .describe(
+        "One booking, or a LIST of bookings — pass a single id or an array (e.g. the registration_ids from a " +
+          "bookings_find result set, so you can message an ad-hoc cohort like the unpaid roster without a saved segment).",
+      ),
     user_id: z.number().int().positive().optional().describe("One client (all their registrations)."),
     segment_id: z.number().int().positive().optional().describe("A saved registration segment."),
+    whole_company: z
+      .boolean()
+      .optional()
+      .describe(
+        "Broadcast to the ENTIRE company — every booking, one email per client. The only audience needing no id. " +
+          "This can reach a LOT of people, so ALWAYS confirm scope with the operator first, and make the " +
+          "all-vs-active choice explicit (see active_only) — do NOT silently email everyone. Pair with active_only.",
+      ),
+    active_only: z
+      .boolean()
+      .optional()
+      .describe(
+        "Only meaningful with whole_company. true (DEFAULT) = only clients with an ACTIVE (registered) booking — " +
+          "the safe choice. false = literally EVERYONE incl. cancelled/inactive/past clients (spammy) — use only when " +
+          "the operator has explicitly asked for that. When whole_company is set, ASK the operator which they mean and " +
+          "state plainly that the default skips cancelled/inactive people.",
+      ),
     labels: z
       .array(z.number().int().positive())
       .optional()
@@ -98,6 +121,9 @@ const TARGETING_FIELDS = [
 ] as const;
 
 export function hasTargeting(audience: AudienceInput): boolean {
+  // whole_company is a valid audience on its own (no id needed). Only `true`
+  // counts — `false` must not satisfy the guard.
+  if (audience.whole_company === true) return true;
   return TARGETING_FIELDS.some((f) => {
     const v = audience[f];
     return Array.isArray(v) ? v.length > 0 : v !== undefined;
@@ -113,12 +139,27 @@ export function buildAudienceParams(audience: AudienceInput): Record<string, str
   const params: Record<string, string | number> = {};
   if (audience.course_id !== undefined) params.course_id = audience.course_id;
   if (audience.schedule_id !== undefined) params.schedule_id = audience.schedule_id;
-  if (audience.registration_id !== undefined) params.registration_id = audience.registration_id;
+  if (audience.registration_id !== undefined) {
+    // api-v1 build_advanced_query explodes a `|`-joined registration_id into
+    // `r.id IN (...)` (common.php:7205-7218) — same pattern as `exclude`. A single
+    // number passes through as scalar equality. So one field covers both cases.
+    params.registration_id = Array.isArray(audience.registration_id)
+      ? audience.registration_id.join("|")
+      : audience.registration_id;
+  }
   if (audience.user_id !== undefined) params.user_id = audience.user_id;
   if (audience.segment_id !== undefined) params.segment_id = audience.segment_id;
   if (audience.labels?.length) params.labels = audience.labels.join("|");
   if (audience.exclude?.length) params.exclude = audience.exclude.join("|");
   if (audience.inactive_customers) params.inactive_customers = 1;
+  // Whole-company broadcast: no id filter (api-v1's build_advanced_query returns
+  // all company registrations), deduped to one row per client. active_only
+  // (the default) narrows to registered bookings via status — mirrors the app's
+  // two broadcast options ("all clients" vs "all with an active booking").
+  if (audience.whole_company) {
+    params.distinct = 1;
+    if (audience.active_only !== false) params.status = "registered";
+  }
   return params;
 }
 
@@ -185,9 +226,10 @@ export async function runPrepareMessage(
 
   if (!hasTargeting(input.audience)) {
     return errorResult(
-      "audience must contain at least one of: course_id, schedule_id, registration_id, user_id, segment_id, labels. " +
-        "Ask the operator who the message is for — a whole programme, one class, or a single client — then resolve " +
-        "the id: classes_find_courses → course_id, classes_find_classes → schedule_id, sessions_find_events → event_id.",
+      "audience must contain at least one of: course_id, schedule_id, registration_id, user_id, segment_id, labels, " +
+        "or whole_company:true for a company-wide broadcast. Ask the operator who the message is for — a whole " +
+        "programme, one class, a single client, or everyone — then resolve the id: classes_find_courses → course_id, " +
+        "classes_find_classes → schedule_id, sessions_find_events → event_id.",
     );
   }
 
@@ -271,6 +313,15 @@ export async function runPrepareMessage(
     if (input.audience.guests) {
       warnings.push(
         "Guest recipients are added at send time and are NOT included in the estimated count.",
+      );
+    }
+    if (input.audience.whole_company) {
+      warnings.push(
+        input.audience.active_only === false
+          ? `WHOLE-COMPANY broadcast, ALL clients — this includes people with cancelled/inactive/past bookings ` +
+              `(${recipientCount} recipients). Confirm the operator really wants everyone, not just active bookings, before sending.`
+          : `WHOLE-COMPANY broadcast, active bookings only (${recipientCount} recipients). Clients with only ` +
+              `cancelled/inactive bookings are excluded. If the operator wanted literally everyone, set active_only:false.`,
       );
     }
 

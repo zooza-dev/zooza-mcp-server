@@ -19,6 +19,13 @@ describe("hasTargeting", () => {
     expect(hasTargeting({ labels: [] })).toBe(false);
     expect(hasTargeting({ exclude: [5] })).toBe(false);
   });
+
+  it("treats whole_company:true as targeting but not whole_company:false", () => {
+    expect(hasTargeting({ whole_company: true })).toBe(true);
+    expect(hasTargeting({ whole_company: false })).toBe(false);
+    // active_only alone is a modifier, never a target on its own
+    expect(hasTargeting({ active_only: false })).toBe(false);
+  });
 });
 
 describe("buildAudienceParams", () => {
@@ -41,6 +48,30 @@ describe("buildAudienceParams", () => {
 
   it("omits absent fields entirely", () => {
     expect(buildAudienceParams({ schedule_id: 482 })).toEqual({ schedule_id: 482 });
+  });
+
+  it("pipe-joins a registration_id list, passes a single id through as scalar", () => {
+    expect(buildAudienceParams({ registration_id: [51127, 51125] })).toEqual({
+      registration_id: "51127|51125",
+    });
+    expect(buildAudienceParams({ registration_id: 51127 })).toEqual({ registration_id: 51127 });
+  });
+
+  it("maps whole_company to a no-id broadcast: distinct always, status only when active", () => {
+    // default (active_only omitted) → active bookings only
+    expect(buildAudienceParams({ whole_company: true })).toEqual({
+      distinct: 1,
+      status: "registered",
+    });
+    // active_only:true → same, explicit
+    expect(buildAudienceParams({ whole_company: true, active_only: true })).toEqual({
+      distinct: 1,
+      status: "registered",
+    });
+    // active_only:false → literally everyone, no status filter
+    expect(buildAudienceParams({ whole_company: true, active_only: false })).toEqual({
+      distinct: 1,
+    });
   });
 });
 
