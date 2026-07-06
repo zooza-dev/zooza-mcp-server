@@ -35,7 +35,6 @@ export const previewEventsInputSchema = {
         time_minutes: z.number().int().min(0).max(1439),
         duration: z.number().int().positive(),
         all_day: z.boolean().optional(),
-        billable: z.boolean().optional(),
         cadence: z.enum(CADENCES).optional(),
         trainer_id: z.number().int().positive().optional(),
         count: z.number().int().min(1).max(500).optional(),
@@ -52,7 +51,6 @@ export const previewEventsInputSchema = {
         date_string: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         time_minutes: z.number().int().min(0).max(1439),
         duration: z.number().int().positive(),
-        billable: z.boolean().optional(),
         trainer_id: z.number().int().positive().optional(),
       }),
     )
@@ -115,7 +113,9 @@ export async function runPreviewEvents(
       time_minutes: b.time_minutes,
       duration: b.duration,
       all_day: b.all_day ?? false,
-      billable: b.billable ?? true,
+      // billable is not LLM-facing: sessions created via MCP are always
+      // non-billable; billability is a pricing detail edited in the Zooza app.
+      billable: false,
       ...(b.cadence ? { cadence: b.cadence } : {}),
       ...(b.trainer_id ? { trainer_id: b.trainer_id } : {}),
       ...(hasCount ? { count: b.count } : {}),
@@ -138,7 +138,7 @@ export async function runPreviewEvents(
       date_string: d.date_string,
       time_minutes: d.time_minutes,
       duration: d.duration,
-      billable: d.billable ?? true,
+      billable: false,
       ...(d.trainer_id ? { trainer_id: d.trainer_id } : {}),
     })),
     skip_holidays: input.skip_holidays ?? false,
@@ -154,7 +154,6 @@ export async function runPreviewEvents(
       time: minutesToHHMM(e.time_minutes),
       time_minutes: e.time_minutes,
       duration: e.duration,
-      billable: e.billable,
       ...(e.trainer_id !== undefined ? { trainer_id: e.trainer_id } : {}),
     }));
     const output = {

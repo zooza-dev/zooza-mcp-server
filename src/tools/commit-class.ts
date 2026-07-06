@@ -44,7 +44,6 @@ const eventShape = z.object({
   date_string: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time_minutes: z.number().int().min(0).max(1439),
   duration: z.number().int().positive(),
-  billable: z.boolean(),
   trainer_id: z.number().int().positive().optional(),
 });
 
@@ -155,7 +154,9 @@ export async function runCommitClass(
         date_string: e.date_string,
         time_string: e.time_minutes,
         duration: e.duration,
-        billable: e.billable,
+        // Not LLM-facing: sessions created via MCP are always non-billable;
+        // billability is a pricing detail edited in the Zooza app.
+        billable: false,
       })),
     };
 

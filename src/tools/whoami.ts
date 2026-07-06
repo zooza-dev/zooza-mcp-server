@@ -1,15 +1,29 @@
 import { ensureBranding } from "../auth/branding.js";
 import { extractCompanies } from "../auth/companies.js";
 import type { RequestAuthContext } from "../auth/types.js";
+import { SERVER_VERSION, TOOL_COUNT, TOOL_NAMES } from "../tool-manifest.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { pickStr } from "./common.js";
+
+// Injected into every whoami response (regardless of auth status) so the model
+// can detect a stale client tool list. The model compares `tool_surface.names`
+// against the tools it actually has available; any name missing locally means
+// the user's connector predates this release. See spec ZMCP-20260703-002.
+const RELEASE_BLOCK = {
+  server_version: SERVER_VERSION,
+  tool_surface: {
+    count: TOOL_COUNT,
+    names: TOOL_NAMES,
+    note: "Tools the live server exposes. If any of these are NOT in the tools you currently have available, the user's client is showing a stale tool list — tell them (once, briefly) to refresh their Zooza connector so the new tools appear.",
+  },
+} as const;
 
 /** Warm branding for at most this many companies per whoami (logo downloads cost time). */
 const BRANDING_WARM_LIMIT = 3;
 
 export const whoamiTitle = "Who am I?";
 
-export const whoamiDescription = `Returns the connected user's identity, the companies they can operate on, regional context, and the session's token state. Call ONCE at the start of every conversation.
+const whoamiDescriptionBase = `Returns the connected user's identity, the companies they can operate on, regional context, and the session's token state. Call ONCE at the start of every conversation.
 
 How to interpret the response:
 
@@ -38,7 +52,20 @@ Feedback context (used by the 'feedback-nudge' skill):
 - 'last_feedback_at' — ISO timestamp of the user's last MCP feedback submission, or null if never. Drives the skill's 7-day cool-off on proactive feedback nudges.
 - 'feedback_count' — total submissions to date (0 if never).
 
+Tool-list freshness (Zooza has no marketplace auto-update, so proactively spot an out-of-date connector). There are TWO independent staleness signals — check BOTH:
+1. NEW or REMOVED tools — compare 'tool_surface.names' (every tool the live server exposes) against the tools you actually have available in THIS session. Any name in that list you do NOT have = the client is missing newly-added tools.
+2. UPDATED tools (same names, changed behaviour) — compare 'server_version' in this response against the [SURFACE_BUILD: …] marker at the very end of THIS tool description. If they differ, the tool DEFINITIONS you currently hold are from an OLDER build even when every tool name still matches — an existing tool's description, inputs, or behaviour changed after the client last connected. (This is why a deploy that only tweaks existing tools is still detectable.)
+If EITHER signal fires, tell the user once — briefly, not naggingly — that their Zooza tools are out of date, and how to refresh: in Claude Desktop or Claude Code toggle the Zooza connector off then on (or reconnect / reinstall it); a browser client may just need a reload. Do NOT prompt when neither signal fires.
+
 Never surface 'sub' or 'scopes' to the user — diagnostic only.`;
+
+// The build marker the CLIENT caches with this description. Compared by the model
+// against `server_version` in the (always-live) response to catch update-only
+// deploys — where tool names are unchanged but definitions moved. Version-sourced
+// (package.json), so no circular dependency on the description text it lives in.
+// Requires a version bump on any tool-affecting release to move (see spec
+// ZMCP-20260703-002).
+export const whoamiDescription = `${whoamiDescriptionBase}\n\n[SURFACE_BUILD: ${SERVER_VERSION}]`;
 
 export const whoamiInputSchema = {};
 
@@ -314,7 +341,10 @@ function extractCompanyContext(
 }
 
 function ok(payload: WhoamiResult) {
+  // Merge the release/tool-surface block into every status so staleness detection
+  // works even before auth succeeds.
+  const enriched = { ...payload, ...RELEASE_BLOCK };
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
+    content: [{ type: "text" as const, text: JSON.stringify(enriched, null, 2) }],
   };
 }

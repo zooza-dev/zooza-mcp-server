@@ -78,11 +78,11 @@ Translate the user's natural-language answer into the `classes_preview_events` i
 
 | User says | Map to |
 | --- | --- |
-| "12 sessions every Monday at 1pm starting May 25" | `from_date: "2026-05-25"`, `blocks: [{weekdays: ["mon"], cadence: "weekly", count: 12, time_minutes: 780, duration: <from shell>, billable: true}]` |
-| "every Monday at 1pm from May 25 to Aug 31" | `from_date: "2026-05-25"`, `blocks: [{weekdays: ["mon"], cadence: "weekly", until_date: "2026-08-31", time_minutes: 780, duration: <from shell>, billable: true}]` |
+| "12 sessions every Monday at 1pm starting May 25" | `from_date: "2026-05-25"`, `blocks: [{weekdays: ["mon"], cadence: "weekly", count: 12, time_minutes: 780, duration: <from shell>}]` |
+| "every Monday at 1pm from May 25 to Aug 31" | `from_date: "2026-05-25"`, `blocks: [{weekdays: ["mon"], cadence: "weekly", until_date: "2026-08-31", time_minutes: 780, duration: <from shell>}]` |
 | "Mondays and Wednesdays at 1pm, 10 sessions" | one block with `weekdays: ["mon","wed"]`, `count: 10` |
 | "first Friday of each month, 6 sessions" | `blocks: [{weekdays: ["fri"], cadence: "monthly", count: 6, ...}]` |
-| "July 4 at 17:00 as a one-off" | `additional_dates: [{date_string: "2026-07-04", time_minutes: 1020, duration: <from shell>, billable: true}]` |
+| "July 4 at 17:00 as a one-off" | `additional_dates: [{date_string: "2026-07-04", time_minutes: 1020, duration: <from shell>}]` |
 | "every other Tuesday with trainer Jana, 8 sessions" | block with `cadence: "biweekly"`, `weekdays: ["tue"]`, `count: 8`, `trainer_id: <Jana's id>` |
 
 Rules:
@@ -94,12 +94,12 @@ Call `classes_preview_events`. Render the returned events as a markdown table, *
 
 ```
 ### May 2026
-| Day | Date | Time | Duration | Billable | Trainer |
-| --- | --- | --- | --- | --- | --- |
-| Mon | 2026-05-25 | 13:00 | 60 min | ✓ | Martin |
+| Day | Date | Time | Duration | Trainer |
+| --- | --- | --- | --- | --- |
+| Mon | 2026-05-25 | 13:00 | 60 min | Martin |
 
 ### June 2026
-| Day | Date | Time | Duration | Billable | Trainer |
+| Day | Date | Time | Duration | Trainer |
 ...
 ```
 
@@ -122,7 +122,7 @@ Show the user the **full accumulated table** one more time with the schedule she
 On yes: call `classes_commit_class` with:
 
 - `schedule`: the resolved shell from Step 1
-- `events`: the full accumulated array (each event needs `date_string`, `time_minutes`, `duration`, `billable`, optionally `trainer_id` if overriding the primary)
+- `events`: the full accumulated array (each event needs `date_string`, `time_minutes`, `duration`, optionally `trainer_id` if overriding the primary)
 - `payment_schedule_template_ids`: from the resolved shell
 
 On error from `classes_commit_class`, surface the api-v1 message verbatim and offer to retry. **If the schedule was created but events failed**, the error message will say so — tell the user explicitly, give them the schedule id, and offer either to retry `POST /v1/events` (we don't have a direct tool yet — note this) or to delete the orphan schedule.
@@ -165,7 +165,7 @@ _{pattern} · {N} sessions · {first_date} → {last_date} · {place} → {room}
 | 11:00 |  |  |  |  |  |  |  |
 ```
 
-**When the schedule is irregular, the single-week grid hides sessions — append the detail list.** A pattern is irregular when it has biweekly/monthly cadence, one-off `additional_dates`, holiday `skipped[]` entries, or different times/trainers across blocks. In those cases render the weekly grid **and** the month-grouped session list beneath it (`Day | Date | Time | Duration | Billable | Trainer`) so no session is hidden. For a clean weekly / multi-weekday pattern, grid + caption is complete on its own.
+**When the schedule is irregular, the single-week grid hides sessions — append the detail list.** A pattern is irregular when it has biweekly/monthly cadence, one-off `additional_dates`, holiday `skipped[]` entries, or different times/trainers across blocks. In those cases render the weekly grid **and** the month-grouped session list beneath it (`Day | Date | Time | Duration | Trainer`) so no session is hidden. For a clean weekly / multi-weekday pattern, grid + caption is complete on its own.
 
 **Then** offer to start another class.
 

@@ -16,6 +16,7 @@ import { ZOOZA_ICON_PNG_BASE64 } from "./icon.js";
 import { buildSkillInstructions, loadAllSkills } from "./skills.js";
 import { TERMINOLOGY_INSTRUCTIONS, TERMINOLOGY_INDEX } from "./terminology/index.js";
 import { ROUTING_INSTRUCTIONS } from "./instructions.js";
+import { SERVER_VERSION } from "./tool-manifest.js";
 import {
   commitClassDescription,
   commitClassInputSchema,
@@ -28,6 +29,12 @@ import {
   findBillingPeriodsTitle,
   runFindBillingPeriods,
 } from "./tools/find-billing-periods.js";
+import {
+  findTrainerRateTypesDescription,
+  findTrainerRateTypesInputSchema,
+  findTrainerRateTypesTitle,
+  runFindTrainerRateTypes,
+} from "./tools/find-trainer-rate-types.js";
 import {
   bookingsFindDescription,
   bookingsFindInputSchema,
@@ -142,6 +149,26 @@ import {
   commitMessageTitle,
   runCommitMessage,
 } from "./tools/commit-message.js";
+import {
+  classesCommitUpdateDescription,
+  classesCommitUpdateInputSchema,
+  classesCommitUpdateTitle,
+  classesPrepareUpdateDescription,
+  classesPrepareUpdateInputSchema,
+  classesPrepareUpdateTitle,
+  runClassesCommitUpdate,
+  runClassesPrepareUpdate,
+} from "./tools/classes-update.js";
+import {
+  runSessionsCommitUpdate,
+  runSessionsPrepareUpdate,
+  sessionsCommitUpdateDescription,
+  sessionsCommitUpdateInputSchema,
+  sessionsCommitUpdateTitle,
+  sessionsPrepareUpdateDescription,
+  sessionsPrepareUpdateInputSchema,
+  sessionsPrepareUpdateTitle,
+} from "./tools/sessions-update.js";
 import {
   listSchedulePatternsDescription,
   listSchedulePatternsInputSchema,
@@ -276,7 +303,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   const server = new McpServer(
     {
       name: "zooza-mcp",
-      version: "0.1.0",
+      version: SERVER_VERSION,
       title: "Zooza",
       // Directory-submission canonical: same-origin HTTPS PNG first (256×256,
       // the MUST-support format), then the self-contained data URI as fallback.
@@ -462,6 +489,25 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
   );
 
   server.registerTool(
+    "trainers_find_rate_types",
+    {
+      title: findTrainerRateTypesTitle,
+      description: findTrainerRateTypesDescription,
+      inputSchema: findTrainerRateTypesInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "trainers_find_rate_types",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runFindTrainerRateTypes(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
     "trainers_find",
     {
       title: findTrainersTitle,
@@ -639,6 +685,89 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
         ctx,
         resolveCompanyId(ctx, async (args) => runCommitClass(args, ctx.auth)),
       ),
+    ),
+  );
+
+  server.registerTool(
+    "classes_prepare_update",
+    {
+      title: classesPrepareUpdateTitle,
+      description: classesPrepareUpdateDescription,
+      inputSchema: classesPrepareUpdateInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "classes_prepare_update",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runClassesPrepareUpdate(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // No resolveCompanyId — the company is frozen in the plan the token points at;
+  // commit-time args must not be able to redirect it.
+  server.registerTool(
+    "classes_commit_update",
+    {
+      title: classesCommitUpdateTitle,
+      description: classesCommitUpdateDescription,
+      inputSchema: classesCommitUpdateInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        // Mutates existing sessions/registrations (cascade, course_id).
+        destructiveHint: true,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "classes_commit_update",
+      ctx,
+      scopeGuard(SCOPE_WRITE, ctx, async (args) => runClassesCommitUpdate(args, ctx.auth)),
+    ),
+  );
+
+  server.registerTool(
+    "sessions_prepare_update",
+    {
+      title: sessionsPrepareUpdateTitle,
+      description: sessionsPrepareUpdateDescription,
+      inputSchema: sessionsPrepareUpdateInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "sessions_prepare_update",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runSessionsPrepareUpdate(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // No resolveCompanyId — company frozen in the plan. notify:true reaches clients
+  // by email, so openWorldHint is true.
+  server.registerTool(
+    "sessions_commit_update",
+    {
+      title: sessionsCommitUpdateTitle,
+      description: sessionsCommitUpdateDescription,
+      inputSchema: sessionsCommitUpdateInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: true,
+        destructiveHint: true,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "sessions_commit_update",
+      ctx,
+      scopeGuard(SCOPE_WRITE, ctx, async (args) => runSessionsCommitUpdate(args, ctx.auth)),
     ),
   );
 

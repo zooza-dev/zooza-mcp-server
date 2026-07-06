@@ -41,7 +41,6 @@ export interface PreviewEvent {
   time: string;
   time_minutes: number;
   duration: number;
-  billable: boolean;
   trainer_id?: number;
 }
 
@@ -284,6 +283,22 @@ export interface RawBillingPeriodRecord {
   id: number;
   name: string;
   active?: boolean;
+}
+
+/** Curated match shape for trainers_find_rate_types — see ZMCP-20260703-001. */
+export interface TrainerRateTypeMatch {
+  id: number;
+  name: string;
+  minutes: number | null;
+  type: string | null;
+}
+
+/** Raw trainer rate type record from /v1/trainer_rates/types. Company-level config. */
+export interface RawTrainerRateTypeRecord {
+  id: number;
+  name: string;
+  minutes?: number | null;
+  type?: string | null;
 }
 
 /** Curated match shape for trainers_find — see ZMCP-20260523-003. */
