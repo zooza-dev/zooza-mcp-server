@@ -28,11 +28,15 @@ export const classesCommitUpdateTitle = "Apply a previewed class edit";
 export const classesPrepareUpdateDescription =
   "Preview an edit to one or more existing classes (a \"class\"/\"timetable\" is the recurring group within a " +
   "programme). Use this to change a class's settings — name, price, registration fee, capacity, billing period, " +
-  "online-registration, status — and/or its instructor, venue, or session duration. For instructor/venue/duration " +
-  "you MUST say how existing sessions are affected via `session_scope`: \"upcoming\" (this class + its future " +
+  "online-registration, status — and/or its instructor, venue, or session duration. Changing instructor/venue/duration " +
+  "forces a `session_scope` choice about existing sessions: \"upcoming\" (this class + its future " +
   "sessions — usually what people mean), \"all\" (every session incl. past), or \"class_only\" (re-advertise the " +
   "class but leave existing sessions on their old value — the #1 cause of \"I changed it but the sessions still " +
-  "show the old value\", so only pick it deliberately). Returns a preview of exactly what changes and how many " +
+  "show the old value\", so only pick it deliberately). This scope is the OPERATOR's call, not yours: when they " +
+  "haven't stated one, PRESENT the three options and their consequences and let them choose — do NOT silently pick a " +
+  "scope and prepare, and do NOT stall. If the operator asks what a cascade edit will do before committing, explain " +
+  "this same taxonomy (in particular that class_only re-advertises the class but leaves existing sessions unchanged). " +
+  "Returns a preview of exactly what changes and how many " +
   "sessions are affected — nothing is written until you call classes_commit_update with the returned `token`. " +
   "Handles one class or many at once. To edit specific individual sessions (move one date, change one session's " +
   "room), use sessions_update instead. To cancel sessions, use the cancellation tools.";

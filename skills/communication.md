@@ -37,6 +37,13 @@ Then resolve names to ids — never guess, never ask the operator for raw ids:
 - One client → there is no person-finder tool yet; ask the operator for an identifying detail and
   use `sessions_get_attendance` / registration context you already have. If you cannot resolve a
   `user_id` or `registration_id` confidently, say so — do not approximate with a broader audience.
+- An **ad-hoc cohort** defined by a condition ("everyone who hasn't paid", "the unpaid roster",
+  "the waitlist", "this week's sign-ups") → resolve it with `bookings_find` (e.g.
+  `payment_status:["unpaid","partially_paid"]`, `status:["waitlist"]`, `created_from`/`created_to`),
+  then pass the **list of `registration_id`s it returns** as `audience.registration_id`. This is the
+  correct way to message a named subset without a saved segment. Do NOT fall back to
+  `audience.whole_company` for a named cohort — that emails the entire company, far more people than
+  asked. Reserve `whole_company` for genuinely company-wide sends.
 
 Note on labels: label filters select **courses** carrying the label (everyone registered in those
 courses) — labels do not attach to individual people. Phrase it that way to the operator.
