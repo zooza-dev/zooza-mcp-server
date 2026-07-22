@@ -1126,9 +1126,42 @@ async function main(): Promise<void> {
     }
 
     try {
+      // Interop shim for JSON-only MCP clients (e.g. Grok/xAI). The Streamable
+      // HTTP transport hard-requires the Accept header to list BOTH
+      // application/json and text/event-stream, else it 406s every JSON-RPC
+      // call — including tools/list — so the client "connects" but sees no
+      // tools. Clients that don't speak SSE send `Accept: application/json`
+      // only. For those we (a) pad the Accept header so the transport's gate
+      // passes, and (b) force a buffered JSON response (enableJsonResponse) so
+      // they get a body they can actually parse instead of an SSE stream.
+      // SSE-capable clients (Claude) are untouched and keep streaming.
+      //
+      // The SDK converts the Node request to a Web Request via Hono's
+      // getRequestListener, which rebuilds headers from `req.rawHeaders` (the
+      // raw [k,v,k,v,…] array) and IGNORES the parsed `req.headers` object — so
+      // the shim must patch rawHeaders. new Headers([...pairs]) folds duplicate
+      // keys with ", ", so appending an Accept pair yields the combined value.
+      const clientAcceptsSSE = (req.headers.accept ?? "").includes("text/event-stream");
+      if (!clientAcceptsSSE) {
+        req.headers.accept = "application/json, text/event-stream";
+        const raw = req.rawHeaders;
+        let patched = false;
+        for (let i = 0; i < raw.length; i += 2) {
+          if (raw[i].toLowerCase() === "accept") {
+            raw[i + 1] = "application/json, text/event-stream";
+            patched = true;
+            break;
+          }
+        }
+        if (!patched) {
+          raw.push("Accept", "application/json, text/event-stream");
+        }
+      }
+
       const server = createMcpServer(ctx);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
+        enableJsonResponse: !clientAcceptsSSE,
       });
       res.on("close", () => {
         transport.close().catch(() => {});
