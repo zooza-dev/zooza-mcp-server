@@ -36,7 +36,7 @@
 
 **Zooza MCP Server** is a free, open-source Model Context Protocol (MCP) integration for [Zooza](https://zooza.online) — the class management and scheduling software for dance schools, language academies, swim schools, music schools, STEAM programmes, sports clubs, and other activity businesses.
 
-It lets studio managers, school administrators, and franchise operators manage schedules, track attendance, create classes, handle bookings, and query their data through natural language conversation — using Claude, ChatGPT, or any MCP-compatible AI client — without opening the Zooza dashboard.
+It lets activity managers, school administrators, and franchise operators manage schedules, track attendance, create classes, handle bookings, and query their data through natural language conversation — using Claude, ChatGPT, or any MCP-compatible AI client — without opening the Zooza dashboard.
 
 > **Zooza powers 500,000+ learners across Slovakia, the Czech Republic, Germany, the UK, and beyond** — from single-location dance schools to international franchise networks. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
@@ -74,6 +74,17 @@ It lets studio managers, school administrators, and franchise operators manage s
  Split into two age groups: 6–9 and 10–14. Preview both before I confirm."
 ```
 
+### Turn a photo into a full term — no blank page
+
+Building a season by hand means two days of typing into empty forms. Instead, hand the assistant whatever you already have — a whiteboard photo, a hand-drawn sketch, a spreadsheet screenshot — and it drafts the whole term for you to review before anything goes live.
+
+```
+"Here's a photo of our autumn whiteboard — create these classes in my account, starting Monday the 8th."
+"Screenshot of our timetable spreadsheet attached. Build the full term, respecting our holiday calendar."
+```
+
+You always see a preview table and calendar first, and nothing is created until you confirm — *you bring the intent, you keep the final say*. Read how one brand turned a single photo into 68 live classes across venues: [From a photo to a full term of live classes](https://www.zooza.online/photo-to-live-schedule-zooza-assistant/).
+
 ### Get instant answers
 
 ```
@@ -90,6 +101,19 @@ It lets studio managers, school administrators, and franchise operators manage s
 "Which clients are on the waiting list for Saturday gymnastics?"
 "How many spots are left in the beginner English course?"
 ```
+
+### Ask for any report — in plain language
+
+No report modules, no spreadsheet formulas. Ask a business question the way you actually think about it, and the assistant pulls the real numbers and lays them out — shaped around your question, not a fixed dashboard.
+
+```
+"Who's at which venue each day this week?"
+"Which instructors are stretched thin, and who has room for more?"
+"What grew and what shrank between the spring and summer terms?"
+"How many seats does my whole operation actually have right now?"
+```
+
+Reporting only ever **reads** — it never touches bookings, classes, or payments, so you can explore freely. More on how brands use this: [Custom reports, just by asking](https://www.zooza.online/custom-reports-zooza-assistant/).
 
 No clicking through menus. No switching tabs. No automation scripts. Just ask — Claude handles the lookups, rosters, previews, and confirmations.
 
@@ -141,7 +165,7 @@ Download the latest plugin from [Releases](../../releases) (file named `zooza-pl
 
 The plugin includes the MCP connection config, guided workflow skills, and automatic session context.
 
-> **Note:** Five of the 19 tools (`get_terminology`, `explain_data_model`, `comms_list_merge_vars`, `classes_list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
+> **Note:** Five of the 30 tools (`get_terminology`, `explain_data_model`, `comms_list_merge_vars`, `classes_list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
 
 ---
 
@@ -173,13 +197,13 @@ Zooza MCP is designed for multilingual, multi-market operation. It understands r
 | UK | English | terms, registers, classes |
 | Romania, Hungary, Italy, Poland | Local + English | supported |
 
-The `negotiate_terminology` tool lets Claude learn your studio's specific vocabulary once and use it in every future conversation — so if you call programmes "kurzy" and sessions "hodiny," Claude will always respond in your terms.
+The `negotiate_terminology` tool lets Claude learn your business's specific vocabulary once and use it in every future conversation — so if you call programmes "kurzy" and sessions "hodiny," Claude will always respond in your terms.
 
 ---
 
 ## Available tools
 
-19 tools covering scheduling, attendance tracking, class management, and Zooza domain knowledge.
+30 tools covering scheduling, attendance, bookings, client communication, reporting, class and session editing, and Zooza domain knowledge.
 
 ### Scheduling & class management
 
@@ -189,14 +213,45 @@ The `negotiate_terminology` tool lets Claude learn your studio's specific vocabu
 | `classes_preview_events` | Preview individual sessions across a date range |
 | `classes_commit_class` | Create a class with a full recurring session schedule |
 
+### Editing classes & sessions
+
+Every edit is a two-step **preview → confirm** — nothing changes until you approve the diff.
+
+| Tool | What it does |
+|---|---|
+| `classes_prepare_update` | Preview an edit to a class — name, price, capacity, billing period, instructor, venue, or duration |
+| `classes_commit_update` | Apply a previewed class edit after explicit confirmation |
+| `sessions_prepare_update` | Preview edits to specific sessions — reschedule a date/time, or change instructor, venue, or duration |
+| `sessions_commit_update` | Apply previewed session edits, optionally notifying affected clients |
+
 ### Attendance
 
 | Tool | What it does |
 |---|---|
 | `sessions_find_events` | Find scheduled sessions by date, trainer, or programme |
-| `get_attendance_roster` | Get the full register for one session — who is enrolled and their current status |
+| `sessions_get_attendance` | Get the attendance list for one session — who is enrolled and their current status |
 | `sessions_mark_attendance` | Record attendance for each participant (attended / absent / late-cancel) |
 | `sessions_add_summary` | Add a coach note or session summary to a completed event |
+
+### Bookings
+
+| Tool | What it does |
+|---|---|
+| `bookings_find` | Find who is enrolled in a class, resolve a client, or list unpaid registrations |
+
+### Client communication
+
+| Tool | What it does |
+|---|---|
+| `comms_list_templates` | List the automated email templates Zooza sends to this company's clients |
+| `comms_prepare_message` | Plan an email to an audience (programme, class, booking, client, or segment) — nothing is sent |
+| `comms_commit_message` | Send a prepared message plan, only after explicit confirmation |
+
+### Reporting
+
+| Tool | What it does |
+|---|---|
+| `reports_get_data` | Return real, pre-aggregated business numbers (occupancy, unpaid, attendance, revenue…) to compose a report |
 
 ### Lookups
 
@@ -204,8 +259,10 @@ The `negotiate_terminology` tool lets Claude learn your studio's specific vocabu
 |---|---|
 | `whoami` | Identify the connected user and list accessible companies/locations |
 | `classes_find_courses` | Search programmes by billing period, name, or status |
+| `classes_find_classes` | Find a specific class/group within a programme and resolve its `schedule_id` |
 | `classes_find_billing_periods` | List billing periods (seasons/terms) for a company |
 | `trainers_find` | List trainers available at a location |
+| `trainers_find_rate_types` | List a company's trainer pay-rate types (used when assigning a rate) |
 | `classes_find_places` | List rooms and locations for a company |
 
 ### Free tools — Zooza domain knowledge (no API calls, no account needed)
@@ -218,7 +275,7 @@ These five tools carry Zooza-specific knowledge and work without credentials —
 | `explain_data_model` | Explain how Zooza entities relate (Programme → Class → Session → Registration) |
 | `comms_list_merge_vars` | Full catalogue of merge variables for Zooza message templates |
 | `classes_list_schedule_patterns` | Reference for recurrence patterns (weekly, bi-weekly, block, camp) |
-| `negotiate_terminology` | Save your studio's vocabulary to Claude memory for future sessions |
+| `negotiate_terminology` | Save your business vocabulary to Claude memory for future sessions |
 
 ### Utilities
 
@@ -235,11 +292,17 @@ Skills are playbooks that teach Claude how to combine tools correctly for real o
 
 | Skill | What it handles |
 |---|---|
-| `class-management` | Full guided flow: interview → schedule preview → confirmation. Use when creating any class with recurring sessions. |
-| `business-model-validator` | Validate a proposed programme structure against Zooza's pricing and billing model before building it. |
+| `onboarding-profile` | Guided first-run setup — identifies the business model, aligns vocabulary, and walks through the full setup checklist. |
+| `class-management` | Full guided flow for creating a class: interview → schedule preview → confirmation. |
+| `schedule-optimization` | Build a whole weekly timetable for a new term — optimise from scratch or roll over the current period. |
+| `communication` | Guided client email flow: work out the audience, pick a template or compose, preview recipient counts, send after confirmation. |
+| `report-discovery` | Maps a business symptom ("feels like fewer kids coming") to the right metric and report. |
+| `report-compose` | Build a focused, single-question report from the operator's real data — no invented numbers. |
+| `business-model-validator` | Check whether a proposed programme structure fits Zooza's pricing and billing model before building it. |
 | `negotiate-terminology` | Interview the operator about their vocabulary and save the profile to Claude memory. |
+| `feedback-nudge` | Draft and submit a bug report or feature request to the Zooza engineering team. |
 
-**Coming next:** `cancel_day` · `transfer_booking` · `initiate_refund`
+**Coming next tools:** `cancel_day` · `transfer_booking` · `initiate_refund`
 
 ---
 
@@ -249,7 +312,7 @@ Skills are playbooks that teach Claude how to combine tools correctly for real o
 - **OAuth 2.0** — Claude receives a scoped token tied to your Zooza identity, not your password
 - **Permission inheritance** — Claude can only do what your Zooza account allows
 - **Confirmation before write** — all operations that create or change records require explicit confirmation
-- **No conversation storage** — the MCP server is stateless; your prompts are not logged by the MCP layer
+- **Stateless server** — the MCP server holds no session state between requests. For security and debugging, Zooza keeps a server-side audit log of tool calls (which tool ran, its arguments, and the result); it stays within Zooza's own infrastructure and is never shared with third parties
 - **GDPR-ready** — Zooza processes data in accordance with GDPR. See the [Privacy Policy](https://www.zooza.online/privacy-policy/) and [Terms of Personal Data Processing](https://www.zooza.online/terms-of-personal-data-processing/). EU accounts are routed to EU-region infrastructure.
 - **Regional data routing** — EU, UK, US, and Asia regions each route to their own infrastructure; your JWT determines the region automatically
 
@@ -259,7 +322,7 @@ Skills are playbooks that teach Claude how to combine tools correctly for real o
 
 ## What Zooza is
 
-[Zooza](https://zooza.online) is an end-to-end class management and scheduling software platform for activity schools and studios:
+[Zooza](https://zooza.online) is an end-to-end class management and scheduling software platform for activity brands:
 
 **Dance & movement** — dance academies, gymnastics, baby movement classes, yoga  
 **Language & education** — language schools, tutoring centres, STEAM / robotics / coding  
@@ -283,8 +346,6 @@ Zooza MCP extends this platform to AI. Instead of clicking through dashboards, y
 | `cancel_day` | Cancel all classes on a date with optional parent notifications |
 | `transfer_booking` | Move a client from one class to another |
 | `initiate_refund` | Prepare and confirm a credit or refund |
-| Reporting tools | Revenue summaries, attendance rates, capacity utilisation |
-| Communication tools | Send templated messages to parents and registered clients |
 
 ---
 
@@ -367,5 +428,5 @@ If this saves you time, a ⭐ helps others find it.
 ---
 
 <p align="center">
-  Built by <a href="https://zooza.online">Zooza</a> — class management and scheduling software for activity schools and studios.
+  Built by <a href="https://zooza.online">Zooza</a> — class management and scheduling software for activity brands.
 </p>
