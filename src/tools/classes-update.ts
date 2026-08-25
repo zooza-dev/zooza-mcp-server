@@ -25,25 +25,147 @@ const CASCADE_FIELDS = Object.keys(CASCADE_KEYS) as CascadeField[];
 
 const changesSchema = z
   .object({
-    name: z.string().optional(),
-    note: z.string().optional(),
-    description: z.string().optional(),
-    capacity: z.number().int().positive().optional(),
-    registrations_cap: z.number().int().nonnegative().optional(),
-    price: z.number().nonnegative().optional(),
-    unit_price: z.number().nonnegative().optional(),
-    registration_fee: z.number().nonnegative().optional(),
-    billing_period_id: z.number().int().positive().optional(),
-    online_registration: z.boolean().optional(),
-    status: z.enum(["active", "inactive", "archive"]).optional(),
+    name: z
+      .string()
+      .optional()
+      .describe("Class (schedule) display name — the label operators and clients see for this recurring group."),
+    note: z
+      .string()
+      .optional()
+      .describe("Internal, staff-only note on the class. Not shown to clients."),
+    description: z
+      .string()
+      .optional()
+      .describe("Public description of the class shown to clients on the registration page."),
+    capacity: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Basic maximum number of seats per session. This is the ordinary class size; it does NOT include the " +
+          "make-up buffer (see extra_capacity) and is unrelated to the registration-count limit (see registrations_cap).",
+      ),
+    registrations_cap: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Cap on the NUMBER OF REGISTRATIONS (bookings) this class accepts — NOT seats, and NOT make-up capacity. " +
+          "One registration can occupy several seats (e.g. a birthday party = 1 registration holding 7 seats), so " +
+          "this limits how many separate bookings exist, independent of seat count. `0` = OFF, no limit on the " +
+          "number of registrations — this is the normal default. Setting it to 1 restricts the class to a single " +
+          "registration; setting it to N caps it at N registrations. It does NOT by itself stop registrations or " +
+          "reduce capacity, and it has NOTHING to do with make-up/replacement (náhrady) sessions — for those use " +
+          "extra_capacity. Only set this for genuine multi-seat-per-registration scenarios.",
+      ),
+    price: z
+      .number()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Total price for the class/period, used when the programme prices by total (full2/total_price or single " +
+          "registration types). Stored verbatim; `0` is saved as-is with no inheritance from the parent programme.",
+      ),
+    unit_price: z
+      .number()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Per-session price, used when the programme prices per session (full2/unit_price or open registration " +
+          "types). Stored verbatim; `0` is saved as-is with no inheritance from the parent programme.",
+      ),
+    registration_fee: z
+      .number()
+      .nonnegative()
+      .optional()
+      .describe("One-time enrollment fee charged on top of the class price. Stored verbatim."),
+    // Make-up (náhrady) buffer — seats allowed ABOVE basic capacity for replacement sessions.
+    extra_capacity: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Extra seats reserved for make-up / replacement (SK/CZ: náhradné/náhrady) sessions — the \"Extra capacity " +
+          "for make-up sessions\" setting. Lets make-up attendees be booked ABOVE the class's basic `capacity`. " +
+          "`0` = no per-class make-up buffer. How it combines with the company-wide global make-up default is " +
+          "controlled by extra_capacity_usage. This is the correct field for \"počet miest navyše pre náhradné " +
+          "hodiny\" — NOT registrations_cap.",
+      ),
+    extra_capacity_usage: z
+      .enum(["add", "replace"])
+      .optional()
+      .describe(
+        "How extra_capacity combines with the company-wide global make-up capacity default. `add` = the per-class " +
+          "buffer is ADDED on top of the global (make-up ceiling = capacity + extra_capacity + global); `replace` = " +
+          "the per-class buffer REPLACES the global (global ignored). Mirrors the make-up panel's \"Add to global " +
+          "setting\" / \"Replace global settings\" radios. When a class has never had it set, Zooza treats it as `add`.",
+      ),
+    billing_period_id: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Term block (billing period) this class belongs to. Resolve with classes_find_billing_periods."),
+    online_registration: z
+      .boolean()
+      .optional()
+      .describe("Whether clients can self-register for this class online. `false` removes it from public registration."),
+    status: z
+      .enum(["active", "inactive", "archive"])
+      .optional()
+      .describe("Class lifecycle state: `active` (live/bookable), `inactive` (hidden/paused), `archive` (retired)."),
     // cascade fields (require session_scope)
-    trainer_id: z.number().int().positive().optional(),
-    trainer_rate_type_id: z.number().int().nonnegative().optional(),
-    duration: z.number().int().positive().optional(),
-    place_id: z.number().int().positive().optional(),
-    room_id: z.number().int().nonnegative().optional(),
+    trainer_id: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Instructor assigned to the class. Resolve with trainers_find. CASCADE field — changing it requires session_scope.",
+      ),
+    trainer_rate_type_id: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Trainer PAY-RATE type for this class (what the instructor is paid, not what clients pay). Resolve with " +
+          "trainers_find_rate_types. CASCADE field — changing it requires session_scope.",
+      ),
+    duration: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Session length in minutes. CASCADE field — changing it requires session_scope."),
+    place_id: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Venue (place) for the class. Resolve with classes_find_places. Must be changed together with room_id. " +
+          "CASCADE field — changing it requires session_scope.",
+      ),
+    room_id: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe("Room within the venue. Must be changed together with place_id."),
     // guarded
-    course_id: z.number().int().positive().optional(),
+    course_id: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Move the class to a different PROGRAMME (course). GUARDED — rewrites ALL sessions AND all registrations " +
+          "(irreversible); requires confirm_course_change: true.",
+      ),
   })
   .strict();
 
@@ -356,7 +478,9 @@ export const classesUpdateTitle = "Edit classes (preview, then apply)";
 
 export const classesUpdateDescription =
   "Edit one or more existing classes (a \"class\"/\"timetable\" is the recurring group within a programme) — name, " +
-  "price, registration fee, capacity, billing period, online-registration, status — and/or instructor, venue, or " +
+  "price, registration fee, capacity, make-up/replacement extra capacity (\"počet miest navyše pre náhradné " +
+  "hodiny\" → extra_capacity/extra_capacity_usage, NOT registrations_cap, which caps the NUMBER OF REGISTRATIONS), " +
+  "registration-count cap, billing period, online-registration, status — and/or instructor, venue, or " +
   "session duration.\n\n" +
   "TWO CALLS. First WITHOUT `token`: returns a preview of exactly what changes and how many sessions are " +
   "affected, plus a single-use token. Show it to the operator and get explicit approval. Then call again with " +

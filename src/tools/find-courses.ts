@@ -15,21 +15,36 @@ const REGISTRATION_TYPES = ["single", "full2", "open"] as const;
 export const findCoursesTitle = "Find courses by name";
 
 export const findCoursesDescription =
-  "Search the company's courses by name (substring match) and optionally by registration_type / course_type. Returns a slim list of matches — `{id, name, registration_type, target_audience, price, schedules_count, ...}` — enough to disambiguate, not enough to act. Use this whenever the user names a course in natural language; never demand a raw course_id. Archived courses are excluded by default (pass `include_archived: true` to opt in). Pagination defaults to page 0, page_size 25 (max 200); `truncated: true` is returned when more matches exist than the current page reveals.\n\n`registration_type` business meanings (when filtering, AND when surfacing results to the user — always translate to these terms, never show the raw enum value):\n- `single` — drop-in / per-session: customer books one event at a time.\n- `full2` — full-course enrollment: customer signs up for the entire course/schedule in one go.\n- `open` — open-ended / membership: no fixed enrollment window; customer joins and stays.";
+  "Search the company's courses by name (substring match) and optionally by registration_type. Returns a slim list of matches — `{id, name, registration_type, target_audience, price, schedules_count, ...}` — enough to disambiguate, not enough to act. Use this whenever the user names a course in natural language; never demand a raw course_id. Archived courses are excluded by default (pass `include_archived: true` to opt in). Pagination defaults to page 0, page_size 25 (max 200); `truncated: true` is returned when more matches exist than the current page reveals.\n\n`registration_type` business meanings (when filtering, AND when surfacing results to the user — always translate to these terms, never show the raw enum value):\n- `single` — drop-in / per-session: customer books one event at a time.\n- `full2` — full-course enrollment: customer signs up for the entire course/schedule in one go.\n- `open` — open-ended / membership: no fixed enrollment window; customer joins and stays.";
 
 export const findCoursesInputSchema = {
   company_id: companyIdSchema,
-  name: z.string().optional(),
+  name: z
+    .string()
+    .optional()
+    .describe(
+      "Substring match on the programme (course) name, e.g. \"Ballet\". Matches any programme whose name contains this text.",
+    ),
   registration_type: z
     .enum(REGISTRATION_TYPES)
     .describe(
       "Registration model. 'single' = drop-in / per-session booking (customer books one event at a time). 'full2' = full-course enrollment (customer signs up for the entire course at once). 'open' = open-ended / membership (no fixed enrollment window).",
     )
     .optional(),
-  course_type: z.string().optional(),
-  include_archived: z.boolean().optional(),
-  page: z.number().int().min(0).optional(),
-  page_size: z.number().int().min(1).max(200).optional(),
+  include_archived: z
+    .boolean()
+    .optional()
+    .describe(
+      "Default false → archived programmes are excluded. Set true to also include archived (retired) programmes.",
+    ),
+  page: z.number().int().min(0).optional().describe("0-based page index (default 0)."),
+  page_size: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("Number of results per page (max 200)."),
 };
 
 const inputSchema = z.object(findCoursesInputSchema);
@@ -66,7 +81,6 @@ export async function runFindCourses(
   if (!includeArchived) query.archive = "false";
   if (input.name) query.name = input.name;
   if (input.registration_type) query.registration_type = input.registration_type;
-  if (input.course_type) query.course_type = input.course_type;
 
   try {
     // company_id is guaranteed by the resolveCompanyId wrapper in index.ts —
@@ -104,7 +118,6 @@ function projectCourse(c: RawCourseRecord): CourseMatch {
     id: c.id,
     name: c.name,
     registration_type: c.registration_type ?? "",
-    course_type: c.course_type ?? "",
     target_audience: c.target_audience ?? "",
     price: toNumber(c.price),
     unit_price: toNumber(c.unit_price),

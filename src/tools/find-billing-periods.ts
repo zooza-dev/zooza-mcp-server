@@ -12,8 +12,18 @@ import type {
 
 export const findBillingPeriodsInputSchema = {
   company_id: companyIdSchema,
-  name: z.string().optional(),
-  include_inactive: z.boolean().optional(),
+  name: z
+    .string()
+    .optional()
+    .describe(
+      "Partial (substring) match on the billing period name, filtered MCP-side and case-insensitive.",
+    ),
+  include_inactive: z
+    .boolean()
+    .optional()
+    .describe(
+      "Default false → only active billing periods. Set true to also include deactivated ones.",
+    ),
 };
 
 const inputSchema = z.object(findBillingPeriodsInputSchema);

@@ -14,33 +14,90 @@ import {
 
 const rescheduleSchema = z.discriminatedUnion("mode", [
   z.object({
-    mode: z.literal("set"),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
-    time: z.string().regex(/^\d{2}:\d{2}$/, "time must be HH:MM").optional(),
+    mode: z
+      .literal("set")
+      .describe("Reschedule mode: move the session(s) to an explicit date (and optional time)."),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD")
+      .describe("New session date, YYYY-MM-DD."),
+    time: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "time must be HH:MM")
+      .optional()
+      .describe("New start time, HH:MM. Omit to keep each session's existing time."),
   }),
   z.object({
-    mode: z.literal("unify_time"),
-    time: z.string().regex(/^\d{2}:\d{2}$/, "time must be HH:MM"),
+    mode: z
+      .literal("unify_time")
+      .describe("Reschedule mode: set every selected session to the same time on its existing date."),
+    time: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "time must be HH:MM")
+      .describe("Start time, HH:MM, applied to every selected session."),
   }),
   z.object({
-    mode: z.literal("shift"),
-    days: z.number().int().optional(),
-    minutes: z.number().int().optional(),
+    mode: z
+      .literal("shift")
+      .describe("Reschedule mode: move each session by a relative offset (days and/or minutes)."),
+    days: z
+      .number()
+      .int()
+      .optional()
+      .describe("Days to shift each session by; negative moves it earlier."),
+    minutes: z
+      .number()
+      .int()
+      .optional()
+      .describe("Minutes to shift each session's time by; negative moves it earlier."),
   }),
 ]);
 
 const changesSchema = z
   .object({
-    reschedule: rescheduleSchema.optional(),
-    trainer_id: z.number().int().positive().optional(),
-    trainer_rate_type_id: z.number().int().nonnegative().optional(),
-    place_id: z.number().int().positive().optional(),
-    room_id: z.number().int().nonnegative().optional(),
+    reschedule: rescheduleSchema
+      .optional()
+      .describe(
+        "Move the selected session(s) to a new date/time. Pick a mode: set (explicit date), unify_time (same time on existing dates), or shift (relative offset).",
+      ),
+    trainer_id: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Reassign the session(s) to a different instructor. Resolve with trainers_find."),
+    trainer_rate_type_id: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe(
+        "Set the instructor pay-rate type for the session(s). Resolve with trainers_find_rate_types.",
+      ),
+    place_id: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Move the session(s) to a different venue (place); must be sent together with room_id. Resolve with classes_find_places.",
+      ),
+    room_id: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe("Room within the venue for the session(s); must be sent together with place_id."),
     segment: z
       .union([z.number().int().nonnegative(), z.string()])
       .optional()
       .describe("Block: existing segment id (int), a new block name (string, auto-created), or 0 to clear."),
-    duration: z.number().int().positive().optional(),
+    duration: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("New session length in minutes."),
   })
   .strict();
 
@@ -50,7 +107,9 @@ export const sessionsPrepareUpdateInputSchema = {
     .array(z.number().int().positive())
     .nonempty()
     .describe("One or many event (session) ids. Resolve with sessions_find_events."),
-  changes: changesSchema,
+  changes: changesSchema.describe(
+    "The edits to apply to the selected session(s) — any combination of reschedule, instructor, pay-rate, venue/room, block, and duration. Provide at least one.",
+  ),
   notify: z
     .boolean()
     .optional()

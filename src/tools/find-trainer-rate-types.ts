@@ -12,7 +12,12 @@ import type {
 
 export const findTrainerRateTypesInputSchema = {
   company_id: companyIdSchema,
-  name: z.string().optional(),
+  name: z
+    .string()
+    .optional()
+    .describe(
+      "Partial (substring) match on the rate type name, filtered MCP-side and case-insensitive. E.g. \"hourly\".",
+    ),
 };
 
 const inputSchema = z.object(findTrainerRateTypesInputSchema);

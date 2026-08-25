@@ -61,16 +61,6 @@ const ENTITIES: EntityDef[] = [
     children: ["class"],
     key_fields: [
       {
-        name: "course_type",
-        description: "What kind of activity this programme represents.",
-        values: [
-          { value: "course", label: "Group programme", notes: "Most common — instructor-led group sessions" },
-          { value: "individual", label: "Individual (1:1)", notes: "Single-person lessons; one client per class" },
-          { value: "event", label: "Event / lecture", notes: "Single-date event with speakers; no recurring schedule" },
-          { value: "online_event", label: "Online event / webinar", notes: "Same as event but online" },
-        ],
-      },
-      {
         name: "registration_type",
         description: "How clients book into the programme — determines the entire billing and attendance model.",
         values: [

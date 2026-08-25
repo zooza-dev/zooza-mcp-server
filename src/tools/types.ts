@@ -152,7 +152,6 @@ export interface CourseMatch {
   id: number;
   name: string;
   registration_type: string;
-  course_type: string;
   target_audience: string;
   price: number;
   unit_price: number;
@@ -185,7 +184,6 @@ export interface RawCourseRecord {
   id: number;
   name: string;
   registration_type?: string;
-  course_type?: string;
   target_audience?: string;
   price?: number | string;
   unit_price?: number | string;

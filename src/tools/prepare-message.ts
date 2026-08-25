@@ -86,9 +86,12 @@ export const prepareMessageInputSchema = {
     ),
   schedule_at: z
     .object({
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
-      hour: z.number().int().min(0).max(23),
-      minute: z.number().int().min(0).max(59),
+      date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD")
+        .describe("Local send date, YYYY-MM-DD."),
+      hour: z.number().int().min(0).max(23).describe("Local send hour, 0-23 (24-hour clock)."),
+      minute: z.number().int().min(0).max(59).describe("Local send minute, 0-59."),
     })
     .optional()
     .describe("Omit to send immediately on commit."),

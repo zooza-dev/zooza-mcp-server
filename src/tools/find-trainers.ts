@@ -25,12 +25,44 @@ const ACTIVE_TRAINER_ROLES = [
 
 export const findTrainersInputSchema = {
   company_id: companyIdSchema,
-  name: z.string().optional(),
-  place_id: z.number().int().positive().optional(),
-  course_id: z.number().int().positive().optional(),
-  include_inactive: z.boolean().optional(),
-  page: z.number().int().min(0).optional(),
-  page_size: z.number().int().min(1).max(200).optional(),
+  name: z
+    .string()
+    .optional()
+    .describe(
+      "Substring match (SQL LIKE '%…%') on a trainer's first name, last name, OR email — e.g. \"an\" matches " +
+        "\"Anna\", \"Bran\", and \"jan@…\". Not exact and not first-name-only. Also matches the built-in virtual " +
+        "trainers (placeholders such as \"To be specified\", ids 9000000000001–9000000000003).",
+    ),
+  place_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Only trainers associated with this venue. Resolve the venue id first with classes_find_places; never guess it. Virtual (placeholder) trainers are still returned regardless of this filter.",
+    ),
+  course_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Only trainers associated with this programme. Resolve the course_id first with classes_find_courses; never guess it. Virtual (placeholder) trainers are still returned regardless of this filter.",
+    ),
+  include_inactive: z
+    .boolean()
+    .optional()
+    .describe(
+      "Default false → only active team members (owner/member/external_member/assistant/main_member roles). Set true to also include former/inactive staff.",
+    ),
+  page: z.number().int().min(0).optional().describe("0-based page index (default 0)."),
+  page_size: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("Number of results per page (max 200)."),
 };
 
 const inputSchema = z.object(findTrainersInputSchema);

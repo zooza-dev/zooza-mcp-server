@@ -62,8 +62,14 @@ export const findClassesInputSchema = {
     .describe(
       "Default false → returns active + paused (inactive) classes. Set true to search ARCHIVED (retired) classes instead.",
     ),
-  page: z.number().int().min(0).optional(),
-  page_size: z.number().int().min(1).max(200).optional(),
+  page: z.number().int().min(0).optional().describe("0-based page index (default 0)."),
+  page_size: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("Number of results per page (max 200)."),
 };
 
 const inputSchema = z.object(findClassesInputSchema);

@@ -22,42 +22,122 @@ export const previewEventsDescription =
 
 export const previewEventsInputSchema = {
   company_id: companyIdSchema,
-  place_id: z.number().int().positive(),
-  from_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  place_id: z
+    .number()
+    .int()
+    .positive()
+    .describe(
+      "Venue (place) the sessions run at. Required so api-v1 applies the correct subdivision-scoped school-holiday calendar. Resolve with classes_find_places.",
+    ),
+  from_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .describe("Start of the window to expand sessions into, YYYY-MM-DD. Recurrence blocks begin generating on or after this date."),
   to_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+    .optional()
+    .describe("Optional end of the window, YYYY-MM-DD. Acts as a fallback until_date for any block that supplies neither count nor until_date."),
   blocks: z
     .array(
       z.object({
-        weekdays: z.array(z.enum(WEEKDAYS)).optional(),
-        time_minutes: z.number().int().min(0).max(1439),
-        duration: z.number().int().positive(),
-        all_day: z.boolean().optional(),
-        cadence: z.enum(CADENCES).optional(),
-        trainer_id: z.number().int().positive().optional(),
-        count: z.number().int().min(1).max(500).optional(),
+        weekdays: z
+          .array(z.enum(WEEKDAYS))
+          .optional()
+          .describe("Days of the week this recurring pattern runs on (e.g. ['mon','wed']). Omit for a single-day cadence."),
+        time_minutes: z
+          .number()
+          .int()
+          .min(0)
+          .max(1439)
+          .describe("Session start time as minutes past midnight (0-1439, e.g. 540 = 09:00)."),
+        duration: z
+          .number()
+          .int()
+          .positive()
+          .describe("Session length in minutes."),
+        all_day: z
+          .boolean()
+          .optional()
+          .describe("When true, the session has no fixed start time (an all-day session)."),
+        cadence: z
+          .enum(CADENCES)
+          .optional()
+          .describe("How often the pattern repeats: daily, weekly, biweekly, or monthly. Defaults to weekly."),
+        trainer_id: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Optional per-block instructor override. Resolve with trainers_find."),
+        count: z
+          .number()
+          .int()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe("Stop after generating this many sessions. Provide EXACTLY ONE of count or until_date; preferred when the user says 'X sessions'."),
         until_date: z
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .optional(),
+          .optional()
+          .describe("Stop generating sessions on this date (inclusive), YYYY-MM-DD. Provide EXACTLY ONE of count or until_date."),
       }),
     )
-    .optional(),
+    .optional()
+    .describe("Recurrence patterns to expand into concrete sessions. Each block describes one repeating rhythm; add multiple blocks for classes with several patterns."),
   additional_dates: z
     .array(
       z.object({
-        date_string: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        time_minutes: z.number().int().min(0).max(1439),
-        duration: z.number().int().positive(),
-        trainer_id: z.number().int().positive().optional(),
+        date_string: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .describe("Date of this ad-hoc session, YYYY-MM-DD."),
+        time_minutes: z
+          .number()
+          .int()
+          .min(0)
+          .max(1439)
+          .describe("Session start time as minutes past midnight (0-1439, e.g. 540 = 09:00)."),
+        duration: z
+          .number()
+          .int()
+          .positive()
+          .describe("Session length in minutes."),
+        trainer_id: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Optional per-session instructor override. Resolve with trainers_find."),
       }),
     )
-    .optional(),
-  skip_holidays: z.boolean().optional(),
-  skip_school_holidays: z.boolean().optional(),
-  skip_custom_holidays: z.boolean().optional(),
+    .optional()
+    .describe("One-off sessions on specific dates, added on top of any recurrence blocks (e.g. an extra makeup date)."),
+  skip_holidays: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, skip generating sessions that fall on public / state-wide holidays. Holiday calendars are " +
+        "system-wide (shared across all companies) and applied per the venue's region: a regional (non-country-wide) " +
+        "holiday only applies when the venue's location has a region set — otherwise only country/state-wide " +
+        "holidays are skipped.",
+    ),
+  skip_school_holidays: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, skip sessions that fall within school-holiday periods. Same system-wide, region-distributed " +
+        "calendar as skip_holidays — the venue's location must have a region set for region-specific school " +
+        "holidays to apply; otherwise only country-wide ones are skipped.",
+    ),
+  skip_custom_holidays: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, skip sessions on dates the company itself has defined as holidays/closures — company-specific, " +
+        "independent of the shared public/school-holiday calendars.",
+    ),
 };
 
 const inputSchema = z.object(previewEventsInputSchema);

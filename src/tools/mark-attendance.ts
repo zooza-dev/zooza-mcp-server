@@ -26,10 +26,28 @@ export const markAttendanceDescription =
   "Record per-attendee attendance for **one event** (a single session of a class — e.g. \"Monday Ballet on 2026-06-03 at 09:00\"). Pass an `event_id` and a list of attendees, each with their own attendance value (`attended`, `noshow`, `canceled`, `going`, `ignore`). Each value is set on **that one attendee for that one event**, never on the event as a whole. The tool writes each attendee individually and returns a per-row outcome. Use this **after** you already know the event and the attendees you want to mark — typically because the user dictated them or because you previously called `sessions_get_attendance`. If you don't yet know which event or who's enrolled, call `sessions_find_events` or `sessions_get_attendance` first. This tool does **not** cancel or reschedule the event itself or handle trialist follow-ups — those are separate tools.\n\n**Follow-up chaining.** The response includes a top-level `summary` block with `public_set` / `internal_set` / `writable_by_caller` flags. After a successful mark, if `summary.public_set=false` AND `summary.writable_by_caller=true`, proactively offer the user the option to write a parent-visible recap via `sessions_add_summary`. If `writable_by_caller=false`, don't offer (the caller's role can't write summaries). If `public_set=true`, don't volunteer an update unless asked.\n\n**Trial follow-ups.** A per-row `pending_action: \"trial_followup\"` (with `todo_id`) means that attendee just completed their trial by being marked `attended` — a follow-up (parent feedback + continuing-class recommendation) is now pending. Tell the user it's waiting and offer to handle it; the attendance skill resolves it against the todo. This tool only surfaces the hint — it does not orchestrate the follow-up. If the field is absent, there's nothing pending.\n\nAttendance value semantics:\n- `attended` — attendee was present.\n- `noshow` — attendee did not show up and did not warn.\n- `canceled` — attendee cancelled (admin-recorded). Triggers server-side make-up credit creation automatically when the programme allows it; do not call any other tool to issue credits.\n- `going` — pre-event RSVP / \"planning to attend.\" Restricted for member/receptionist roles under `trainer_attendance_management=\"limited\"`.\n- `ignore` — hide this event from the attendee's history (Zooza-specific; rare).\n\n`use_voucher` is a tentative V1 design: only meaningful when `attendance=\"going\"` AND `course.registration_type=\"open\"`. Check the attendee's `entrance_voucher.unused_entrance_vouchers > 0` (from `sessions_get_attendance`) before setting it to true; the server silently downgrades to cash debt when no voucher is available.";
 
 const attendeeSchema = z.object({
-  registration_id: z.number().int().positive(),
-  attendance: z.enum(ATTENDANCE_VALUES),
-  cancellation_reason: z.string().optional(),
-  use_voucher: z.boolean().optional(),
+  registration_id: z
+    .number()
+    .int()
+    .positive()
+    .describe(
+      "Identifies the enrolled attendee to mark — one registration row per attendee on this event (from sessions_get_attendance). Not the event id, not the client's user id.",
+    ),
+  attendance: z
+    .enum(ATTENDANCE_VALUES)
+    .describe(
+      "This attendee's attendance for this one event: 'attended' = was present; 'noshow' = absent without warning; 'canceled' = admin-recorded cancellation (auto-issues make-up credit when the programme allows); 'going' = pre-event RSVP/planning to attend; 'ignore' = hide this event from the attendee's history (rare).",
+    ),
+  cancellation_reason: z
+    .string()
+    .optional()
+    .describe("Free-text reason accompanying a cancellation; only meaningful when attendance='canceled'."),
+  use_voucher: z
+    .boolean()
+    .optional()
+    .describe(
+      "Tentative V1. Only meaningful when attendance='going' AND the course.registration_type='open'. Set true to spend an entrance voucher instead of accruing cash debt; check the attendee's entrance_voucher.unused_entrance_vouchers > 0 first (the server silently downgrades to cash debt when none is available).",
+    ),
 });
 
 export const markAttendanceInputSchema = {

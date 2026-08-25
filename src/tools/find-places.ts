@@ -12,10 +12,26 @@ import type {
 
 export const findPlacesInputSchema = {
   company_id: companyIdSchema,
-  name: z.string().optional(),
-  city: z.string().optional(),
-  page: z.number().int().min(0).optional(),
-  page_size: z.number().int().min(1).max(200).optional(),
+  name: z
+    .string()
+    .optional()
+    .describe(
+      "Partial (substring) match on the venue name, filtered MCP-side and case-insensitive. E.g. \"main\" matches \"Main Hall\".",
+    ),
+  city: z
+    .string()
+    .optional()
+    .describe(
+      "Partial (substring) match on the venue's city, filtered MCP-side and case-insensitive.",
+    ),
+  page: z.number().int().min(0).optional().describe("0-based page index (default 0)."),
+  page_size: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("Number of results per page (max 200)."),
 };
 
 const inputSchema = z.object(findPlacesInputSchema);

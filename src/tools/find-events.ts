@@ -47,7 +47,13 @@ export const findEventsDescription =
 
 export const findEventsInputSchema = {
   company_id: companyIdSchema,
-  ids: z.array(z.number().int().positive()).min(1).optional(),
+  ids: z
+    .array(z.number().int().positive())
+    .min(1)
+    .optional()
+    .describe(
+      "Specific event (session) ids to fetch. Bypasses the upcoming/scheduled defaults so the requested rows come back as-is.",
+    ),
   from: z.string().optional().describe("YYYY-MM-DD, inclusive lower bound on event date."),
   to: z.string().optional().describe("YYYY-MM-DD, inclusive upper bound on event date."),
   date: z.string().optional().describe("YYYY-MM-DD, exact-day match."),
@@ -69,11 +75,28 @@ export const findEventsInputSchema = {
     .describe(
       'Event-shape filter. "cancelled" surfaces events explicitly cancelled (server-side maps to status=unplanned). Other values target dashboard cases: oversold, undersold, ad-hoc replacements, etc.',
     ),
-  schedule_id: z.number().int().positive().optional(),
-  course_id: numberOrNumberArray.optional(),
-  trainer_id: numberOrNumberArray.optional(),
-  place_id: numberOrNumberArray.optional(),
-  room_id: numberOrNumberArray.optional(),
+  schedule_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Restrict to sessions belonging to one class. Resolve with classes_find_classes."),
+  course_id: numberOrNumberArray
+    .optional()
+    .describe(
+      "Restrict to sessions of one or more programmes (courses). Resolve with classes_find_courses.",
+    ),
+  trainer_id: numberOrNumberArray
+    .optional()
+    .describe(
+      "Restrict to sessions an instructor is connected to (one or more). Resolve with trainers_find. See the trainer filter note above — this matches across five trainer relationships.",
+    ),
+  place_id: numberOrNumberArray
+    .optional()
+    .describe("Restrict to sessions at one or more venues (places). Resolve with classes_find_places."),
+  room_id: numberOrNumberArray
+    .optional()
+    .describe("Restrict to sessions held in one or more specific rooms within a venue."),
   segment_id: z
     .array(z.number().int().nonnegative())
     .min(1)
@@ -81,10 +104,25 @@ export const findEventsInputSchema = {
     .describe(
       "Schedule-segment id(s). Pass [0] to match events with NO segment assignment (sentinel).",
     ),
-  billing_period_id: numberOrNumberArray.optional(),
-  sort: z.enum(SORT_VALUES).optional(),
-  page: z.number().int().min(0).optional(),
-  page_size: z.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
+  billing_period_id: numberOrNumberArray
+    .optional()
+    .describe(
+      "Restrict to sessions in one or more billing periods (term blocks). Resolve with classes_find_billing_periods.",
+    ),
+  sort: z
+    .enum(SORT_VALUES)
+    .optional()
+    .describe(
+      "Result ordering. date_asc/date_desc sort by session date; event_no_asc/event_no_desc by event number; created_asc/created_desc by record creation time. Default date_asc.",
+    ),
+  page: z.number().int().min(0).optional().describe("0-based page index (default 0)."),
+  page_size: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_PAGE_SIZE)
+    .optional()
+    .describe("Number of results per page (max 200)."),
 };
 
 const inputSchema = z.object(findEventsInputSchema);

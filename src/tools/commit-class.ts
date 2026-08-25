@@ -37,28 +37,86 @@ export const commitClassDescription =
   "Writes a class to api-v1 in one shot: creates the schedule, attaches any selected payment templates (bundled inline), and posts the assembled events array. Call this only after the user has confirmed the class shell (from `classes_preview_schedule`) and the full event list (accumulated from one or more `classes_preview_events` calls). For lead-collection classes, pass `events: []`. Returns the created schedule's id and url plus the list of created event ids. If api-v1 silently skips any events (a known quirk), the tool surfaces the mismatch as an error so the caller knows the partial state.\n\n`schedule.name` is OPTIONAL — omit unless the user explicitly asked for a custom class name. api-v1 auto-renders `{course_name} {class_name} {session_dates}` end-user-facing when name is absent.";
 
 const scheduleShape = z.object({
-  course_id: z.number().int().positive(),
-  course_name: z.string(),
-  name: z.string().optional(),
-  place_id: z.number().int().positive(),
-  place_name: z.string(),
-  room_id: z.number().int().nonnegative(),
-  trainer_id: z.number().int().positive(),
-  trainer_rate_type_id: z.number().int().nonnegative(),
-  capacity: z.number().int().positive(),
-  duration_minutes: z.number().int().positive(),
-  all_day: z.boolean(),
-  online_registration: z.boolean(),
+  course_id: z
+    .number()
+    .int()
+    .positive()
+    .describe("Parent programme (course) this class belongs to. Resolve with classes_find_courses."),
+  course_name: z
+    .string()
+    .describe("Display name of the parent programme, carried through from classes_preview_schedule for labelling."),
+  name: z
+    .string()
+    .optional()
+    .describe(
+      "OPTIONAL custom class name — omit unless the user explicitly asked for one. When blank, api-v1 auto-renders `{course_name} {class_name} {session_dates}` for end users.",
+    ),
+  place_id: z
+    .number()
+    .int()
+    .positive()
+    .describe("Venue (place) where the class runs. Resolve with classes_find_places."),
+  place_name: z
+    .string()
+    .describe("Display name of the venue, carried through from classes_preview_schedule for labelling."),
+  room_id: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe("Room within the venue. `0` = no specific room."),
+  trainer_id: z
+    .number()
+    .int()
+    .positive()
+    .describe("Instructor assigned to the class. Resolve with trainers_find."),
+  trainer_rate_type_id: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe("Trainer PAY-RATE type (what the instructor is paid, not what clients pay). Resolve with trainers_find_rate_types. `0` = none."),
+  capacity: z
+    .number()
+    .int()
+    .positive()
+    .describe("Basic maximum number of seats per session — the ordinary class size."),
+  duration_minutes: z
+    .number()
+    .int()
+    .positive()
+    .describe("Session length in minutes."),
+  all_day: z
+    .boolean()
+    .describe("When true, the session has no fixed start time (an all-day session)."),
+  online_registration: z
+    .boolean()
+    .describe("Whether clients can self-register for this class online — true publishes it on the public website."),
   schedule_type: z
     .enum(SCHEDULE_TYPES)
     .describe(
       "What kind of class this is. 'fixed_period' = a real class with concrete dates (sessions get created on commit). 'lead_collection' = interest-gathering placeholder (no events; pass events: []).",
     ),
-  unit_price: z.number().nonnegative(),
-  price: z.number().nonnegative(),
-  registration_fee: z.number().nonnegative(),
-  billable_events: z.number().nonnegative(),
-  billing_period_id: z.number().int().positive().optional(),
+  unit_price: z
+    .number()
+    .nonnegative()
+    .describe("Per-session price, used when the programme prices per session."),
+  price: z
+    .number()
+    .nonnegative()
+    .describe("Total price for the class/period, used when the programme prices by total."),
+  registration_fee: z
+    .number()
+    .nonnegative()
+    .describe("One-time enrollment fee charged on top of the class price."),
+  billable_events: z
+    .number()
+    .nonnegative()
+    .describe("Number of billable sessions used to compute what clients owe."),
+  billing_period_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Term block (billing period) this class belongs to. Resolve with classes_find_billing_periods."),
   total_price: z
     .number()
     .nonnegative()
@@ -71,17 +129,45 @@ const scheduleShape = z.object({
 });
 
 const eventShape = z.object({
-  date_string: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  time_minutes: z.number().int().min(0).max(1439),
-  duration: z.number().int().positive(),
-  trainer_id: z.number().int().positive().optional(),
+  date_string: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .describe("Date of this session, YYYY-MM-DD."),
+  time_minutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(1439)
+    .describe("Session start time as minutes past midnight (0-1439, e.g. 540 = 09:00)."),
+  duration: z
+    .number()
+    .int()
+    .positive()
+    .describe("Session length in minutes."),
+  trainer_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Optional per-session instructor override. Resolve with trainers_find; defaults to the schedule's trainer_id when omitted."),
 });
 
 export const commitClassInputSchema = {
   company_id: companyIdSchema,
-  schedule: scheduleShape,
-  events: z.array(eventShape),
-  payment_schedule_template_ids: z.array(z.number().int().positive()).optional(),
+  schedule: scheduleShape.describe(
+    "The confirmed class shell (course, venue, trainer, capacity, prices, billing period) as returned by classes_preview_schedule.",
+  ),
+  events: z
+    .array(eventShape)
+    .describe(
+      "The full list of sessions to create, accumulated from one or more classes_preview_events calls. Pass [] for lead_collection classes.",
+    ),
+  payment_schedule_template_ids: z
+    .array(z.number().int().positive())
+    .optional()
+    .describe(
+      "Ids of the payment schedule templates to attach to the class. Omit to keep the course's default template selection from classes_preview_schedule.",
+    ),
 };
 
 const inputSchema = z.object(commitClassInputSchema);

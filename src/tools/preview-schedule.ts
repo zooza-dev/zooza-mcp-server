@@ -26,27 +26,89 @@ export const previewScheduleDescription =
 
 export const previewScheduleInputSchema = {
   company_id: companyIdSchema,
-  course_id: z.number().int().positive(),
-  place_id: z.number().int().positive(),
-  trainer_id: z.number().int().positive(),
-  room_id: z.number().int().nonnegative().optional(),
-  trainer_rate_type_id: z.number().int().nonnegative().optional(),
+  course_id: z
+    .number()
+    .int()
+    .positive()
+    .describe("Parent programme (course) the new class belongs to. Resolve with classes_find_courses. Defaults (capacity, prices) are copied from this course."),
+  place_id: z
+    .number()
+    .int()
+    .positive()
+    .describe("Venue (place) where the class will run. Resolve with classes_find_places."),
+  trainer_id: z
+    .number()
+    .int()
+    .positive()
+    .describe("Instructor assigned to the class. Resolve with trainers_find."),
+  room_id: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Room within the venue. Defaults to 0 (no specific room) when omitted."),
+  trainer_rate_type_id: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Trainer PAY-RATE type (what the instructor is paid, not what clients pay). Resolve with trainers_find_rate_types. Defaults to 0 (none)."),
   schedule_type: z
     .enum(SCHEDULE_TYPES)
     .describe(
       "What kind of class this is. 'fixed_period' = a real class with concrete dates the trainer will run — sessions get created and customers register for them. 'lead_collection' = a pre-launch interest-gathering placeholder (no dates yet); customers can express interest, and the operator converts it to a fixed_period class once dates are decided. For lead_collection, the events step is skipped entirely after preview.",
     )
     .optional(),
-  capacity: z.number().int().positive().optional(),
-  duration_minutes: z.number().int().positive().optional(),
-  all_day: z.boolean().optional(),
-  online_registration: z.boolean().optional(),
-  unit_price: z.number().nonnegative().optional(),
-  price: z.number().nonnegative().optional(),
-  registration_fee: z.number().nonnegative().optional(),
-  billable_events: z.number().nonnegative().optional(),
-  billing_period_id: z.number().int().positive().optional(),
-  payment_schedule_template_ids: z.array(z.number().int().positive()).optional(),
+  capacity: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Basic maximum number of seats per session — the ordinary class size. Defaults from the course's target_audience when omitted."),
+  duration_minutes: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Session length in minutes. Defaults to 60 when omitted."),
+  all_day: z
+    .boolean()
+    .optional()
+    .describe("When true, the session has no fixed start time (an all-day session)."),
+  online_registration: z
+    .boolean()
+    .optional()
+    .describe("Whether clients can self-register for this class online — true publishes it on the public website. Defaults to true."),
+  unit_price: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("Per-session price, used when the programme prices per session. Copied from the parent course when omitted."),
+  price: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("Total price for the class/period, used when the programme prices by total. Copied from the parent course when omitted."),
+  registration_fee: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("One-time enrollment fee charged on top of the class price. Copied from the parent course when omitted."),
+  billable_events: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("Number of billable sessions used to compute what clients owe. Copied from the parent course when omitted."),
+  billing_period_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Term block (billing period) this class belongs to. Resolve with classes_find_billing_periods. Falls back to the most recent active period when omitted."),
+  payment_schedule_template_ids: z
+    .array(z.number().int().positive())
+    .optional()
+    .describe("Ids of the payment schedule templates to attach. Omit to select the course's default templates."),
   name: z
     .string()
     .describe(

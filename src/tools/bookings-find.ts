@@ -123,8 +123,13 @@ export const bookingsFindInputSchema = {
     .regex(/^\d{4}-\d{2}-\d{2}$/, "created_to must be YYYY-MM-DD")
     .optional()
     .describe("Only bookings CREATED on/before this date (YYYY-MM-DD, inclusive). Pair with created_from for a window."),
-  page: z.number().int().min(0).optional(),
-  page_size: z.number().int().min(1).optional(),
+  page: z.number().int().min(0).optional().describe("0-based page index (default 0)."),
+  page_size: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("Number of results per page (max 200)."),
 };
 
 const inputSchema = z.object(bookingsFindInputSchema);
