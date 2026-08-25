@@ -3,6 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { companyIdSchema } from "./common.js";
+import { dualPhaseConfirmedSchema, dualPhaseTokenSchema, resolveDualPhase } from "./dual-phase.js";
 import type { ApiListResponse } from "./types.js";
 import {
   type ClassesUpdatePlan,
@@ -21,32 +22,6 @@ const CASCADE_KEYS = {
 } as const;
 type CascadeField = keyof typeof CASCADE_KEYS;
 const CASCADE_FIELDS = Object.keys(CASCADE_KEYS) as CascadeField[];
-
-export const classesPrepareUpdateTitle = "Preview a class (schedule) edit";
-export const classesCommitUpdateTitle = "Apply a previewed class edit";
-
-export const classesPrepareUpdateDescription =
-  "Preview an edit to one or more existing classes (a \"class\"/\"timetable\" is the recurring group within a " +
-  "programme). Use this to change a class's settings — name, price, registration fee, capacity, billing period, " +
-  "online-registration, status — and/or its instructor, venue, or session duration. Changing instructor/venue/duration " +
-  "forces a `session_scope` choice about existing sessions: \"upcoming\" (this class + its future " +
-  "sessions — usually what people mean), \"all\" (every session incl. past), or \"class_only\" (re-advertise the " +
-  "class but leave existing sessions on their old value — the #1 cause of \"I changed it but the sessions still " +
-  "show the old value\", so only pick it deliberately). This scope is the OPERATOR's call, not yours: when they " +
-  "haven't stated one, PRESENT the three options and their consequences and let them choose — do NOT silently pick a " +
-  "scope and prepare, and do NOT stall. If the operator asks what a cascade edit will do before committing, explain " +
-  "this same taxonomy (in particular that class_only re-advertises the class but leaves existing sessions unchanged). " +
-  "Returns a preview of exactly what changes and how many " +
-  "sessions are affected — nothing is written until you call classes_commit_update with the returned `token`. " +
-  "Handles one class or many at once. To edit specific individual sessions (move one date, change one session's " +
-  "room), use sessions_update instead. To cancel sessions, use the cancellation tools.";
-
-export const classesCommitUpdateDescription =
-  "Applies a class edit previously previewed by classes_prepare_update. Only call this after the operator has " +
-  "seen the preview (field changes + how many sessions the cascade touches) and EXPLICITLY confirmed. Takes the " +
-  "`token` from classes_prepare_update — the changes are frozen in the plan and cannot be altered here; to change " +
-  "anything, call classes_prepare_update again. Returns which classes were updated and how many sessions the " +
-  "cascade rewrote.";
 
 const changesSchema = z
   .object({
@@ -100,7 +75,7 @@ export const classesPrepareUpdateInputSchema = {
 export const classesCommitUpdateInputSchema = {
   token: z
     .string()
-    .describe("Single-use token from classes_prepare_update; expires after 15 minutes."),
+    .describe("Single-use token from classes_update; expires after 15 minutes."),
 };
 
 const prepareInput = z.object(classesPrepareUpdateInputSchema);
@@ -270,7 +245,7 @@ export async function runClassesCommitUpdate(
   if (!lookup.ok) {
     return errorResult(
       `This edit plan is no longer valid (tokens are single-use and expire after 15 minutes — this one is ` +
-        `${lookup.reason}). Call classes_prepare_update again and re-confirm with the operator.`,
+        `${lookup.reason}). Call classes_update again and re-confirm with the operator.`,
     );
   }
   if (lookup.plan.kind !== "classes") {
@@ -316,7 +291,7 @@ export async function runClassesCommitUpdate(
     return zoozaError(
       error,
       `Could not apply the class edit (schedules ${payloads.map((p) => p.id).join(", ")}). No confirmation of ` +
-        "changes; you may retry classes_commit_update once with the same token",
+        "changes; you may retry classes_update once with the same token",
     );
   }
 }
@@ -365,4 +340,84 @@ function zoozaError(error: unknown, prefix: string) {
 
 function errorResult(text: string) {
   return { isError: true, content: [{ type: "text" as const, text }] };
+}
+
+// ─── Dual-phase surface (ZMCP-20260824-001) ──────────────────────────────────
+//
+// Replaces the former `classes_prepare_update` / `classes_commit_update` PAIR with
+// one registration that dispatches on `token` presence. The two phases' logic is
+// unchanged — `runClassesPrepareUpdate` / `runClassesCommitUpdate` keep their own
+// zod parsing, so every preview rule, warning and error message survives verbatim.
+//
+// Preview-phase fields are optional here because they are absent on the apply call;
+// their real validation still happens inside runClassesPrepareUpdate.
+
+export const classesUpdateTitle = "Edit classes (preview, then apply)";
+
+export const classesUpdateDescription =
+  "Edit one or more existing classes (a \"class\"/\"timetable\" is the recurring group within a programme) — name, " +
+  "price, registration fee, capacity, billing period, online-registration, status — and/or instructor, venue, or " +
+  "session duration.\n\n" +
+  "TWO CALLS. First WITHOUT `token`: returns a preview of exactly what changes and how many sessions are " +
+  "affected, plus a single-use token. Show it to the operator and get explicit approval. Then call again with " +
+  "`token` + `confirmed: true` to apply — send nothing else, the change is frozen in the plan. To alter anything, " +
+  "run the first call again.\n\n" +
+  "Changing instructor/venue/duration forces a `session_scope` choice about existing sessions: \"upcoming\" (this " +
+  "class + its future sessions — usually what people mean), \"all\" (every session incl. past), or \"class_only\" " +
+  "(re-advertise the class but leave existing sessions on their old value — the #1 cause of \"I changed it but the " +
+  "sessions still show the old value\", so only pick it deliberately). This scope is the OPERATOR's call, not " +
+  "yours: when they haven't stated one, PRESENT the three options and their consequences and let them choose — do " +
+  "NOT silently pick a scope, and do NOT stall. If the operator asks what a cascade edit will do before applying, " +
+  "explain this same taxonomy.\n\n" +
+  "Handles one class or many at once. To edit specific individual sessions (move one date, change one session's " +
+  "room), use sessions_update instead. To cancel sessions, use the cancellation tools.";
+
+export const classesUpdateInputSchema = {
+  company_id: companyIdSchema,
+  token: dualPhaseTokenSchema,
+  confirmed: dualPhaseConfirmedSchema,
+  schedule_ids: z
+    .array(z.number().int().positive())
+    .nonempty()
+    .optional()
+    .describe(
+      "Required on the FIRST call. One or many class (schedule) ids. Resolve by name with classes_find_classes.",
+    ),
+  changes: changesSchema
+    .optional()
+    .describe("Required on the FIRST call. The fields to change — at least one."),
+  session_scope: z
+    .enum(["class_only", "upcoming", "all"])
+    .optional()
+    .describe(
+      "REQUIRED when changing instructor/venue/duration. 'upcoming' = the class + its future sessions " +
+        "(usual); 'all' = every session; 'class_only' = re-advertise the class only, existing sessions keep " +
+        "their old value (warn the operator — usually NOT what they want).",
+    ),
+  confirm_course_change: z
+    .boolean()
+    .optional()
+    .describe(
+      "REQUIRED true to change changes.course_id — reprogramming a class rewrites ALL its sessions AND all " +
+        "registrations (irreversible). Only set after the operator explicitly asked to move the class to a " +
+        "different programme.",
+    ),
+};
+
+export async function runClassesUpdate(
+  rawInput: unknown,
+  auth: ZoozaAuth,
+): Promise<{
+  isError?: boolean;
+  content: Array<{ type: "text"; text: string }>;
+}> {
+  const decision = resolveDualPhase(rawInput);
+  if (decision.kind === "error") {
+    return errorResult(decision.message);
+  }
+  if (decision.kind === "preview") {
+    return runClassesPrepareUpdate(rawInput, auth);
+  }
+  // Apply: only the token crosses over — company and changes come from the plan.
+  return runClassesCommitUpdate({ token: decision.token }, auth);
 }

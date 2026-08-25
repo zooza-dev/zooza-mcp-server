@@ -22,6 +22,13 @@ export interface ResolvedSchedule {
   registration_fee: number;
   billable_events: number;
   billing_period_id?: number;
+  /**
+   * The operator's TOTAL for the whole run, carried from the course when it is
+   * priced in instalments. classes_commit_class divides it by the billable session
+   * count to produce `unit_price`, because that count does not exist until the
+   * sessions do. Absent for one-off pricing, where `price` already IS the total.
+   */
+  total_price?: number;
 }
 
 export interface AvailablePaymentTemplate {
@@ -156,6 +163,23 @@ export interface CourseMatch {
   registrations_count: number;
 }
 
+/** Raw course row from GET /v1/courses/{id} as consumed by
+ *  classes_update_course_settings (ZMCP-20260805-001). The tool reads current
+ *  values dynamically per whitelisted section field, so the shape is an open
+ *  record plus the header fields it always surfaces and the guard-echo flags
+ *  it always reads. */
+export interface CourseSettingsRecord {
+  id: number;
+  name: string;
+  registration_type?: string;
+  archive?: boolean | number | string;
+  feedback_during_course?: boolean | number | string;
+  feedback_after_course?: boolean | number | string;
+  fees_included_in_price?: boolean | number | string;
+  __calc__registrations_count?: number | string;
+  [field: string]: unknown;
+}
+
 /** Raw course record from /v1/courses — superset of CourseDto, only the fields classes_find_courses reads. */
 export interface RawCourseRecord {
   id: number;
@@ -175,7 +199,7 @@ export interface RawCourseRecord {
 /** Curated match shape for classes_find_classes — see ZMCP-20260615-001.
  *  `start`/`end`/`time` + `trainer_name`/`place_name` are the disambiguators when
  *  several classes share a name; `schedule_id` is the resolve payload (feeds
- *  comms_prepare_message audience.schedule_id). `course_name` is intentionally
+ *  comms_send_message audience.schedule_id). `course_name` is intentionally
  *  ABSENT: the /schedules collection path does not honor load_course, so only
  *  course_id is available without a second call — resolve the name with
  *  classes_find_courses if needed. */
@@ -271,11 +295,17 @@ export interface RawRegistrationRecord {
   payment_debt?: number | string;
 }
 
-/** Curated match shape for classes_find_billing_periods — see ZMCP-20260523-004. */
+/** Curated match shape for classes_find_resource (kind:'billing_period') — see ZMCP-20260523-004. */
 export interface BillingPeriodMatch {
   id: number;
   name: string;
   active: boolean;
+  /** Optional calendar span. Added to api-v1 by migration
+   *  2026_07_02_120000_billing_periods_add_period_dates.sql (spec API-20260702-001)
+   *  and serialised since; this tool dropped both until ZMCP-20260824-002.
+   *  Either bound may be null — an open-ended period is a valid state. */
+  period_start: string | null;
+  period_end: string | null;
 }
 
 /** Raw billing period record from /v1/billing_periods. */
@@ -283,9 +313,11 @@ export interface RawBillingPeriodRecord {
   id: number;
   name: string;
   active?: boolean;
+  period_start?: string | null;
+  period_end?: string | null;
 }
 
-/** Curated match shape for trainers_find_rate_types — see ZMCP-20260703-001. */
+/** Curated match shape for classes_find_resource (kind:'trainer_rate_type') — see ZMCP-20260703-001. */
 export interface TrainerRateTypeMatch {
   id: number;
   name: string;
@@ -301,7 +333,7 @@ export interface RawTrainerRateTypeRecord {
   type?: string | null;
 }
 
-/** Curated match shape for trainers_find — see ZMCP-20260523-003. */
+/** Curated match shape for classes_find_resource (kind:'trainer') — see ZMCP-20260523-003. */
 export interface TrainerMatch {
   id: number;
   full_name: string;
@@ -325,7 +357,7 @@ export interface RawUserRecord {
   role?: { role?: string } | string;
 }
 
-/** Curated match shape for classes_find_places — see ZMCP-20260523-002. */
+/** Curated match shape for classes_find_resource (kind:'place') — see ZMCP-20260523-002. */
 export interface PlaceMatch {
   id: number;
   name: string;
@@ -649,6 +681,28 @@ export interface AddSessionSummaryResult {
     public_summary: AddSessionSummaryFieldResult;
   };
   summary_state_after: EventSummaryState;
+}
+
+/** classes_add_course's structuredContent (ZMCP-20260805-002). */
+export interface AddCourseResult {
+  [key: string]: unknown;
+  created: true;
+  course: {
+    id: number;
+    name: string;
+    registration_type: string;
+    programme_kind: string;
+    target_audience: string;
+    for_children: boolean;
+    unit_price: number;
+    price: number;
+    registration_fee: number;
+    public: boolean;
+    online_registration: boolean;
+  };
+  auto_configured: string[];
+  warnings: string[];
+  next_steps: string;
 }
 
 /** Raw event row from api-v1 /v1/events?filter=filter — the modern

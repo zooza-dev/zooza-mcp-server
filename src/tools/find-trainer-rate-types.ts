@@ -10,16 +10,6 @@ import type {
   TrainerRateTypeMatch,
 } from "./types.js";
 
-export const findTrainerRateTypesTitle = "Find trainer rate types (pay rates)";
-
-export const findTrainerRateTypesDescription =
-  "List the company's trainer rate types — the named pay rates a trainer can be assigned on a class or session " +
-  "(e.g. \"Hourly\", \"Per class\"). Returns a slim list of `{id, name, minutes, type}`, optionally filtered by " +
-  "name. This is the ONLY way to turn a rate the operator names (\"the hourly rate\", \"per-session pay\") into the " +
-  "`trainer_rate_type_id` that classes_prepare_update and sessions_prepare_update need — never guess that id. " +
-  "Trainer rate types are company-level configuration (like billing periods and venues), not a per-trainer " +
-  "attribute, so this is a small flat list, typically a handful per company. No pagination.";
-
 export const findTrainerRateTypesInputSchema = {
   company_id: companyIdSchema,
   name: z.string().optional(),
@@ -48,7 +38,7 @@ export async function runFindTrainerRateTypes(
   try {
     // GET /v1/trainer_rates/types → company's rate types (company_id is a system
     // search param, applied by withCompany). Volume is tiny; fetch all and filter
-    // MCP-side by name, mirroring classes_find_billing_periods.
+    // MCP-side by name, mirroring classes_find_resource (kind:'billing_period').
     // company_id guaranteed by resolveCompanyId wrapper (see index.ts).
     const raw = await zoozaFetch<
       ApiListResponse<RawTrainerRateTypeRecord> | RawTrainerRateTypeRecord[]

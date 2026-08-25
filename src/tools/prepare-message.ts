@@ -7,23 +7,6 @@ import { companyIdSchema } from "./common.js";
 import type { RawEmailTemplate } from "./list-message-templates.js";
 import { savePlan, type MessagePlan } from "./message-plan-store.js";
 
-export const prepareMessageTitle = "Plan an email to clients (no send)";
-
-export const prepareMessageDescription =
-  "Plans an email to clients of this company WITHOUT sending anything. Describe the audience (a course/programme, " +
-  "a class schedule, a specific booking, one client, a saved segment, an ad-hoc cohort, or course-level labels) and the content " +
-  "(an existing template `type` from comms_list_templates, or a custom subject + body which may use *|MERGE_VAR|* " +
-  "tags from comms_list_merge_vars). Returns the estimated recipient count, a sample of recipients, the content as " +
-  "it will be sent, warnings (unknown merge tags, zero recipients), and a single-use `token`. Show this plan to the " +
-  "operator and get their explicit confirmation, then call comms_commit_message with the token to actually send. " +
-  "Call comms_prepare_message again with adjusted filters to refine the audience — it is free and repeatable. " +
-  "Resolve names to ids first: classes_find_courses for a course/programme → course_id, " +
-  "classes_find_classes for a class/group by name → schedule_id, sessions_find_events for a single session → event_id; " +
-  "never guess ids. When the operator names an ad-hoc cohort rather than the whole company — \"everyone who hasn't " +
-  "paid\", the unpaid roster, the waitlist, this week's sign-ups — resolve it with bookings_find and pass the resulting " +
-  "registration_id LIST as audience.registration_id. Reserve audience.whole_company for genuinely company-wide sends; " +
-  "do NOT use it as a shortcut for a named subset, or you email far more people than the operator asked for.";
-
 const audienceSchema = z
   .object({
     course_id: z.number().int().positive().optional().describe("Everyone registered in this course/programme."),
@@ -373,8 +356,8 @@ export async function runPrepareMessage(
       warnings,
       next_step:
         "Show this plan to the operator (count, sample, subject, body gist, classification). Only after their " +
-        "explicit confirmation call comms_commit_message with the token. To change anything, call " +
-        "comms_prepare_message again.",
+        "explicit confirmation, call comms_send_message again with `token` and `confirmed: true` — and nothing " +
+        "else. To change anything instead, call comms_send_message again WITHOUT a token.",
     };
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],

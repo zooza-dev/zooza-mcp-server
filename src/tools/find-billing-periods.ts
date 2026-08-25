@@ -2,18 +2,13 @@ import { z } from "zod";
 import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
-import { companyIdSchema, unwrapList } from "./common.js";
+import { companyIdSchema, pickStr, unwrapList } from "./common.js";
 import type {
   ApiListResponse,
   BillingPeriodMatch,
   FindMatchesEnvelope,
   RawBillingPeriodRecord,
 } from "./types.js";
-
-export const findBillingPeriodsTitle = "Find billing periods";
-
-export const findBillingPeriodsDescription =
-  "List the company's billing periods, optionally filtered by name. Returns a slim list of `{id, name, active}`. Active periods only by default; pass `include_inactive: true` to see deactivated ones too. Used by the class-management flow when `classes_preview_schedule` warns about a missing `billing_period_id` — the user picks a period from the returned list. Volume is small (typically <30 per company); the tool fetches all and filters MCP-side. No pagination.";
 
 export const findBillingPeriodsInputSchema = {
   company_id: companyIdSchema,
@@ -96,6 +91,8 @@ function projectBillingPeriod(r: RawBillingPeriodRecord): BillingPeriodMatch {
     id: r.id,
     name: r.name,
     active: r.active === true,
+    period_start: pickStr(r.period_start) ?? null,
+    period_end: pickStr(r.period_end) ?? null,
   };
 }
 

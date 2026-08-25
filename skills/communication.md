@@ -1,7 +1,7 @@
 ---
 name: communication
 title: Send a message to clients
-description: Guided flow for emailing clients — figure out who the message targets, suggest the right template or compose a custom one, preview with real recipient counts, then send after explicit confirmation. Used with the comms_prepare_message, comms_commit_message, comms_list_templates, and comms_list_merge_vars MCP tools.
+description: Guided flow for emailing clients — figure out who the message targets, suggest the right template or compose a custom one, preview with real recipient counts, then send after explicit confirmation. Used with the comms_send_message, comms_send_message, comms_list_templates, and comms_list_merge_vars MCP tools.
 ---
 
 # Communication — sending messages to clients
@@ -63,9 +63,9 @@ courses) — labels do not attach to individual people. Phrase it that way to th
 Default is send-on-commit. For promotional messages, offer a sensible slot (e.g. next weekday
 morning) via `schedule_at`. Operational notices about today's sessions go out now.
 
-### 5. PREVIEW — comms_prepare_message
+### 5. PREVIEW — comms_send_message (no token)
 
-Call `comms_prepare_message` and show the operator a compact plan:
+Call `comms_send_message` **without** a `token` — that call sends nothing — and show the operator a compact plan:
 
 - recipient count (mention it is an estimate: final send de-duplicates by email, guests are
   added at send time)
@@ -77,11 +77,13 @@ Loop back instead of asking for confirmation when:
 
 - `recipient_count` is 0 → refine the audience (wrong id? inactive clients excluded?)
 - `unknown_merge_tags` is non-empty → fix the tags first
-- the operator wants changes → re-call `comms_prepare_message`; it is free and repeatable
+- the operator wants changes → re-call `comms_send_message`; it is free and repeatable
 
-### 6. CONFIRM — comms_commit_message
+### 6. CONFIRM — comms_send_message (with token + confirmed)
 
-Only after the operator explicitly says yes, call `comms_commit_message` with the token.
+Only after the operator explicitly says yes, call `comms_send_message` again with the `token` **and
+`confirmed: true`** — and nothing else. `confirmed: true` asserts you showed them this plan and
+they approved it; never set it on a plan they have not seen.
 Tokens are single-use and expire in 15 minutes — if expired, re-prepare and re-confirm; never
 treat re-preparation as pre-approved.
 
@@ -96,7 +98,7 @@ Then read the result — there are two outcomes:
   1. Tell the operator the **exact recipient count** from the result and ask a clear, second
      question naming that number — e.g. *"This will email all 105 clients, which is above your
      account's approval limit. Are you sure you want to send to all 105?"*
-  2. ONLY if they explicitly say yes, call `comms_commit_message` **again** with the **same
+  2. ONLY if they explicitly say yes, call `comms_send_message` **again** with the **same
      token** and `confirm_large_send: true`. That releases the send directly — the operator does
      not need to open the app. Confirm the job id afterwards.
   3. If they say no, send nothing and do not set `confirm_large_send`. The job stays parked —
@@ -114,9 +116,11 @@ explicit yes.
 
 ## Hard rules
 
-- NEVER call `comms_commit_message` without showing the plan and receiving an explicit yes in
-  this conversation. "Send it" before any plan exists is intent, not confirmation.
-- NEVER set `confirm_large_send: true` on the first commit call, and never set it without a
+- NEVER call `comms_send_message` with a `token` without showing the plan and receiving an
+  explicit yes in this conversation. "Send it" before any plan exists is intent, not confirmation.
+- `confirmed` and `confirm_large_send` are DIFFERENT assertions: `confirmed` = they approved
+  the plan, `confirm_large_send` = they approved the recipient COUNT. A large send needs both.
+- NEVER set `confirm_large_send: true` on the first sending call, and never set it without a
   distinct second yes from the operator that named the recipient count. A `pending_approval`
   result means stop and ask — not retry.
 - NEVER work around a 0-recipient plan by broadening the audience without telling the operator.

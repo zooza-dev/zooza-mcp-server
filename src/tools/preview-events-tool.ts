@@ -113,9 +113,9 @@ export async function runPreviewEvents(
       time_minutes: b.time_minutes,
       duration: b.duration,
       all_day: b.all_day ?? false,
-      // billable is not LLM-facing: sessions created via MCP are always
-      // non-billable; billability is a pricing detail edited in the Zooza app.
-      billable: false,
+      // Billable — must match what classes_commit_class actually creates, or the
+      // preview lies about what the class will cost. See the note there.
+      billable: true,
       ...(b.cadence ? { cadence: b.cadence } : {}),
       ...(b.trainer_id ? { trainer_id: b.trainer_id } : {}),
       ...(hasCount ? { count: b.count } : {}),
@@ -138,7 +138,7 @@ export async function runPreviewEvents(
       date_string: d.date_string,
       time_minutes: d.time_minutes,
       duration: d.duration,
-      billable: false,
+      billable: true,
       ...(d.trainer_id ? { trainer_id: d.trainer_id } : {}),
     })),
     skip_holidays: input.skip_holidays ?? false,

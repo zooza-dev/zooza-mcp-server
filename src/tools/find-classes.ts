@@ -15,7 +15,7 @@ const REGISTRATION_TYPES = ["single", "full2", "open"] as const;
 export const findClassesTitle = "Find classes (schedules) by name";
 
 export const findClassesDescription =
-  "Search this company's CLASSES — the scheduled groups inside a programme (a \"class\" / \"group\" / \"skupina\"; internally a *schedule*) — by name (substring) and resolve them to a `schedule_id`. Reach for this whenever the user names a specific group rather than a whole programme (\"the Nejaké class\", \"the Monday 5pm group\", \"her Wednesday ballet class\"), or whenever a downstream tool needs a `schedule_id` — most importantly `comms_prepare_message` targeting everyone in one class (`audience.schedule_id`). This is the missing middle rung between `classes_find_courses` (finds the PROGRAMME → `course_id`) and `sessions_find_events` (finds individual dated SESSIONS → `event_id`): a class is one recurring group within a programme, made of many sessions. Optionally narrow by `course_id` (classes inside one programme), `trainer_id`, `place_id`, `day` of week, or `registration_type`. Returns a slim list — `{schedule_id, name, course_id, start, end, time, trainer_id, trainer_name, place_id, place_name, capacity, registrations_count, status}` — enough to disambiguate when several classes share a name, never enough to mutate. `course_id` is returned but not the course name (resolve it with `classes_find_courses` if you need it). By default returns active + paused (inactive) classes; pass `include_archived: true` to search archived classes instead. Does NOT create or change classes (that is `classes_preview_schedule` → `classes_commit_class`) and does NOT list a class's sessions (use `sessions_find_events` with the `schedule_id`).";
+  "Search this company's CLASSES — the scheduled groups inside a programme (a \"class\" / \"group\" / \"skupina\"; internally a *schedule*) — by name (substring) and resolve them to a `schedule_id`. Reach for this whenever the user names a specific group rather than a whole programme (\"the Nejaké class\", \"the Monday 5pm group\", \"her Wednesday ballet class\"), or whenever a downstream tool needs a `schedule_id` — most importantly `comms_send_message` targeting everyone in one class (`audience.schedule_id`). This is the missing middle rung between `classes_find_courses` (finds the PROGRAMME → `course_id`) and `sessions_find_events` (finds individual dated SESSIONS → `event_id`): a class is one recurring group within a programme, made of many sessions. Optionally narrow by `course_id` (classes inside one programme), `trainer_id`, `place_id`, `day` of week, or `registration_type`. Returns a slim list — `{schedule_id, name, course_id, start, end, time, trainer_id, trainer_name, place_id, place_name, capacity, registrations_count, status}` — enough to disambiguate when several classes share a name, never enough to mutate. `course_id` is returned but not the course name (resolve it with `classes_find_courses` if you need it). By default returns active + paused (inactive) classes; pass `include_archived: true` to search archived classes instead. Does NOT create or change classes (that is `classes_preview_schedule` → `classes_commit_class`) and does NOT list a class's sessions (use `sessions_find_events` with the `schedule_id`).";
 
 export const findClassesInputSchema = {
   company_id: companyIdSchema,
@@ -36,13 +36,13 @@ export const findClassesInputSchema = {
     .int()
     .positive()
     .optional()
-    .describe("Only classes this trainer is assigned to. Resolve with trainers_find."),
+    .describe("Only classes this trainer is assigned to. Resolve with classes_find_resource (kind:'trainer')."),
   place_id: z
     .number()
     .int()
     .positive()
     .optional()
-    .describe("Only classes at this venue. Resolve with classes_find_places."),
+    .describe("Only classes at this venue. Resolve with classes_find_resource (kind:'place')."),
   day: z
     .number()
     .int()

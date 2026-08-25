@@ -215,14 +215,12 @@ The `negotiate_terminology` tool lets Claude learn your business's specific voca
 
 ### Editing classes & sessions
 
-Every edit is a two-step **preview → confirm** — nothing changes until you approve the diff.
+Every edit is a two-step **preview → confirm** — you call the same tool twice, and nothing changes until you approve the diff.
 
 | Tool | What it does |
 |---|---|
-| `classes_prepare_update` | Preview an edit to a class — name, price, capacity, billing period, instructor, venue, or duration |
-| `classes_commit_update` | Apply a previewed class edit after explicit confirmation |
-| `sessions_prepare_update` | Preview edits to specific sessions — reschedule a date/time, or change instructor, venue, or duration |
-| `sessions_commit_update` | Apply previewed session edits, optionally notifying affected clients |
+| `classes_update` | Edit a class — name, price, capacity, billing period, instructor, venue, or duration. Call once to preview, again with the token to apply |
+| `sessions_update` | Edit specific sessions — reschedule a date/time, or change instructor, venue, or duration. Call once to preview, again with the token to apply. Can notify affected clients |
 
 ### Attendance
 
@@ -244,8 +242,7 @@ Every edit is a two-step **preview → confirm** — nothing changes until you a
 | Tool | What it does |
 |---|---|
 | `comms_list_templates` | List the automated email templates Zooza sends to this company's clients |
-| `comms_prepare_message` | Plan an email to an audience (programme, class, booking, client, or segment) — nothing is sent |
-| `comms_commit_message` | Send a prepared message plan, only after explicit confirmation |
+| `comms_send_message` | Email an audience (programme, class, booking, client, or segment). Call once to plan — nothing is sent — then again with the token to send |
 
 ### Reporting
 
@@ -260,10 +257,10 @@ Every edit is a two-step **preview → confirm** — nothing changes until you a
 | `whoami` | Identify the connected user and list accessible companies/locations |
 | `classes_find_courses` | Search programmes by billing period, name, or status |
 | `classes_find_classes` | Find a specific class/group within a programme and resolve its `schedule_id` |
-| `classes_find_billing_periods` | List billing periods (seasons/terms) for a company |
-| `trainers_find` | List trainers available at a location |
-| `trainers_find_rate_types` | List a company's trainer pay-rate types (used when assigning a rate) |
-| `classes_find_places` | List rooms and locations for a company |
+| `classes_find_resource (kind:"billing_period")` | List billing periods (seasons/terms) for a company |
+| `classes_find_resource (kind:"trainer")` | List trainers available at a location |
+| `classes_find_resource (kind:"trainer_rate_type")` | List a company's trainer pay-rate types (used when assigning a rate) |
+| `classes_find_resource (kind:"place")` | List rooms and locations for a company |
 
 ### Free tools — Zooza domain knowledge (no API calls, no account needed)
 

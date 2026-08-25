@@ -29,7 +29,7 @@ export const listMessageTemplatesDescription =
   "trial follow-ups, cancellation notices, session reminders, loyalty/discount emails, and custom templates. " +
   "For each template returns its trigger `type`, subject line, and whether the company uses the stock Zooza " +
   "default or has customized it. Use this to see which automated emails exist, check what has been customized, " +
-  "or look up a template's `type` before previewing or sending it (comms_prepare_message accepts that `type`). " +
+  "or look up a template's `type` before previewing or sending it (comms_send_message accepts that `type`). " +
   "This tool only lists email templates — for the merge variables (*|FIRST_NAME|* etc.) usable inside template " +
   "bodies, use comms_list_merge_vars instead. Read-only; sends nothing. Bodies are full HTML and large — only " +
   "set include_body when the user asks to see template content.";

@@ -53,7 +53,7 @@ export const bookingsFindDescription =
   "classes_find_courses / classes_find_classes), `user_id`, `status`, `payment_status`, or booking date with " +
   "`created_from`/`created_to` (the \"new registrations this week\" lever). `distinct:true` returns " +
   "one row per client (→ `user_id`) for person lookups. Chain a result's `registration_id` or `user_id` straight " +
-  "into comms_prepare_message (`audience.registration_id` / `audience.user_id`). Class/programme NAMES aren't " +
+  "into comms_send_message (`audience.registration_id` / `audience.user_id`). Class/programme NAMES aren't " +
   "returned — resolve the ids via classes_find_* if you need them. Defaults to active enrolments; guest, waitlist, " +
   "canceled and deleted are excluded unless you pass `status`. Read-only — does not create or change bookings.";
 
@@ -190,7 +190,7 @@ export async function runBookingsFind(
   // GROUP BY r.user_id server-side (common.php:7167); total becomes
   // COUNT(DISTINCT user_id) (common.php:7474). One row per client.
   if (input.distinct) query.distinct = 1;
-  // NOTE: email_rejected intentionally NOT passed. comms_prepare_message forces
+  // NOTE: email_rejected intentionally NOT passed. comms_send_message forces
   // email_rejected=0 to drop unsubscribed clients from a SEND count; bookings_find
   // is a roster/resolve lookup, not a send — an unsubscribed client is still
   // enrolled, so we show everyone. The comms layer applies the unsubscribe filter

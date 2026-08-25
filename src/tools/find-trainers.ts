@@ -23,11 +23,6 @@ const ACTIVE_TRAINER_ROLES = [
   "main_member",
 ];
 
-export const findTrainersTitle = "Find trainers (team members)";
-
-export const findTrainersDescription =
-  "Search the company's team members eligible to be assigned as trainers on classes. Returns a slim `{id, full_name, email, active, virtual}` per match. By default only active team members (owner/member/external_member/assistant/main_member roles) are returned; pass `include_inactive: true` to include former staff. Optional `place_id` / `course_id` filters narrow to trainers associated with a specific venue or course. Used in `class-management` Step 1 to resolve a trainer from the operator's words.\n\n**Virtual trainers** are also included in results (always, regardless of place/course filters — they're system-wide placeholders, not tied to any real venue/course). They have `virtual: true`, a synthetic id (>= 9000000000000), and no email. Pick one whenever the operator says any of: 'we'll decide later', 'no trainer yet', 'TBD', 'unassigned', 'guest', 'external speaker', or similar. Three system virtual trainers ship by default: 'To be decided', 'Trainer unassigned', 'Guest trainer'.";
-
 export const findTrainersInputSchema = {
   company_id: companyIdSchema,
   name: z.string().optional(),

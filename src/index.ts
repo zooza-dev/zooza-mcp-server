@@ -24,17 +24,53 @@ import {
   runCommitClass,
 } from "./tools/commit-class.js";
 import {
-  findBillingPeriodsDescription,
-  findBillingPeriodsInputSchema,
-  findBillingPeriodsTitle,
-  runFindBillingPeriods,
-} from "./tools/find-billing-periods.js";
+  runUpdateCourseTemplates,
+  updateCourseTemplatesDescription,
+  updateCourseTemplatesInputSchema,
+  updateCourseTemplatesTitle,
+} from "./tools/update-course-templates.js";
 import {
-  findTrainerRateTypesDescription,
-  findTrainerRateTypesInputSchema,
-  findTrainerRateTypesTitle,
-  runFindTrainerRateTypes,
-} from "./tools/find-trainer-rate-types.js";
+  addPaymentPlanDescription,
+  addPaymentPlanInputSchema,
+  addPaymentPlanTitle,
+  runAddPaymentPlan,
+} from "./tools/add-payment-plan.js";
+import {
+  addPaymentTemplateDescription,
+  addPaymentTemplateInputSchema,
+  addPaymentTemplateTitle,
+  runAddPaymentTemplate,
+} from "./tools/add-payment-template.js";
+import {
+  findResourceDescription,
+  findResourceInputSchema,
+  findResourceTitle,
+  runFindResource,
+} from "./tools/find-resource.js";
+import {
+  runUpdateCourseSettings,
+  updateCourseSettingsDescription,
+  updateCourseSettingsInputSchema,
+  updateCourseSettingsTitle,
+} from "./tools/update-course-settings.js";
+import {
+  classesUpdateDescription,
+  classesUpdateInputSchema,
+  classesUpdateTitle,
+  runClassesUpdate,
+} from "./tools/classes-update.js";
+import {
+  runSessionsUpdate,
+  sessionsUpdateDescription,
+  sessionsUpdateInputSchema,
+  sessionsUpdateTitle,
+} from "./tools/sessions-update.js";
+import {
+  addCourseDescription,
+  addCourseInputSchema,
+  addCourseTitle,
+  runAddCourse,
+} from "./tools/add-course.js";
 import {
   bookingsFindDescription,
   bookingsFindInputSchema,
@@ -77,18 +113,6 @@ import {
   addSessionSummaryTitle,
   runAddSessionSummary,
 } from "./tools/add-session-summary.js";
-import {
-  findPlacesDescription,
-  findPlacesInputSchema,
-  findPlacesTitle,
-  runFindPlaces,
-} from "./tools/find-places.js";
-import {
-  findTrainersDescription,
-  findTrainersInputSchema,
-  findTrainersTitle,
-  runFindTrainers,
-} from "./tools/find-trainers.js";
 import {
   previewEventsDescription,
   previewEventsInputSchema,
@@ -138,37 +162,11 @@ import {
   runListMessageTemplates,
 } from "./tools/list-message-templates.js";
 import {
-  prepareMessageDescription,
-  prepareMessageInputSchema,
-  prepareMessageTitle,
-  runPrepareMessage,
-} from "./tools/prepare-message.js";
-import {
-  commitMessageDescription,
-  commitMessageInputSchema,
-  commitMessageTitle,
-  runCommitMessage,
-} from "./tools/commit-message.js";
-import {
-  classesCommitUpdateDescription,
-  classesCommitUpdateInputSchema,
-  classesCommitUpdateTitle,
-  classesPrepareUpdateDescription,
-  classesPrepareUpdateInputSchema,
-  classesPrepareUpdateTitle,
-  runClassesCommitUpdate,
-  runClassesPrepareUpdate,
-} from "./tools/classes-update.js";
-import {
-  runSessionsCommitUpdate,
-  runSessionsPrepareUpdate,
-  sessionsCommitUpdateDescription,
-  sessionsCommitUpdateInputSchema,
-  sessionsCommitUpdateTitle,
-  sessionsPrepareUpdateDescription,
-  sessionsPrepareUpdateInputSchema,
-  sessionsPrepareUpdateTitle,
-} from "./tools/sessions-update.js";
+  runSendMessage,
+  sendMessageDescription,
+  sendMessageInputSchema,
+  sendMessageTitle,
+} from "./tools/send-message.js";
 import {
   listSchedulePatternsDescription,
   listSchedulePatternsInputSchema,
@@ -431,6 +429,28 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
     ),
   );
 
+  // One resolver for four company-level record kinds (ZMCP-20260824-002).
+  // Replaces the four thin resolvers classes_find_places, classes_find_billing_periods,
+  // trainers_find and trainers_find_rate_types. The trainers_ bucket is now empty by design.
+  server.registerTool(
+    "classes_find_resource",
+    {
+      title: findResourceTitle,
+      description: findResourceDescription,
+      inputSchema: findResourceInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "classes_find_resource",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runFindResource(args, ctx.auth)),
+      ),
+    ),
+  );
+
   server.registerTool(
     "classes_find_classes",
     {
@@ -469,81 +489,9 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
     ),
   );
 
-  server.registerTool(
-    "classes_find_billing_periods",
-    {
-      title: findBillingPeriodsTitle,
-      description: findBillingPeriodsDescription,
-      inputSchema: findBillingPeriodsInputSchema,
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
-    },
-    audit(
-      "classes_find_billing_periods",
-      ctx,
-      scopeGuard(
-        SCOPE_READ,
-        ctx,
-        resolveCompanyId(ctx, async (args) => runFindBillingPeriods(args, ctx.auth)),
-      ),
-    ),
-  );
 
-  server.registerTool(
-    "trainers_find_rate_types",
-    {
-      title: findTrainerRateTypesTitle,
-      description: findTrainerRateTypesDescription,
-      inputSchema: findTrainerRateTypesInputSchema,
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
-    },
-    audit(
-      "trainers_find_rate_types",
-      ctx,
-      scopeGuard(
-        SCOPE_READ,
-        ctx,
-        resolveCompanyId(ctx, async (args) => runFindTrainerRateTypes(args, ctx.auth)),
-      ),
-    ),
-  );
 
-  server.registerTool(
-    "trainers_find",
-    {
-      title: findTrainersTitle,
-      description: findTrainersDescription,
-      inputSchema: findTrainersInputSchema,
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
-    },
-    audit(
-      "trainers_find",
-      ctx,
-      scopeGuard(
-        SCOPE_READ,
-        ctx,
-        resolveCompanyId(ctx, async (args) => runFindTrainers(args, ctx.auth)),
-      ),
-    ),
-  );
 
-  server.registerTool(
-    "classes_find_places",
-    {
-      title: findPlacesTitle,
-      description: findPlacesDescription,
-      inputSchema: findPlacesInputSchema,
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
-    },
-    audit(
-      "classes_find_places",
-      ctx,
-      scopeGuard(
-        SCOPE_READ,
-        ctx,
-        resolveCompanyId(ctx, async (args) => runFindPlaces(args, ctx.auth)),
-      ),
-    ),
-  );
 
   server.registerTool(
     "sessions_find_events",
@@ -688,86 +636,183 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
     ),
   );
 
+  // Dual-phase (ZMCP-20260824-001): preview when `token` is absent, apply when it is
+  // present. readOnlyHint must be false — the tool CAN write, even though its first
+  // call does not. resolveCompanyId is needed by the preview phase; the apply phase
+  // ignores company_id entirely and reads the company from the stored plan.
   server.registerTool(
-    "classes_prepare_update",
+    "classes_update_course_settings",
     {
-      title: classesPrepareUpdateTitle,
-      description: classesPrepareUpdateDescription,
-      inputSchema: classesPrepareUpdateInputSchema,
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
-    },
-    audit(
-      "classes_prepare_update",
-      ctx,
-      scopeGuard(
-        SCOPE_READ,
-        ctx,
-        resolveCompanyId(ctx, async (args) => runClassesPrepareUpdate(args, ctx.auth)),
-      ),
-    ),
-  );
-
-  // No resolveCompanyId — the company is frozen in the plan the token points at;
-  // commit-time args must not be able to redirect it.
-  server.registerTool(
-    "classes_commit_update",
-    {
-      title: classesCommitUpdateTitle,
-      description: classesCommitUpdateDescription,
-      inputSchema: classesCommitUpdateInputSchema,
+      title: updateCourseSettingsTitle,
+      description: updateCourseSettingsDescription,
+      inputSchema: updateCourseSettingsInputSchema,
       annotations: {
         readOnlyHint: false,
         openWorldHint: false,
-        // Mutates existing sessions/registrations (cascade, course_id).
-        destructiveHint: true,
+        destructiveHint: false,
         idempotentHint: false,
       },
     },
     audit(
-      "classes_commit_update",
-      ctx,
-      scopeGuard(SCOPE_WRITE, ctx, async (args) => runClassesCommitUpdate(args, ctx.auth)),
-    ),
-  );
-
-  server.registerTool(
-    "sessions_prepare_update",
-    {
-      title: sessionsPrepareUpdateTitle,
-      description: sessionsPrepareUpdateDescription,
-      inputSchema: sessionsPrepareUpdateInputSchema,
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
-    },
-    audit(
-      "sessions_prepare_update",
+      "classes_update_course_settings",
       ctx,
       scopeGuard(
-        SCOPE_READ,
+        SCOPE_WRITE,
         ctx,
-        resolveCompanyId(ctx, async (args) => runSessionsPrepareUpdate(args, ctx.auth)),
+        resolveCompanyId(ctx, async (args) => runUpdateCourseSettings(args, ctx.auth)),
       ),
     ),
   );
 
-  // No resolveCompanyId — company frozen in the plan. notify:true reaches clients
-  // by email, so openWorldHint is true.
+  // Dual-phase (ZMCP-20260824-001). NOTE: these two also RESTORE functionality that
+  // this branch had lost — merge c44e248 dropped the four `*_prepare_update` /
+  // `*_commit_update` registrations during conflict resolution and 896e802 restored
+  // only the course-settings pair. main still registers the old four; this branch
+  // registered none of them until now, while tool-manifest.ts kept advertising them.
   server.registerTool(
-    "sessions_commit_update",
+    "classes_update",
     {
-      title: sessionsCommitUpdateTitle,
-      description: sessionsCommitUpdateDescription,
-      inputSchema: sessionsCommitUpdateInputSchema,
+      title: classesUpdateTitle,
+      description: classesUpdateDescription,
+      inputSchema: classesUpdateInputSchema,
       annotations: {
         readOnlyHint: false,
-        openWorldHint: true,
-        destructiveHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
         idempotentHint: false,
       },
     },
     audit(
-      "sessions_commit_update",
+      "classes_update",
       ctx,
-      scopeGuard(SCOPE_WRITE, ctx, async (args) => runSessionsCommitUpdate(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runClassesUpdate(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "sessions_update",
+    {
+      title: sessionsUpdateTitle,
+      description: sessionsUpdateDescription,
+      inputSchema: sessionsUpdateInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "sessions_update",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runSessionsUpdate(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "classes_add_course",
+    {
+      title: addCourseTitle,
+      description: addCourseDescription,
+      inputSchema: addCourseInputSchema,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: false },
+    },
+    audit(
+      "classes_add_course",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runAddCourse(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // First tool in the setup_ bucket. Create-only by design: api-v1's PUT syncs to
+  // every bound course and discards per-course price overrides, and DELETE orphans
+  // live group plans — both need their own spec (ZMCP-20260824-004 scope).
+  // Dual-phase (ZMCP-20260824-005). Completes the instalment chain: a plan on a
+  // class is NOT inherited by bookings, it has to be applied per booking.
+  server.registerTool(
+    "payments_add_plan",
+    {
+      title: addPaymentPlanTitle,
+      description: addPaymentPlanDescription,
+      inputSchema: addPaymentPlanInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "payments_add_plan",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runAddPaymentPlan(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // Dual-phase (ZMCP-20260824-006). Drives the PER-TEMPLATE endpoints, never
+  // api-v1's bulk set: that one reconciles against a paginated template list, so
+  // it silently ignores everything outside the current page (courses.php:1514-1543).
+  server.registerTool(
+    "setup_update_course_templates",
+    {
+      title: updateCourseTemplatesTitle,
+      description: updateCourseTemplatesDescription,
+      inputSchema: updateCourseTemplatesInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "setup_update_course_templates",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runUpdateCourseTemplates(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "setup_add_payment_template",
+    {
+      title: addPaymentTemplateTitle,
+      description: addPaymentTemplateDescription,
+      inputSchema: addPaymentTemplateInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "setup_add_payment_template",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runAddPaymentTemplate(args, ctx.auth)),
+      ),
     ),
   );
 
@@ -790,45 +835,31 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
     ),
   );
 
+  // Dual-phase (ZMCP-20260824-001). openWorldHint stays true — the apply phase
+  // sends real email to real clients, outside the Zooza stack. The apply phase is
+  // deliberately repeatable: a large send parks in pending_approval without burning
+  // the plan, so the same token returns for the confirm_large_send follow-up.
   server.registerTool(
-    "comms_prepare_message",
+    "comms_send_message",
     {
-      title: prepareMessageTitle,
-      description: prepareMessageDescription,
-      inputSchema: prepareMessageInputSchema,
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
-    },
-    audit(
-      "comms_prepare_message",
-      ctx,
-      scopeGuard(
-        SCOPE_READ,
-        ctx,
-        resolveCompanyId(ctx, async (args) => runPrepareMessage(args, ctx.auth)),
-      ),
-    ),
-  );
-
-  // No resolveCompanyId — the company is frozen inside the plan the token
-  // points at; commit-time args must not be able to redirect it.
-  server.registerTool(
-    "comms_commit_message",
-    {
-      title: commitMessageTitle,
-      description: commitMessageDescription,
-      inputSchema: commitMessageInputSchema,
+      title: sendMessageTitle,
+      description: sendMessageDescription,
+      inputSchema: sendMessageInputSchema,
       annotations: {
         readOnlyHint: false,
-        // Sends real email to real clients — reaches outside the Zooza stack.
         openWorldHint: true,
         destructiveHint: false,
         idempotentHint: false,
       },
     },
     audit(
-      "comms_commit_message",
+      "comms_send_message",
       ctx,
-      scopeGuard(SCOPE_WRITE, ctx, async (args) => runCommitMessage(args, ctx.auth)),
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runSendMessage(args, ctx.auth)),
+      ),
     ),
   );
 

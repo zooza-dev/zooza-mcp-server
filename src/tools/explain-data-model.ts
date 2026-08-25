@@ -366,7 +366,7 @@ const ENTITIES: EntityDef[] = [
       {
         name: "id",
         description:
-          "Integer trainer ID. Real trainers: returned by trainers_find. " +
+          "Integer trainer ID. Real trainers: returned by classes_find_resource (kind:'trainer'). " +
           "Virtual trainers (system-wide, no user account): " +
           "9000000000001 = To be decided, " +
           "9000000000002 = Trainer unassigned, " +
@@ -377,7 +377,7 @@ const ENTITIES: EntityDef[] = [
     ai_notes:
       "In Slovak/Czech: 'lektor', 'lektorka'. In German: 'Kursleiter/in'. " +
       "In Hungarian: 'oktató'. In Italian: 'istruttore/istruttrice'. " +
-      "Always use trainers_find to get the real ID — never guess.",
+      "Always use classes_find_resource (kind:'trainer') to get the real ID — never guess.",
   },
 
   {
@@ -393,7 +393,7 @@ const ENTITIES: EntityDef[] = [
     key_fields: [
       {
         name: "id",
-        description: "Integer place ID. Always use classes_find_places — never hardcode.",
+        description: "Integer place ID. Always use classes_find_resource (kind:'place') — never hardcode.",
       },
       {
         name: "rooms",
@@ -403,7 +403,7 @@ const ENTITIES: EntityDef[] = [
     do_not_confuse_with: [],
     ai_notes:
       "In Slovak: 'miesto', 'sála'. In German: 'Ort', 'Studio'. " +
-      "Always use classes_find_places to resolve the place ID.",
+      "Always use classes_find_resource (kind:'place') to resolve the place ID.",
   },
 ];
 

@@ -3,7 +3,7 @@ import type { ZoozaAuth } from "../auth/types.js";
 import { runFindTrainerRateTypes } from "./find-trainer-rate-types.js";
 
 /**
- * Covers trainers_find_rate_types (ZMCP-20260703-001): the missing lookup that
+ * Covers classes_find_resource (kind:'trainer_rate_type') (ZMCP-20260703-001): the missing lookup that
  * turns a named pay rate into the trainer_rate_type_id the update tools require.
  * Mocks global fetch so the real endpoint path, envelope unwrap, name filter,
  * and projection execute.
@@ -64,7 +64,7 @@ const RATE_TYPES = {
   total: 2,
 };
 
-describe("trainers_find_rate_types", () => {
+describe("classes_find_resource (kind:'trainer_rate_type')", () => {
   it("hits GET /trainer_rates/types and projects {id, name, minutes, type}", async () => {
     installFetch(({ path }) => {
       if (path === "/trainer_rates/types") return ok(RATE_TYPES);

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ZoozaAuth } from "../auth/types.js";
-import { runCommitClass } from "./commit-class.js";
+import { runCommitClass, billableWarnings, deriveUnitPrice } from "./commit-class.js";
 import { runPreviewEvents } from "./preview-events-tool.js";
 import { runPreviewSchedule } from "./preview-schedule.js";
 import type { ResolvedSchedule } from "./types.js";
@@ -227,7 +227,7 @@ describe("classes_preview_events", () => {
 });
 
 describe("classes_commit_class", () => {
-  it("posts the schedule then events, and forces billable:false on every event", async () => {
+  it("posts the schedule then events, and marks every event billable", async () => {
     installFetch(({ url }) => {
       if (url.endsWith("/schedules")) {
         return ok({
@@ -269,8 +269,13 @@ describe("classes_commit_class", () => {
     const eventsPost = calls.find((c) => c.method === "POST" && c.url.endsWith("/events"));
     const postedEvents = (eventsPost?.body?.events ?? []) as Array<Record<string, unknown>>;
     expect(postedEvents).toHaveLength(2);
+    // Regression guard. This asserted `false` until 2026-08-24, which is how a live
+    // course ended up pricing at EUR 0: api-v1 only applies its `billable = 1` filter
+    // when billable_events > 0 (Schedule.php:1194-1198), so non-billable events plus
+    // billable_events: 10 makes remaining_events resolve to 0 and the whole class
+    // prices at nothing. Do not flip this back without reading that code path.
     for (const e of postedEvents) {
-      expect(e.billable).toBe(false);
+      expect(e.billable).toBe(true);
     }
   });
 
@@ -340,5 +345,62 @@ describe("classes_commit_class", () => {
     expect(text).toContain("silently skipped");
     expect(text).toContain("2 of 3");
     expect(text).toContain("900"); // schedule id surfaced for recovery
+  });
+});
+
+describe("billableWarnings", () => {
+  it("stays silent when billable_events is unset", () => {
+    // billable_events = 0 disables api-v1's billable filter entirely, so every
+    // session counts and there is nothing to reconcile.
+    expect(billableWarnings(0, 16)).toEqual([]);
+  });
+
+  it("stays silent when the counts agree", () => {
+    expect(billableWarnings(16, 16)).toEqual([]);
+  });
+
+  it("flags charging for more sessions than exist", () => {
+    const [w] = billableWarnings(15, 12);
+    expect(w).toContain("only 12 were created");
+    expect(w).toContain("3 session(s) that do not exist");
+  });
+
+  it("flags sessions that will be free", () => {
+    // The real Nemčina shape: billable_events 15 against 16 created sessions.
+    const [w] = billableWarnings(15, 16);
+    expect(w).toContain("15 of its 16 sessions");
+    expect(w).toContain("1 session(s) are free");
+  });
+});
+
+describe("deriveUnitPrice", () => {
+  it("divides the operator's total across billable sessions", () => {
+    // The exact case that shipped three wrong courses: "EUR 300 for the term",
+    // 20 sessions. Putting 300 in unit_price charged 6000.
+    expect(deriveUnitPrice(300, 20, 20)).toEqual({ unit_price: 15, divisor: 20 });
+  });
+
+  it("falls back to the created session count when billable_events is unset", () => {
+    // billable_events = 0 disables api-v1's billable filter, so every session counts.
+    expect(deriveUnitPrice(200, 0, 16)).toEqual({ unit_price: 12.5, divisor: 16 });
+  });
+
+  it("prefers billable_events over the raw session count", () => {
+    // A class may deliberately run more sessions than it charges for.
+    expect(deriveUnitPrice(300, 10, 20)).toEqual({ unit_price: 30, divisor: 10 });
+  });
+
+  it("rounds to cents", () => {
+    const r = deriveUnitPrice(200, 15, 15);
+    expect(r?.unit_price).toBe(13.33);
+  });
+
+  it("returns null when there is no total to divide", () => {
+    expect(deriveUnitPrice(0, 20, 20)).toBeNull();
+  });
+
+  it("returns null when there is nothing to divide by", () => {
+    // Caller must be told, not handed a division by zero.
+    expect(deriveUnitPrice(300, 0, 0)).toBeNull();
   });
 });

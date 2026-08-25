@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 /**
- * In-memory store for message plans produced by comms_prepare_message and
- * consumed by comms_commit_message. Module-level on purpose: index.ts creates
+ * In-memory store for message plans produced by comms_send_message and
+ * consumed by comms_send_message. Module-level on purpose: index.ts creates
  * a fresh McpServer per HTTP request, so anything request-scoped would lose
  * the token between the prepare call and the commit call.
  *
@@ -27,7 +27,7 @@ export interface MessagePlan {
   schedule_at?: { date: string; hour: number; minute: number };
   recipient_count: number;
   /**
-   * Set by comms_commit_message once the upstream job has been CREATED but came
+   * Set by comms_send_message once the upstream job has been CREATED but came
    * back `pending_approval` (audience above the company's approval threshold).
    * Its presence means "the job exists; a second, explicit operator confirmation
    * is needed to release it" — the second commit call approves this job id

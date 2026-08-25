@@ -4,25 +4,10 @@ import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { getPlan, markPlanUsed, recordPlanJob } from "./message-plan-store.js";
 
-export const commitMessageTitle = "Send a previously planned message";
-
-export const commitMessageDescription =
-  "Executes a message plan previously created by comms_prepare_message. Only call this after the operator has " +
-  "seen the plan (recipient count, content) and EXPLICITLY confirmed sending. Takes the `token` from " +
-  "comms_prepare_message — the audience and content are frozen in the plan and cannot be changed here; to change " +
-  "anything, call comms_prepare_message again.\n\n" +
-  "Most sends complete in this one call. BUT if the audience is larger than the company's approval threshold, " +
-  "api-v1 creates the job in `pending_approval` and this tool returns `requires_second_confirmation: true` with " +
-  "the recipient count and the job id — and sends NOTHING yet. When that happens: show the operator the exact " +
-  "recipient count and ask a SECOND, explicit confirmation (e.g. \"Send to all 105 clients?\"). ONLY after they " +
-  "explicitly say yes, call comms_commit_message again with the SAME token and `confirm_large_send: true` to " +
-  "release the send. The operator never has to leave the conversation to approve. If they decline, send nothing. " +
-  "Returns the created message job id and status.";
-
 export const commitMessageInputSchema = {
   token: z
     .string()
-    .describe("Single-use token from comms_prepare_message; expires after 15 minutes."),
+    .describe("Single-use token from comms_send_message; expires after 15 minutes."),
   confirm_large_send: z
     .boolean()
     .optional()
@@ -73,7 +58,7 @@ export async function runCommitMessage(
   if (!lookup.ok) {
     return errorResult(
       "This message plan is no longer valid (tokens are single-use and expire after 15 minutes — " +
-        `this one is ${lookup.reason}). Call comms_prepare_message again and re-confirm the new plan ` +
+        `this one is ${lookup.reason}). Call comms_send_message again and re-confirm the new plan ` +
         "with the operator before committing.",
     );
   }
@@ -81,7 +66,7 @@ export async function runCommitMessage(
 
   if (plan.recipient_count === 0) {
     return errorResult(
-      "Refusing to send: this plan resolved to 0 recipients. Call comms_prepare_message with refined " +
+      "Refusing to send: this plan resolved to 0 recipients. Call comms_send_message with refined " +
         "audience filters and confirm a non-empty plan with the operator.",
     );
   }
@@ -106,7 +91,7 @@ export async function runCommitMessage(
                 next_step:
                   `Nothing sent yet — this send (${plan.recipient_count} recipients) is above the company's ` +
                   "approval threshold. Show the operator the recipient count and get an EXPLICIT second " +
-                  "confirmation, then call comms_commit_message again with the same token and " +
+                  "confirmation, then call comms_send_message again with the same token and " +
                   "confirm_large_send: true to release it.",
               },
               null,
@@ -167,7 +152,7 @@ export async function runCommitMessage(
         next_step:
           `Nothing has been sent yet. This audience (${recipientCount} recipients) is above the company's ` +
           "approval threshold. Show the operator the exact recipient count and ask them to explicitly confirm " +
-          "sending to all of them. ONLY after an explicit yes, call comms_commit_message again with the SAME " +
+          "sending to all of them. ONLY after an explicit yes, call comms_send_message again with the SAME " +
           "token and confirm_large_send: true to release the send — no app step needed. If the operator declines, " +
           "send nothing" +
           (approvalUrl ? `; they can also approve it later in the app: ${approvalUrl}.` : "."),
@@ -202,8 +187,8 @@ export async function runCommitMessage(
       }
       return errorResult(
         `Could not create the message job (api-v1 ${error.status}: ${error.humanMessage}). The send was NOT ` +
-          "executed. You may retry comms_commit_message once with the same token; if it fails again, call " +
-          "comms_prepare_message and start over.",
+          "executed. You may retry comms_send_message once with the same token; if it fails again, call " +
+          "comms_send_message and start over.",
       );
     }
     return errorResult(error instanceof Error ? error.message : String(error));
@@ -268,7 +253,7 @@ async function approvePendingJob(
       // approval of the same job (no duplicate, the job already exists).
       return errorResult(
         `Could not approve the message job (api-v1 ${error.status}: ${error.humanMessage}). The send was NOT ` +
-          `released. Job ${jobId} is still pending approval — you may retry comms_commit_message once with the ` +
+          `released. Job ${jobId} is still pending approval — you may retry comms_send_message once with the ` +
           "same token and confirm_large_send: true, or the operator can approve it in Zooza admin → Messages.",
       );
     }

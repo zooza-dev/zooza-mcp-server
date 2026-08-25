@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
  * swap the Map for Redis behind these functions when the server goes multi-node.
  */
 
-/** Edit plan for classes_commit_update. `schedule_payloads` are the exact bodies
+/** Edit plan for classes_update. `schedule_payloads` are the exact bodies
  *  to send: each carries `id` + the changed schedule fields + any canonical
  *  `update_mode_*` cascade keys (already resolved from session_scope). */
 export interface ClassesUpdatePlan {
@@ -22,7 +22,7 @@ export interface ClassesUpdatePlan {
   summary: Record<string, unknown>;
 }
 
-/** Edit plan for sessions_commit_update. `event_payloads` are the per-event
+/** Edit plan for sessions_update. `event_payloads` are the per-event
  *  bodies for the PUT /events batch: each carries `id` + changed fields (+ notify
  *  when requested). `date` values are already absolute `Y-m-d H:i:s`. */
 export interface SessionsUpdatePlan {

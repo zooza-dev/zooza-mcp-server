@@ -3,6 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { companyIdSchema } from "./common.js";
+import { dualPhaseConfirmedSchema, dualPhaseTokenSchema, resolveDualPhase } from "./dual-phase.js";
 import type { ApiListResponse } from "./types.js";
 import {
   getUpdatePlan,
@@ -10,25 +11,6 @@ import {
   saveUpdatePlan,
   type SessionsUpdatePlan,
 } from "./update-plan-store.js";
-
-export const sessionsPrepareUpdateTitle = "Preview edits to specific sessions";
-export const sessionsCommitUpdateTitle = "Apply previewed session edits";
-
-export const sessionsPrepareUpdateDescription =
-  "Preview edits to specific individual sessions (events) of a class — reschedule a session's date/time, or " +
-  "change a hand-picked session's instructor, venue/room, block, or duration. Works on one session or a chosen " +
-  "set (pass their event ids). Returns a per-session before→after preview; nothing is written until you call " +
-  "sessions_commit_update with the returned `token`. Optionally set `notify: true` to email enrolled clients " +
-  "about the change. Use this when the user points at particular sessions (\"move next Tuesday's class to " +
-  "Wednesday 5pm\", \"change the room for the July sessions\", \"give Friday's session to Jana\"). To change an " +
-  "attribute across ALL or all upcoming sessions of a class in one go, use classes_update with session_scope " +
-  "instead. To cancel sessions, use the cancellation tools — this tool does not cancel.";
-
-export const sessionsCommitUpdateDescription =
-  "Applies session edits previously previewed by sessions_prepare_update. Only call after the operator has seen " +
-  "the per-session preview and EXPLICITLY confirmed (and, if notify was set, confirmed that clients will be " +
-  "emailed). Takes the `token` from sessions_prepare_update — the edits are frozen in the plan. Returns which " +
-  "sessions were updated and which api-v1 skipped.";
 
 const rescheduleSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -78,7 +60,7 @@ export const sessionsPrepareUpdateInputSchema = {
 export const sessionsCommitUpdateInputSchema = {
   token: z
     .string()
-    .describe("Single-use token from sessions_prepare_update; expires after 15 minutes."),
+    .describe("Single-use token from sessions_update; expires after 15 minutes."),
 };
 
 const prepareInput = z.object(sessionsPrepareUpdateInputSchema);
@@ -221,7 +203,7 @@ export async function runSessionsCommitUpdate(
   if (!lookup.ok) {
     return errorResult(
       `This edit plan is no longer valid (tokens are single-use and expire after 15 minutes — this one is ` +
-        `${lookup.reason}). Call sessions_prepare_update again and re-confirm with the operator.`,
+        `${lookup.reason}). Call sessions_update again and re-confirm with the operator.`,
     );
   }
   if (lookup.plan.kind !== "sessions") {
@@ -262,7 +244,7 @@ export async function runSessionsCommitUpdate(
   } catch (error) {
     return zoozaError(
       error,
-      `Could not apply the session edits (${requestedIds.join(", ")}). You may retry sessions_commit_update once ` +
+      `Could not apply the session edits (${requestedIds.join(", ")}). You may retry sessions_update once ` +
         "with the same token",
     );
   }
@@ -341,4 +323,62 @@ function zoozaError(error: unknown, prefix: string) {
 
 function errorResult(text: string) {
   return { isError: true, content: [{ type: "text" as const, text }] };
+}
+
+// ─── Dual-phase surface (ZMCP-20260824-001) ──────────────────────────────────
+//
+// Replaces the former `sessions_prepare_update` / `sessions_commit_update` PAIR with
+// one registration dispatching on `token` presence. Phase logic is unchanged — the
+// two run functions keep their own zod parsing, so every preview rule and error
+// message survives verbatim. Preview fields are optional here because they are
+// absent on the apply call; runSessionsPrepareUpdate still validates them.
+
+export const sessionsUpdateTitle = "Edit specific sessions (preview, then apply)";
+
+export const sessionsUpdateDescription =
+  "Edit specific individual sessions (events) of a class — reschedule a session's date/time, or change a " +
+  "hand-picked session's instructor, venue/room, block, or duration. Works on one session or a chosen set.\n\n" +
+  "TWO CALLS. First WITHOUT `token`: returns a per-session before→after preview plus a single-use token. Show it " +
+  "to the operator and get explicit approval (and, if `notify` is set, confirm that clients will be emailed). " +
+  "Then call again with `token` + `confirmed: true` to apply — send nothing else, the edits are frozen in the " +
+  "plan.\n\n" +
+  "Use this when the user points at particular sessions (\"move next Tuesday's class to Wednesday 5pm\", \"change " +
+  "the room for the July sessions\", \"give Friday's session to Jana\"). To change an attribute across ALL or all " +
+  "upcoming sessions of a class in one go, use classes_update with session_scope instead. To cancel sessions, use " +
+  "the cancellation tools — this tool does not cancel.";
+
+export const sessionsUpdateInputSchema = {
+  company_id: companyIdSchema,
+  token: dualPhaseTokenSchema,
+  confirmed: dualPhaseConfirmedSchema,
+  event_ids: z
+    .array(z.number().int().positive())
+    .nonempty()
+    .optional()
+    .describe("Required on the FIRST call. One or many event (session) ids. Resolve with sessions_find_events."),
+  changes: changesSchema.optional().describe("Required on the FIRST call."),
+  notify: z
+    .boolean()
+    .optional()
+    .describe(
+      "Default false. true emails enrolled clients about the change — confirm intent with the operator first. " +
+        "Set it on the FIRST call; it is frozen into the plan.",
+    ),
+};
+
+export async function runSessionsUpdate(
+  rawInput: unknown,
+  auth: ZoozaAuth,
+): Promise<{
+  isError?: boolean;
+  content: Array<{ type: "text"; text: string }>;
+}> {
+  const decision = resolveDualPhase(rawInput);
+  if (decision.kind === "error") {
+    return errorResult(decision.message);
+  }
+  if (decision.kind === "preview") {
+    return runSessionsPrepareUpdate(rawInput, auth);
+  }
+  return runSessionsCommitUpdate({ token: decision.token }, auth);
 }

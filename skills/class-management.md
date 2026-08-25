@@ -33,8 +33,8 @@ The user's pattern is assembled across multiple turns. Gather it iteratively.
 Ask the user (one combined prompt is fine), and resolve each via the matching `find_*` tool before passing to `classes_preview_schedule`:
 
 - **Which course?** If they name it (or use any substring), call `classes_find_courses({ company_id, name: <substring> })`. Render matches as `id | name | target_audience | price | schedules_count`. One match → confirm with the user; multiple → ask them to pick; zero → broaden the search or accept that no such course exists. If they gave a numeric id upfront, accept it without calling `classes_find_courses`.
-- **At which venue?** Call `classes_find_places({ company_id, name: <substring> })` (or `{ company_id, city: <substring> }` for multi-venue companies). Render `id | name | city | street | rooms` — rooms come pre-inlined. If the operator names a specific room, surface its capacity in the confirmation.
-- **Primary trainer?** If the user names a person (or a substring), call `trainers_find({ company_id, name: <substring> })` and render `id | full_name | email`. Active team members only by default; pass `include_inactive: true` only if the operator explicitly asks for a former trainer. Note: api-v1 returns ANY company team member who could be assigned (`owner`, `member`, `external_member`, `assistant`, `main_member`) — not a separate "trainer" role.
+- **At which venue?** Call `classes_find_resource (kind:"place")({ company_id, name: <substring> })` (or `{ company_id, city: <substring> }` for multi-venue companies). Render `id | name | city | street | rooms` — rooms come pre-inlined. If the operator names a specific room, surface its capacity in the confirmation.
+- **Primary trainer?** If the user names a person (or a substring), call `classes_find_resource (kind:"trainer")({ company_id, name: <substring> })` and render `id | full_name | email`. Active team members only by default; pass `include_inactive: true` only if the operator explicitly asks for a former trainer. Note: api-v1 returns ANY company team member who could be assigned (`owner`, `member`, `external_member`, `assistant`, `main_member`) — not a separate "trainer" role.
 
   If the user **doesn't name a trainer** (e.g. "leave it open", "we'll figure it out", "no trainer yet", or simply skips the question), don't pick a real person — offer Zooza's three built-in placeholders and ask the user to pick:
 
@@ -44,9 +44,9 @@ Ask the user (one combined prompt is fine), and resolve each via the matching `f
   | `9000000000002` | **Trainer unassigned** | the operator explicitly does not want to assign anyone (e.g. self-led class, walk-in studio time) |
   | `9000000000003` | **Guest trainer** | sessions will be run by visiting / rotating guests rather than a fixed staff trainer |
 
-  These ids are hardcoded constants — do not look them up via `trainers_find`. If the user gives no signal at all, default to `9000000000001` ("To be decided") and tell the user that's what you picked so they can override.
+  These ids are hardcoded constants — do not look them up via `classes_find_resource (kind:"trainer")`. If the user gives no signal at all, default to `9000000000001` ("To be decided") and tell the user that's what you picked so they can override.
 
-Composite trainer lookups: if the operator says *"who teaches at Centrum Rafael?"* or *"who teaches Yoga?"*, call `trainers_find({ place_id })` or `trainers_find({ course_id })` respectively — both filters compose.
+Composite trainer lookups: if the operator says *"who teaches at Centrum Rafael?"* or *"who teaches Yoga?"*, call `classes_find_resource (kind:"trainer")({ place_id })` or `classes_find_resource (kind:"trainer")({ course_id })` respectively — both filters compose.
 
 Capture any other inputs the user already mentioned (capacity, prices, schedule_type, `online_registration`, `billing_period_id`).
 
@@ -66,7 +66,7 @@ Call `classes_preview_schedule` with those inputs. Render the resolved shell as 
 Then list `warnings[]` verbatim under a short heading. **Treat every warning as a question to the user, not a footnote** — in particular:
 
 - If a warning mentions `online_registration` defaulting to true, explicitly ask: *"Should this class be published on the public website for online enrollment, or kept private?"*
-- If a warning mentions `billing_period_id` falling back, call `classes_find_billing_periods({ company_id })` (returns all active periods, typically 1–30 per company) and offer them as a table (`id | name | active`). Ask the operator to pick. If the company has only one active period, name it and ask "use this one?"
+- If a warning mentions `billing_period_id` falling back, call `classes_find_resource (kind:"billing_period")({ company_id })` (returns all active periods, typically 1–30 per company) and offer them as a table (`id | name | active`). Ask the operator to pick. If the company has only one active period, name it and ask "use this one?"
 
 Ask the user to **confirm the shell** before adding sessions. If they want to change a default, capture the change and re-call `classes_preview_schedule`.
 
@@ -180,7 +180,7 @@ _{pattern} · {N} sessions · {first_date} → {last_date} · {place} → {room}
 
 ## Disambiguation rules
 
-- **Trainer name → id.** If the user names a trainer ("with Martin"), look up via `trainers_find({ name: "Martin" })` and disambiguate on multiple matches. If the user doesn't name a trainer, do NOT call `trainers_find` — offer the three placeholder ids from Step 1 (`9000000000001` To be decided, `9000000000002` Trainer unassigned, `9000000000003` Guest trainer) and let the user choose; default to `9000000000001` only if they decline to pick.
+- **Trainer name → id.** If the user names a trainer ("with Martin"), look up via `classes_find_resource (kind:"trainer")({ name: "Martin" })` and disambiguate on multiple matches. If the user doesn't name a trainer, do NOT call `classes_find_resource (kind:"trainer")` — offer the three placeholder ids from Step 1 (`9000000000001` To be decided, `9000000000002` Trainer unassigned, `9000000000003` Guest trainer) and let the user choose; default to `9000000000001` only if they decline to pick.
 - **Course / venue ambiguity.** Never guess. List candidates and ask.
 - **Time formats.** Convert "1pm" → `780` minutes, "13:30" → `810`. If the user gives a time outside reasonable working hours (before 6am or after 11pm), confirm before previewing.
 - **Date phrasing.** "next Monday", "every Monday in May", "from June through August" — resolve to ISO dates using today's date as the anchor. Always show the resolved `from_date` (and `until_date`, if used) back to the user before previewing.

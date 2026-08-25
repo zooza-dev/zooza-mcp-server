@@ -94,7 +94,7 @@ export async function runPreviewSchedule(
   } catch (error) {
     return zoozaErrorResult(
       error,
-      `Place ${input.place_id} not found. Use classes_find_places to look up by name.`,
+      `Place ${input.place_id} not found. Use classes_find_resource (kind:'place') to look up by name.`,
     );
   }
 
@@ -191,7 +191,24 @@ function resolveSchedule(
     registration_fee: input.registration_fee ?? toNumber(course.registration_fee),
     billable_events: input.billable_events ?? toNumber(course.billable_events),
     billing_period_id: input.billing_period_id,
+    // Instalment courses price from unit_price x sessions, but the session count
+    // does not exist yet at course-creation time — so classes_add_course records the
+    // operator's total in `price` and leaves unit_price at 0. Carry that total so
+    // commit can divide it once the sessions are real.
+    ...(needsDerivedUnitPrice(course, input) ? { total_price: toNumber(course.price) } : {}),
   };
+}
+
+/**
+ * True when the parent course is priced in instalments but has no per-session price:
+ * the total sits in `price` and `unit_price` is 0. This is the normal shape produced
+ * by classes_add_course when the operator gives a total.
+ */
+function needsDerivedUnitPrice(course: CourseDto, input: PreviewScheduleInput): boolean {
+  if (input.unit_price !== undefined) return false;
+  const c = course as CourseDto & { money_collection?: string; price_type?: string };
+  if (c.money_collection !== "installments" || c.price_type !== "course_fee") return false;
+  return toNumber(course.unit_price) === 0 && toNumber(course.price) > 0;
 }
 
 function buildWarnings(
@@ -215,6 +232,14 @@ function buildWarnings(
       );
     }
   }
+  if (schedule.total_price !== undefined) {
+    warnings.push(
+      `This programme is priced in instalments at ${schedule.total_price} total, with no per-session price set ` +
+        "yet — that is expected. classes_commit_class will divide the total by the number of sessions you create " +
+        "and set unit_price from it, so the class ends up costing exactly that total. Do not pass unit_price " +
+        "yourself unless the operator quoted a PER-SESSION price.",
+    );
+  }
   const courseUnit = toNumber(course.unit_price);
   if (input.unit_price === undefined && courseUnit > 0) {
     warnings.push(
@@ -234,7 +259,7 @@ function buildWarnings(
   }
   if (input.billing_period_id === undefined) {
     warnings.push(
-      "billing_period_id not provided — api-v1 will fall back to the most recent active billing period. Ask the user which billing period applies before committing (use classes_find_billing_periods once available).",
+      "billing_period_id not provided — api-v1 will fall back to the most recent active billing period. Ask the user which billing period applies before committing (use classes_find_resource (kind:'billing_period') once available).",
     );
   }
   return warnings;

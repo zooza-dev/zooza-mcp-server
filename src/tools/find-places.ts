@@ -10,11 +10,6 @@ import type {
   RawPlaceRecord,
 } from "./types.js";
 
-export const findPlacesTitle = "Find venues (places) by name or city";
-
-export const findPlacesDescription =
-  "Search the company's venues by name (substring) and/or city. Returns a slim `{id, name, city, street, rooms: [{id, name, capacity}]}` per match. Rooms are inlined because picking a venue is usually followed by picking a room — saves a follow-up call. api-v1 doesn't support server-side filtering on /v1/places, so the MCP fetches up to 1000 places and filters MCP-side; this matches what the app picker does. Pagination defaults to page 0, page_size 25 (max 200).";
-
 export const findPlacesInputSchema = {
   company_id: companyIdSchema,
   name: z.string().optional(),
