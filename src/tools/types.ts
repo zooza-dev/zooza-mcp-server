@@ -215,6 +215,14 @@ export interface ScheduleMatch {
   capacity: number;
   registrations_count: number;
   status: string;
+  /** Whether the class currently has a trial enabled (schedule `in_trial`). */
+  in_trial: boolean;
+  /** Public per-schedule booking URL (`__calc__registration_url`); `""` when the
+   *  class isn't publicly bookable or the company has no registration widget. */
+  registration_url: string;
+  /** Schedule kind — e.g. `lead_collection` (a lead pipeline) or `fixed_period`;
+   *  `""` when unset. Lets a caller spot a lead-collection schedule. */
+  schedule_type: string;
 }
 
 /** Raw schedule record from /v1/schedules (collection path, load_trainer=1).
@@ -230,10 +238,16 @@ export interface RawScheduleRecord {
   place_id?: number;
   capacity?: number | string;
   status?: string;
+  /** Schedule kind (schedules.schedule_type), e.g. lead_collection / fixed_period. */
+  schedule_type?: string;
+  /** Trial-enabled flag (schedules.in_trial). */
+  in_trial?: boolean | number | string;
   /** Denormalised venue name (Schedule::place()). */
   __calc__course_place?: string;
   /** Materialised active-registration count (Schedule __calc__registered). */
   __calc__registered?: number | string;
+  /** Materialised public booking deep-link (Schedule __calc__registration_url). */
+  __calc__registration_url?: string;
   /** Present only when the request passed load_trainer=1. */
   trainer?: {
     id?: number;

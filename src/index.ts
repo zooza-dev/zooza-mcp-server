@@ -185,6 +185,36 @@ import {
   getReportDataTitle,
   runGetReportData,
 } from "./tools/get-report-data.js";
+import {
+  bookingsAddLeadDescription,
+  bookingsAddLeadInputSchema,
+  bookingsAddLeadTitle,
+  runBookingsAddLead,
+} from "./tools/bookings-add-lead.js";
+import {
+  labelsMarkDescription,
+  labelsMarkInputSchema,
+  labelsMarkTitle,
+  runLabelsMark,
+} from "./tools/labels-mark.js";
+import {
+  commsFindRepliesDescription,
+  commsFindRepliesInputSchema,
+  commsFindRepliesTitle,
+  runCommsFindReplies,
+} from "./tools/comms-find-replies.js";
+import {
+  runTodosAdd,
+  todosAddDescription,
+  todosAddInputSchema,
+  todosAddTitle,
+} from "./tools/todos-add.js";
+import {
+  runTodosMark,
+  todosMarkDescription,
+  todosMarkInputSchema,
+  todosMarkTitle,
+} from "./tools/todos-mark.js";
 import { REPORTS_INSTRUCTIONS } from "./instructions.js";
 
 const SKILLS = loadAllSkills();
@@ -492,6 +522,117 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
 
 
 
+
+  server.registerTool(
+    "bookings_add_lead",
+    {
+      title: bookingsAddLeadTitle,
+      description: bookingsAddLeadDescription,
+      inputSchema: bookingsAddLeadInputSchema,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "bookings_add_lead",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runBookingsAddLead(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "labels_mark",
+    {
+      title: labelsMarkTitle,
+      description: labelsMarkDescription,
+      inputSchema: labelsMarkInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    audit(
+      "labels_mark",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runLabelsMark(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "comms_find_replies",
+    {
+      title: commsFindRepliesTitle,
+      description: commsFindRepliesDescription,
+      inputSchema: commsFindRepliesInputSchema,
+      // Can mutate (mark a reply state), so it requires write scope — not a pure read.
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    audit(
+      "comms_find_replies",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runCommsFindReplies(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "todos_add",
+    {
+      title: todosAddTitle,
+      description: todosAddDescription,
+      inputSchema: todosAddInputSchema,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "todos_add",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runTodosAdd(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "todos_mark",
+    {
+      title: todosMarkTitle,
+      description: todosMarkDescription,
+      inputSchema: todosMarkInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    audit(
+      "todos_mark",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runTodosMark(args, ctx.auth)),
+      ),
+    ),
+  );
 
   server.registerTool(
     "sessions_find_events",

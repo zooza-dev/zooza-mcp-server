@@ -26,6 +26,7 @@ export const SERVER_VERSION: string = pkg.version;
 /** Every tool the server registers, sorted. Kept in lockstep with index.ts by
  *  tool-manifest.test.ts. */
 export const TOOL_NAMES: readonly string[] = [
+  "bookings_add_lead",
   "bookings_find",
   "classes_add_course",
   "classes_commit_class",
@@ -37,12 +38,14 @@ export const TOOL_NAMES: readonly string[] = [
   "classes_preview_schedule",
   "classes_update",
   "classes_update_course_settings",
+  "comms_find_replies",
   "comms_list_merge_vars",
   "comms_list_templates",
   "comms_send_message",
   "explain_data_model",
   "get_skill",
   "get_terminology",
+  "labels_mark",
   "negotiate_terminology",
   "payments_add_plan",
   "reports_get_data",
@@ -54,6 +57,8 @@ export const TOOL_NAMES: readonly string[] = [
   "setup_add_payment_template",
   "setup_update_course_templates",
   "submit_feedback",
+  "todos_add",
+  "todos_mark",
   "whoami",
 ];
 

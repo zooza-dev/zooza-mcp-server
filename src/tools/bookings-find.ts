@@ -50,7 +50,8 @@ export const bookingsFindDescription =
   "and resolve them to a `registration_id`, or a client to a `user_id`. Use for \"is X enrolled?\", \"who's in " +
   'this class?", "who hasn\'t paid?" (set `payment_status:["unpaid","partially_paid"]`), and "find client X". ' +
   "Filter by `search` (loose: name/email/phone) or `name`, by `course_id`/`schedule_id` (resolve via " +
-  "classes_find_courses / classes_find_classes), `user_id`, `status`, `payment_status`, or booking date with " +
+  "classes_find_courses / classes_find_classes), `user_id`, `registration_id` (one exact booking by its id), " +
+  "`status`, `payment_status`, or booking date with " +
   "`created_from`/`created_to` (the \"new registrations this week\" lever). `distinct:true` returns " +
   "one row per client (→ `user_id`) for person lookups. Chain a result's `registration_id` or `user_id` straight " +
   "into comms_send_message (`audience.registration_id` / `audience.user_id`). Class/programme NAMES aren't " +
@@ -86,6 +87,16 @@ export const bookingsFindInputSchema = {
     .optional()
     .describe("Bookings in this class (schedule). Resolve the id with classes_find_classes; never guess it."),
   user_id: z.number().int().positive().optional().describe("All bookings of one client, by their user id."),
+  registration_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Fetch ONE exact booking by its registration id. Use this to confirm a specific registration exists or read " +
+        "who it is — unlike `search`, which substring-matches the id (search:45 also matches 145, 450). An exact " +
+        "registration_id lookup returns that booking whatever its status (only truly deleted rows are hidden).",
+    ),
   status: z
     .array(z.enum(STATUS_VALUES))
     .optional()
@@ -168,22 +179,31 @@ export async function runBookingsFind(
   }
 
   const statusProvided = Boolean(input.status && input.status.length > 0);
-  const statusGroups = statusProvided ? input.status! : DEFAULT_STATUS_GROUPS;
+  // An exact registration_id lookup should return that booking WHATEVER its status,
+  // so we skip the active-only default for it (api-v1 still hides only `deleted`).
+  const exactLookup = input.registration_id !== undefined;
 
   const query: Record<string, string | number> = {
+    // MANDATORY prerequisite: GET /registrations ignores ALL filter params (user,
+    // course_id, schedule_id, registration_id, status, dates, …) unless
+    // advanced_search=1 is set — a legacy api-v1 contract. Every filter below
+    // depends on it; never drop it.
     advanced_search: 1,
     // count=exact disables the 500-row count cap (common.php:5726); total is
     // then exact and total_capped stays false.
     count: "exact",
     page,
     page_size: pageSize,
-    status: statusGroups.join("|"),
   };
+  if (statusProvided) query.status = input.status!.join("|");
+  else if (!exactLookup) query.status = DEFAULT_STATUS_GROUPS.join("|");
   if (input.search) query.user = input.search; // api `user` = freetext LIKE (common.php:6972)
   if (input.name) query.ef_full_name = input.name;
   if (input.course_id !== undefined) query.course_id = input.course_id;
   if (input.schedule_id !== undefined) query.schedule_id = input.schedule_id;
   if (input.user_id !== undefined) query.user_id = input.user_id;
+  // Exact single-registration filter (r.id) — common.php:7866-7917.
+  if (input.registration_id !== undefined) query.registration_id = input.registration_id;
   if (input.payment_status && input.payment_status.length > 0) {
     query.billing_status = input.payment_status.join("|");
   }
@@ -223,10 +243,11 @@ export async function runBookingsFind(
       ...(input.course_id !== undefined ? { course_id: input.course_id } : {}),
       ...(input.schedule_id !== undefined ? { schedule_id: input.schedule_id } : {}),
       ...(input.user_id !== undefined ? { user_id: input.user_id } : {}),
+      ...(input.registration_id !== undefined ? { registration_id: input.registration_id } : {}),
       // Echo the literal groups when the caller chose them; a compact marker
       // when we applied the default — avoids shipping the 7-element default array
       // on every call.
-      status: statusProvided ? input.status : "default_active",
+      status: statusProvided ? input.status : exactLookup ? "any (exact lookup)" : "default_active",
       ...(input.payment_status?.length ? { payment_status: input.payment_status } : {}),
       ...(input.include_inactive ? { include_inactive: true } : {}),
       ...(input.distinct ? { distinct: true } : {}),

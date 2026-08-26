@@ -153,9 +153,12 @@ function schemaChars(shape: RawShape): number {
 /** Ceiling for a tool that has no entry in OVER_BUDGET. */
 const PER_TOOL_SCHEMA_MAX = 4_500;
 
-/** Ceiling for the whole registered surface. Headroom over today's 63 784 is
- *  deliberately thin: a new tool should have to earn its place. */
-const TOTAL_SCHEMA_MAX = 66_000;
+/** Ceiling for the whole registered surface. Headroom over today's 70 819 is
+ *  deliberately thin: a new tool should have to earn its place. Raised 66 000 → 71 000
+ *  on 2026-08-26 for the trial-inquiry tool wave (+5 tools: bookings_add_lead, labels_mark,
+ *  comms_find_replies, todos_add, todos_mark — feature-trial-inquiry-tools; ZMCP-20260805
+ *  token-audit baseline updated). */
+const TOTAL_SCHEMA_MAX = 71_000;
 
 /**
  * Tools already over PER_TOOL_SCHEMA_MAX when the budget landed. Each is held

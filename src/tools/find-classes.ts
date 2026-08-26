@@ -15,7 +15,7 @@ const REGISTRATION_TYPES = ["single", "full2", "open"] as const;
 export const findClassesTitle = "Find classes (schedules) by name";
 
 export const findClassesDescription =
-  "Search this company's CLASSES — the scheduled groups inside a programme (a \"class\" / \"group\" / \"skupina\"; internally a *schedule*) — by name (substring) and resolve them to a `schedule_id`. Reach for this whenever the user names a specific group rather than a whole programme (\"the Nejaké class\", \"the Monday 5pm group\", \"her Wednesday ballet class\"), or whenever a downstream tool needs a `schedule_id` — most importantly `comms_send_message` targeting everyone in one class (`audience.schedule_id`). This is the missing middle rung between `classes_find_courses` (finds the PROGRAMME → `course_id`) and `sessions_find_events` (finds individual dated SESSIONS → `event_id`): a class is one recurring group within a programme, made of many sessions. Optionally narrow by `course_id` (classes inside one programme), `trainer_id`, `place_id`, `day` of week, or `registration_type`. Returns a slim list — `{schedule_id, name, course_id, start, end, time, trainer_id, trainer_name, place_id, place_name, capacity, registrations_count, status}` — enough to disambiguate when several classes share a name, never enough to mutate. `course_id` is returned but not the course name (resolve it with `classes_find_courses` if you need it). By default returns active + paused (inactive) classes; pass `include_archived: true` to search archived classes instead. Does NOT create or change classes (that is `classes_preview_schedule` → `classes_commit_class`) and does NOT list a class's sessions (use `sessions_find_events` with the `schedule_id`).";
+  "Search this company's CLASSES — the scheduled groups inside a programme (a \"class\" / \"group\" / \"skupina\"; internally a *schedule*) — by name (substring) and resolve them to a `schedule_id`. Reach for this whenever the user names a specific group rather than a whole programme (\"the Nejaké class\", \"the Monday 5pm group\", \"her Wednesday ballet class\"), or whenever a downstream tool needs a `schedule_id` — most importantly `comms_send_message` targeting everyone in one class (`audience.schedule_id`). This is the missing middle rung between `classes_find_courses` (finds the PROGRAMME → `course_id`) and `sessions_find_events` (finds individual dated SESSIONS → `event_id`): a class is one recurring group within a programme, made of many sessions. Optionally narrow by `course_id` (classes inside one programme), `trainer_id`, `place_id`, `day` of week, `registration_type`, `in_trial: true` (only classes currently offering a TRIAL), `active_only: true` (exclude classes whose schedule has ENDED), or `lead_only: true` (only lead-collection pipelines). Returns a slim list — `{schedule_id, name, course_id, start, end, time, trainer_id, trainer_name, place_id, place_name, capacity, registrations_count, status, in_trial, registration_url, schedule_type}` — enough to disambiguate when several classes share a name, never enough to mutate. `schedule_type` tells a real class (`fixed_period`) from a lead pipeline (`lead_collection`) — use `lead_only: true` to find the pipeline `bookings_add_lead` needs. `registration_url` is the public link a prospect clicks to book that specific class (empty when the class isn't publicly bookable or the company has no registration widget). Combine filters in ONE call — e.g. `{place_id, in_trial: true, active_only: true}` returns the bookable trial classes at a venue in a single query; do not split them across separate calls. `course_id` is returned but not the course name (resolve it with `classes_find_courses` if you need it). By default returns active + paused (inactive) classes; pass `include_archived: true` to search archived classes instead. Does NOT create or change classes (that is `classes_preview_schedule` → `classes_commit_class`) and does NOT list a class's sessions (use `sessions_find_events` with the `schedule_id`).";
 
 export const findClassesInputSchema = {
   company_id: companyIdSchema,
@@ -55,6 +55,24 @@ export const findClassesInputSchema = {
     .optional()
     .describe(
       "Filter by the parent course's registration model: 'single' = drop-in / per-session, 'full2' = full-course enrollment, 'open' = open-ended / membership.",
+    ),
+  in_trial: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set true to return only classes that currently have a TRIAL enabled (the schedule in_trial flag). Omit to include all classes regardless of trial.",
+    ),
+  active_only: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set true to exclude classes whose schedule has already ENDED (keeps not-yet-started and in-progress classes). Omit to include ended classes too.",
+    ),
+  lead_only: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set true to return only LEAD-COLLECTION schedules (schedule_type='lead_collection' — the lead pipelines that bookings_add_lead attaches leads to). Every row also carries schedule_type, so you can tell real classes apart from lead pipelines without this filter.",
     ),
   include_archived: z
     .boolean()
@@ -109,6 +127,13 @@ export async function runFindClasses(
   if (input.place_id !== undefined) query.place_id = input.place_id;
   if (input.day !== undefined) query.day = input.day;
   if (input.registration_type) query.registration_type = input.registration_type;
+  // in_trial is a first-class boolean search param on the Schedules collection.
+  if (input.in_trial) query.in_trial = 1;
+  // lead_only=1 → WHERE schedule_type IN ('lead_collection'). NOTE: api-v1's
+  // schedule_type query param is a fixed-vocabulary status selector, not a raw
+  // column match — a raw schedule_type value is silently ignored (returns everything),
+  // so we use the lead_only lever instead.
+  if (input.lead_only) query.lead_only = 1;
   // Status model: the collection defaults to active+inactive when `status` is
   // unset. The api accepts only a scalar status over the query string (piped
   // values don't split), so archived is an explicit either/or search rather
@@ -122,7 +147,13 @@ export async function runFindClasses(
       ApiListResponse<RawScheduleRecord> | RawScheduleRecord[]
     >("/schedules", { query }, withCompany(auth, input.company_id!));
     const { records, total, settings: echo } = unwrapList<RawScheduleRecord>(raw);
-    const matches: ScheduleMatch[] = records.map(projectSchedule);
+    let matches: ScheduleMatch[] = records.map(projectSchedule);
+    // active_only: the Schedules collection exposes no single "not ended" param
+    // (only mutually-exclusive not_started / in_progress / ended bools), so filter
+    // this page client-side by end date. Trial/venue-scoped searches are small
+    // (usually one page), so this is reliable in practice; `total` still reflects
+    // the server's pre-filter count and can over-count when active_only drops rows.
+    if (input.active_only) matches = matches.filter((m) => !hasEnded(m.end));
     const truncated = total > (page + 1) * pageSize;
 
     const result: FindMatchesEnvelope<ScheduleMatch> = {
@@ -164,6 +195,9 @@ function projectSchedule(s: RawScheduleRecord): ScheduleMatch {
     capacity: toInt(s.capacity),
     registrations_count: toInt(s.__calc__registered),
     status: pickStr(s.status) ?? "",
+    in_trial: truthy(s.in_trial),
+    registration_url: pickStr(s.__calc__registration_url) ?? "",
+    schedule_type: pickStr(s.schedule_type) ?? "",
   };
 }
 
@@ -171,6 +205,22 @@ function toInt(v: number | string | undefined): number {
   if (v === undefined || v === null || v === "") return 0;
   const n = typeof v === "number" ? v : Number.parseInt(v, 10);
   return Number.isFinite(n) ? n : 0;
+}
+
+function truthy(v: boolean | number | string | undefined): boolean {
+  if (v === undefined || v === null) return false;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  return v !== "" && v !== "0";
+}
+
+/** A schedule has ended when it has a real end date in the past. Open-ended
+ *  (blank / "0000-00-00") counts as still active. */
+function hasEnded(end: string): boolean {
+  if (!end || end === "0000-00-00") return false;
+  const endDate = new Date(`${end}T23:59:59`);
+  if (Number.isNaN(endDate.getTime())) return false;
+  return endDate.getTime() < Date.now();
 }
 
 function errorResult(text: string) {
