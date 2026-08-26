@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { z } from "zod";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Auto-discover every tool input schema: eagerly import all tool modules and
 // collect their `*InputSchema` exports. This means a NEW tool is covered by the
@@ -121,4 +125,83 @@ describe("tool input schemas — every parameter is described", () => {
       expect(undescribedFields(name, shape)).toEqual([]);
     });
   }
+});
+
+// ─── Schema size budget ───────────────────────────────────────────────────────
+//
+// The guard above makes a description MANDATORY. On its own that is a one-way
+// ratchet: every new field must be described, nothing ever forces an old one to
+// be trimmed. Input schemas are serialised into the system prompt of EVERY
+// client conversation, used or not — so unchecked growth is a bill every
+// operator pays on every message, including the ones on a EUR 20 plan.
+//
+// Measured 2026-08-26: describing 127 previously-undescribed parameters
+// (ZMCP-20260722-001) grew the serialised schema surface from 49 020 to 63 784
+// chars — +30 % in one commit.
+//
+// So the budget sits in the same file as the requirement: add a description,
+// and if the tool is at its ceiling, shorten something else. Raising a ceiling
+// is allowed — but it is a deliberate edit with a reason, not a silent drift.
+
+const indexSrc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "index.ts"), "utf8");
+
+/** Serialised size of one tool's input schema — what actually ships on the wire. */
+function schemaChars(shape: RawShape): number {
+  return JSON.stringify(zodToJsonSchema(z.object(shape))).length;
+}
+
+/** Ceiling for a tool that has no entry in OVER_BUDGET. */
+const PER_TOOL_SCHEMA_MAX = 4_500;
+
+/** Ceiling for the whole registered surface. Headroom over today's 63 784 is
+ *  deliberately thin: a new tool should have to earn its place. */
+const TOTAL_SCHEMA_MAX = 66_000;
+
+/**
+ * Tools already over PER_TOOL_SCHEMA_MAX when the budget landed. Each is held
+ * at its measured size, so it can only SHRINK — never grow. Delete the entry
+ * once the tool fits the normal ceiling. Trimming these is ZMCP-20260824-003.
+ */
+const OVER_BUDGET: Record<string, number> = {
+  classes_update: 6_842,
+  comms_send_message: 5_363,
+  classes_commit_class: 5_111,
+};
+
+/** tool name → the `*InputSchema` export it registers with. Tools declaring an
+ *  inline schema object (get_skill) carry no export to look up and are skipped;
+ *  the registered-count assertion below keeps that from hiding a real gap. */
+function registeredSchemaExports(): Array<[string, string]> {
+  const re = /registerTool\(\s*"([a-z0-9_]+)",[\s\S]{0,600}?inputSchema:\s*([A-Za-z0-9_]+)\s*,/g;
+  const found: Array<[string, string]> = [];
+  for (let m = re.exec(indexSrc); m; m = re.exec(indexSrc)) found.push([m[1], m[2]]);
+  return found;
+}
+
+/** Registered tools, resolved to the shape actually serialised for the client. */
+const REGISTERED: Array<[string, RawShape]> = registeredSchemaExports().flatMap(
+  ([tool, exportName]) => {
+    for (const shape of Object.entries(SCHEMAS)) {
+      if (shape[0].endsWith(`:${exportName}`)) return [[tool, shape[1]] as [string, RawShape]];
+    }
+    return [];
+  },
+);
+
+describe("tool input schemas — size budget", () => {
+  it("resolves the registered tools (sanity: index.ts parse still works)", () => {
+    expect(REGISTERED.length).toBeGreaterThanOrEqual(25);
+  });
+
+  for (const [tool, shape] of REGISTERED) {
+    const ceiling = OVER_BUDGET[tool] ?? PER_TOOL_SCHEMA_MAX;
+    it(`${tool}: input schema <= ${ceiling} chars`, () => {
+      expect(schemaChars(shape)).toBeLessThanOrEqual(ceiling);
+    });
+  }
+
+  it(`all registered input schemas <= ${TOTAL_SCHEMA_MAX} chars`, () => {
+    const total = REGISTERED.reduce((sum, [, shape]) => sum + schemaChars(shape), 0);
+    expect(total).toBeLessThanOrEqual(TOTAL_SCHEMA_MAX);
+  });
 });
