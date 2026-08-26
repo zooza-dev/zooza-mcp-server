@@ -269,7 +269,7 @@ async function previewPlan(rawInput: unknown, auth: ZoozaAuth) {
       "After they confirm, call payments_add_plan again with `token` and `confirmed: true` — and nothing else. To " +
       "change the amount or start date, call again WITHOUT a token.",
   };
-  return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
 }
 
 async function applyPlan(token: string, auth: ZoozaAuth) {
@@ -326,7 +326,7 @@ async function applyPlan(token: string, auth: ZoozaAuth) {
           ? [...plan.warnings, `Applied, but the booking now reports plan ${applied}. Verify in the Zooza app.`]
           : plan.warnings,
   };
-  return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
 }
 
 function planLabel(p: GroupPlan): string {

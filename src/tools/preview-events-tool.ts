@@ -243,7 +243,7 @@ export async function runPreviewEvents(
       holidays_snapshot_id: response.holidays_snapshot_id ?? null,
     };
     return {
-      content: [{ type: "text", text: JSON.stringify(output, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(output) }],
     };
   } catch (error) {
     if (error instanceof ZoozaApiError) {

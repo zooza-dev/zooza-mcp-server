@@ -215,7 +215,7 @@ export async function runNegotiateTerminology(rawInput: unknown): Promise<{
       content: [
         {
           type: "text",
-          text: JSON.stringify(INTERVIEW_CONCEPTS, null, 2),
+          text: JSON.stringify(INTERVIEW_CONCEPTS),
         },
       ],
     };

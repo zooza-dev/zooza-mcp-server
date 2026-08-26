@@ -331,6 +331,6 @@ export async function runListMessageMergeVars(rawInput: unknown): Promise<{
   };
 
   return {
-    content: [{ type: "text", text: JSON.stringify(envelope, null, 2) }],
+    content: [{ type: "text", text: JSON.stringify(envelope) }],
   };
 }

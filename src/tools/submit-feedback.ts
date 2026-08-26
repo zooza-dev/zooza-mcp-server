@@ -290,7 +290,7 @@ function buildEnrichedBody(
 
 function ok(payload: unknown): ToolResult {
   return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+    content: [{ type: "text", text: JSON.stringify(payload) }],
   };
 }
 

@@ -333,7 +333,7 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
         {
           uri: "domain://zooza/glossary",
           mimeType: "application/json",
-          text: JSON.stringify(TERMINOLOGY_INDEX, null, 2),
+          text: JSON.stringify(TERMINOLOGY_INDEX),
         },
       ],
     }),

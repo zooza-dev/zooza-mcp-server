@@ -169,7 +169,7 @@ async function previewChanges(rawInput: unknown, auth: ZoozaAuth) {
       "Show this attach/detach list to the operator. After they confirm, call setup_update_course_templates again " +
       "with `token` and `confirmed: true` — and nothing else.",
   };
-  return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
 }
 
 async function applyChanges(token: string, auth: ZoozaAuth) {
@@ -248,7 +248,7 @@ async function applyChanges(token: string, auth: ZoozaAuth) {
     now_attached: finalIds,
     warnings,
   };
-  return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
 }
 
 async function getList<T>(path: string, auth: ZoozaAuth): Promise<T[]> {

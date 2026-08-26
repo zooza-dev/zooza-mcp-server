@@ -345,6 +345,6 @@ function ok(payload: WhoamiResult) {
   // works even before auth succeeds.
   const enriched = { ...payload, ...RELEASE_BLOCK };
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(enriched, null, 2) }],
+    content: [{ type: "text" as const, text: JSON.stringify(enriched) }],
   };
 }

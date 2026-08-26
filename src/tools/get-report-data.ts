@@ -80,11 +80,11 @@ export async function runGetReportData(
     if (view === "replacements") {
       const ds = await fetchDemandSupply(auth);
       const focused = focusReplacements(ds, range);
-      return { content: [{ type: "text", text: JSON.stringify(focused, null, 2) }] };
+      return { content: [{ type: "text", text: JSON.stringify(focused) }] };
     }
     const payload = await fetchBusinessDashboard(auth, range);
     const focused = focusReport(payload, view, range);
-    return { content: [{ type: "text", text: JSON.stringify(focused, null, 2) }] };
+    return { content: [{ type: "text", text: JSON.stringify(focused) }] };
   } catch (e) {
     const msg = e instanceof ZoozaApiError ? e.humanMessage : e instanceof Error ? e.message : String(e);
     return err(`Could not load report data from Zooza: ${msg}. Tell the user the data is temporarily unavailable — do NOT substitute made-up numbers.`);

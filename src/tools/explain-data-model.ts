@@ -447,7 +447,7 @@ export async function runExplainDataModel(rawInput: unknown): Promise<{
       content: [
         {
           type: "text",
-          text: JSON.stringify({ hierarchy: HIERARCHY, entity: def }, null, 2),
+          text: JSON.stringify({ hierarchy: HIERARCHY, entity: def }),
         },
       ],
     };
@@ -469,7 +469,7 @@ export async function runExplainDataModel(rawInput: unknown): Promise<{
     content: [
       {
         type: "text",
-        text: JSON.stringify({ hierarchy: HIERARCHY, entities: summary }, null, 2),
+        text: JSON.stringify({ hierarchy: HIERARCHY, entities: summary }),
       },
     ],
   };

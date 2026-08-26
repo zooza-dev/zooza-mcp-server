@@ -129,6 +129,6 @@ export async function runGetTerminology(rawInput: unknown): Promise<{
   };
 
   return {
-    content: [{ type: "text", text: JSON.stringify(envelope, null, 2) }],
+    content: [{ type: "text", text: JSON.stringify(envelope) }],
   };
 }

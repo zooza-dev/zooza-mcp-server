@@ -139,7 +139,7 @@ export async function runListMessageTemplates(
         "This company has not customized any email templates; all sends use Zooza defaults.";
     }
     return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(result) }],
     };
   } catch (error) {
     if (error instanceof ZoozaApiError) {

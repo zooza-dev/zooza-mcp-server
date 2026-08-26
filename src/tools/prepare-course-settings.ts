@@ -123,7 +123,7 @@ export async function runPrepareCourseSettings(
       "`confirmed: true` — and nothing else. To change anything instead, call it again WITHOUT a token.",
   };
   return {
-    content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    content: [{ type: "text", text: JSON.stringify(result) }],
   };
 }
 

@@ -239,7 +239,7 @@ export async function runSessionsPrepareUpdate(
 
   return {
     content: [
-      { type: "text", text: JSON.stringify({ token, expires_in_seconds, ...summary }, null, 2) },
+      { type: "text", text: JSON.stringify({ token, expires_in_seconds, ...summary }) },
     ],
   };
 }

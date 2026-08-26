@@ -363,7 +363,7 @@ export async function runPrepareMessage(
         "else. To change anything instead, call comms_send_message again WITHOUT a token.",
     };
     return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(result) }],
     };
   } catch (error) {
     if (error instanceof ZoozaApiError) {

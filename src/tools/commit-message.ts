@@ -157,7 +157,7 @@ export async function runCommitMessage(
           "send nothing" +
           (approvalUrl ? `; they can also approve it later in the app: ${approvalUrl}.` : "."),
       };
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      return { content: [{ type: "text", text: JSON.stringify(result) }] };
     }
 
     // Under threshold — sent (or queued) outright. Burn the token.
@@ -172,7 +172,7 @@ export async function runCommitMessage(
       note: "Job accepted. Track progress in Zooza admin → Messages.",
     };
     return {
-      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(result) }],
     };
   } catch (error) {
     // Token is NOT burned on failure — one retry with the same token is safe
@@ -224,7 +224,7 @@ async function approvePendingJob(
       scheduled_for: plan.schedule_at ?? null,
       note: "Approved and released from the conversation — no app step needed. Track progress in Zooza admin → Messages.",
     };
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
   } catch (error) {
     if (error instanceof ZoozaApiError) {
       // Already past pending (e.g. approved by a parallel action or in the app).

@@ -258,7 +258,7 @@ export async function runAddPaymentTemplate(
       : "Attach this template to a programme before it can bill — re-call with course_id, or do it in the Zooza app.",
   };
 
-  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  return { content: [{ type: "text", text: JSON.stringify(result) }] };
 }
 
 /**
