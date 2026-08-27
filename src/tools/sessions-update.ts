@@ -2,13 +2,14 @@ import { z } from "zod";
 import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
-import { companyIdSchema } from "./common.js";
+import { companyIdSchema, pickStr, unwrapList } from "./common.js";
 import { dualPhaseConfirmedSchema, dualPhaseTokenSchema, resolveDualPhase } from "./dual-phase.js";
 import type { ApiListResponse } from "./types.js";
 import {
   getUpdatePlan,
   markUpdatePlanUsed,
   saveUpdatePlan,
+  type SessionsAddPlan,
   type SessionsUpdatePlan,
 } from "./update-plan-store.js";
 
@@ -100,6 +101,25 @@ const changesSchema = z
       .describe("New session length in minutes."),
   })
   .strict();
+
+// ADD-MODE: one new session to create on an existing schedule (ZMCP-20260827-004).
+const sessionAddSpecSchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD")
+    .describe("New session date, YYYY-MM-DD."),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, "time must be HH:MM")
+    .optional()
+    .describe("Start time HH:MM. Omit → class default."),
+  duration: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Length in minutes. Omit → class default."),
+});
 
 export const sessionsPrepareUpdateInputSchema = {
   company_id: companyIdSchema,
@@ -265,6 +285,9 @@ export async function runSessionsCommitUpdate(
         `${lookup.reason}). Call sessions_update again and re-confirm with the operator.`,
     );
   }
+  if (lookup.plan.kind === "sessions_add") {
+    return commitSessionsAdd(lookup.plan, token, auth);
+  }
   if (lookup.plan.kind !== "sessions") {
     return errorResult("This token is not a session-edit plan. Use the tool that produced it.");
   }
@@ -309,6 +332,204 @@ export async function runSessionsCommitUpdate(
   }
 }
 
+// ── add-mode (ZMCP-20260827-004): create new sessions on an existing schedule ───
+
+const addInput = z.object({
+  company_id: companyIdSchema,
+  schedule_id: z.number().int().positive(),
+  sessions: z.array(sessionAddSpecSchema).nonempty(),
+  notify: z.boolean().optional(),
+});
+
+/** Loose view of GET /v1/schedules/{id} — only the fields the new events inherit. */
+interface ScheduleForAdd {
+  id?: number | string;
+  course_id?: number | string;
+  trainer_id?: number | string;
+  trainer_rate_type_id?: number | string;
+  place_id?: number | string;
+  room_id?: number | string;
+  /** Default start time as minutes-of-day (e.g. 895 = 14:55). */
+  time?: number | string;
+  duration?: number | string;
+  name?: string;
+  schedule_type?: string;
+  [k: string]: unknown;
+}
+
+async function runSessionsPrepareAdd(
+  rawInput: unknown,
+  auth: ZoozaAuth,
+): Promise<{ isError?: boolean; content: Array<{ type: "text"; text: string }> }> {
+  const parsed = addInput.safeParse(rawInput);
+  if (!parsed.success) {
+    return errorResult(
+      `Missing or invalid input: ${parsed.error.issues
+        .map((i) => `${i.path.join(".") || "(root)"} — ${i.message}`)
+        .join("; ")}.`,
+    );
+  }
+  const input = parsed.data;
+  const callAuth = withCompany(auth, input.company_id!);
+
+  let sched: ScheduleForAdd;
+  try {
+    sched = await fetchScheduleForAdd(input.schedule_id, callAuth);
+  } catch (error) {
+    return zoozaError(error, `Could not load class ${input.schedule_id}`);
+  }
+  if (pickStr(sched.schedule_type) === "lead_collection") {
+    return errorResult(
+      `Class ${input.schedule_id} is a lead-collection pipeline, not a real class with sessions — ` +
+        "cannot add sessions to it.",
+    );
+  }
+
+  const warnings: string[] = [];
+  const defTimeMinutes = toNum(sched.time);
+  const defDuration = toNum(sched.duration);
+  if (defDuration <= 0) {
+    warnings.push(
+      "The class has no default duration; new sessions without an explicit duration default to 60 minutes.",
+    );
+  }
+
+  const create_events: Array<Record<string, unknown>> = input.sessions.map((s) => ({
+    schedule_id: input.schedule_id,
+    course_id: toNum(sched.course_id),
+    trainer_id: toNum(sched.trainer_id),
+    trainer_rate_type_id: toNum(sched.trainer_rate_type_id),
+    place_id: toNum(sched.place_id),
+    room_id: toNum(sched.room_id),
+    date_string: s.date,
+    time_string: s.time !== undefined ? hhmmToMinutes(s.time) : defTimeMinutes,
+    duration: s.duration ?? (defDuration > 0 ? defDuration : 60),
+    // Sessions are billable. NOT cosmetic: api-v1 only applies the `billable = 1`
+    // filter when billable_events > 0 (Schedule.php:1194-1198). Creating non-billable
+    // sessions can make a priced class read as €0 — see commit-class.ts for the full
+    // rationale (schedule 7683 shipped at €0 from exactly this).
+    billable: true,
+    ...(input.notify ? { notify: true } : {}),
+  }));
+
+  warnings.push(
+    "New session dates are NOT checked against holiday/school-break closures — verify none land on a closure.",
+  );
+  if (input.notify) {
+    warnings.push(`notify: true — committing will email enrolled clients about ${create_events.length} new session(s).`);
+  }
+
+  const summary = {
+    op: "add" as const,
+    schedule_id: input.schedule_id,
+    class_name: pickStr(sched.name) ?? null,
+    new_sessions: create_events.map((e) => ({
+      date: e.date_string,
+      time_minutes: e.time_string,
+      duration: e.duration,
+    })),
+    notify: input.notify === true,
+    warnings,
+  };
+  const plan: SessionsAddPlan = {
+    kind: "sessions_add",
+    company_id: input.company_id!,
+    schedule_id: input.schedule_id,
+    create_events,
+    summary,
+  };
+  const { token, expires_in_seconds } = saveUpdatePlan(plan);
+  return {
+    content: [{ type: "text", text: JSON.stringify({ token, expires_in_seconds, ...summary }) }],
+  };
+}
+
+async function commitSessionsAdd(
+  plan: SessionsAddPlan,
+  token: string,
+  auth: ZoozaAuth,
+): Promise<{ isError?: boolean; content: Array<{ type: "text"; text: string }> }> {
+  const callAuth = withCompany(auth, plan.company_id);
+  try {
+    // POST /events with per-event schedule_id creates on the existing schedule
+    // (same primitive commit-class uses; no `filter=filter` needed on the write path).
+    const raw = await zoozaFetch<unknown>(
+      "/events",
+      { method: "POST", body: { events: plan.create_events } },
+      callAuth,
+    );
+    markUpdatePlanUsed(token);
+    const createdIds = extractCreatedIds(raw);
+    const requested = plan.create_events.length;
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            created_event_ids: createdIds,
+            created_count: createdIds.length > 0 ? createdIds.length : requested,
+            schedule_id: plan.schedule_id,
+            notified: plan.summary.notify === true,
+            ...(createdIds.length > 0 && createdIds.length < requested
+              ? { note: `api-v1 created only ${createdIds.length} of ${requested} sessions — inspect the class.` }
+              : {}),
+          }),
+        },
+      ],
+    };
+  } catch (error) {
+    return zoozaError(
+      error,
+      `Could not add the session(s) to class ${plan.schedule_id}. You may retry sessions_update once ` +
+        "with the same token",
+    );
+  }
+}
+
+async function fetchScheduleForAdd(id: number, auth: ZoozaAuth): Promise<ScheduleForAdd> {
+  const raw = await zoozaFetch<{ data?: ScheduleForAdd } | ScheduleForAdd>(
+    `/schedules/${id}`,
+    {},
+    auth,
+  );
+  const rec = (raw as { data?: ScheduleForAdd })?.data ?? (raw as ScheduleForAdd);
+  if (!rec || rec.id === undefined) {
+    throw new ZoozaApiError(404, `/schedules/${id}`, "Schedule not found");
+  }
+  return rec;
+}
+
+function extractCreatedIds(raw: unknown): number[] {
+  const rows = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { data?: unknown })?.data)
+      ? (raw as { data: unknown[] }).data
+      : [];
+  const ids: number[] = [];
+  for (const row of rows) {
+    if (row && typeof row === "object") {
+      const idv = (row as { id?: unknown }).id;
+      const id = typeof idv === "number" ? idv : Number.parseInt(String(idv), 10);
+      if (Number.isFinite(id)) ids.push(id);
+    }
+  }
+  return ids;
+}
+
+function toNum(v: unknown): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (typeof v === "string") {
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+function hhmmToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map((x) => Number.parseInt(x, 10));
+  return h * 60 + m;
+}
+
 // ── date helpers ──────────────────────────────────────────────────────────────
 // api-v1 writes events.date verbatim as `Y-m-d H:i:s` (Utils::DATE_FORMAT_FULL,
 // events.php:1674). We treat naive datetimes as UTC purely for arithmetic — no
@@ -344,13 +565,26 @@ function fmtFull(d: Date): string {
 }
 
 async function fetchEventsByIds(ids: number[], auth: ZoozaAuth): Promise<EventRecord[]> {
+  // `filter=filter` is REQUIRED: api-v1's /events collection search (__collection,
+  // events.php:65-70) only runs when it is present. Without it the endpoint IGNORES
+  // the `ids` param entirely and returns one unrelated event — which made every id
+  // resolve as "not found" and blocked all rescheduling (spec ZMCP-20260827-001,
+  // confirmed live 2026-08-27). No `status` filter: id-targeted resolution must be
+  // status-neutral (`status=any` is a narrowing whitelist of scheduled+unplanned,
+  // Collection/Events.php:299-302, that would silently drop a `finished` session).
   const raw = await zoozaFetch<ApiListResponse<EventRecord> | EventRecord[]>(
     "/events",
-    { query: { ids: ids.join("|"), status: "any", page_size: ids.length } },
+    {
+      query: {
+        filter: "filter",
+        ids: ids.join("|"),
+        sort_by: "date_asc",
+        page_size: ids.length,
+      },
+    },
     auth,
   );
-  if (Array.isArray(raw)) return raw;
-  return raw?.data ?? [];
+  return unwrapList<EventRecord>(raw).records;
 }
 
 /** Extract updated event ids from the batch response, defensively. api-v1 returns
@@ -395,16 +629,23 @@ function errorResult(text: string) {
 export const sessionsUpdateTitle = "Edit specific sessions (preview, then apply)";
 
 export const sessionsUpdateDescription =
-  "Edit specific individual sessions (events) of a class — reschedule a session's date/time, or change a " +
-  "hand-picked session's instructor, venue/room, block, or duration. Works on one session or a chosen set.\n\n" +
-  "TWO CALLS. First WITHOUT `token`: returns a per-session before→after preview plus a single-use token. Show it " +
-  "to the operator and get explicit approval (and, if `notify` is set, confirm that clients will be emailed). " +
-  "Then call again with `token` + `confirmed: true` to apply — send nothing else, the edits are frozen in the " +
-  "plan.\n\n" +
-  "Use this when the user points at particular sessions (\"move next Tuesday's class to Wednesday 5pm\", \"change " +
-  "the room for the July sessions\", \"give Friday's session to Jana\"). To change an attribute across ALL or all " +
-  "upcoming sessions of a class in one go, use classes_update with session_scope instead. To cancel sessions, use " +
-  "the cancellation tools — this tool does not cancel.";
+  "Edit specific individual sessions (events) of a class, OR add new sessions to a class. Two modes, one tool.\n\n" +
+  "EDIT-MODE — pass `event_ids` + `changes`: reschedule a session's date/time, or change a hand-picked " +
+  "session's instructor, venue/room, block, or duration. Works on one session or a chosen set.\n\n" +
+  "ADD-MODE — pass `schedule_id` + `sessions`: CREATE one or more new sessions on an existing class (e.g. " +
+  "\"add one more session at the end\", \"add a make-up class on 2026-05-04\"). Each new session needs a `date`; " +
+  "its time, duration, trainer, venue and room default from the class. To append after the last session, first " +
+  "resolve the class's latest session with sessions_find_events, then pass the next date. New sessions are " +
+  "created billable so a priced class keeps charging.\n\n" +
+  "The two modes are mutually exclusive — send event_ids/changes OR schedule_id/sessions, never both.\n\n" +
+  "TWO CALLS either way. First WITHOUT `token`: returns a preview (per-session before→after for edits, or the " +
+  "list of sessions to be created for adds) plus a single-use token. Show it to the operator and get explicit " +
+  "approval (and, if `notify` is set, confirm that clients will be emailed). Then call again with `token` + " +
+  "`confirmed: true` to apply — send nothing else, the plan is frozen.\n\n" +
+  "Use EDIT-MODE when the user points at particular sessions (\"move next Tuesday's class to Wednesday 5pm\", " +
+  "\"give Friday's session to Jana\"). To change an attribute across ALL or all upcoming sessions of a class in " +
+  "one go, use classes_update with session_scope instead. To cancel sessions, use the cancellation tools — this " +
+  "tool does not cancel.";
 
 export const sessionsUpdateInputSchema = {
   company_id: companyIdSchema,
@@ -414,8 +655,28 @@ export const sessionsUpdateInputSchema = {
     .array(z.number().int().positive())
     .nonempty()
     .optional()
-    .describe("Required on the FIRST call. One or many event (session) ids. Resolve with sessions_find_events."),
-  changes: changesSchema.optional().describe("Required on the FIRST call."),
+    .describe(
+      "EDIT-MODE. Existing session ids to change; pair with `changes`. Resolve with sessions_find_events. " +
+        "Not with schedule_id/sessions.",
+    ),
+  changes: changesSchema.optional().describe("EDIT-MODE. The edits to apply to `event_ids`."),
+  schedule_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "ADD-MODE. Class to append NEW sessions to; pair with `sessions`. Resolve with classes_find_classes. " +
+        "Not with event_ids/changes.",
+    ),
+  sessions: z
+    .array(sessionAddSpecSchema)
+    .nonempty()
+    .optional()
+    .describe(
+      "ADD-MODE. New sessions to create on `schedule_id`. Each needs a date; time/duration default from the " +
+        "class. For \"one more at the end\", get the last session via sessions_find_events and pass the next date.",
+    ),
   notify: z
     .boolean()
     .optional()
@@ -437,6 +698,19 @@ export async function runSessionsUpdate(
     return errorResult(decision.message);
   }
   if (decision.kind === "preview") {
+    const args =
+      rawInput && typeof rawInput === "object" ? (rawInput as Record<string, unknown>) : {};
+    const isAdd = args.schedule_id !== undefined || args.sessions !== undefined;
+    const isEdit = args.event_ids !== undefined || args.changes !== undefined;
+    if (isAdd && isEdit) {
+      return errorResult(
+        "Provide EITHER event_ids + changes (edit existing sessions) OR schedule_id + sessions " +
+          "(add new sessions) — not both in one call.",
+      );
+    }
+    if (isAdd) {
+      return runSessionsPrepareAdd(rawInput, auth);
+    }
     return runSessionsPrepareUpdate(rawInput, auth);
   }
   return runSessionsCommitUpdate({ token: decision.token }, auth);

@@ -158,7 +158,9 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
  *  on 2026-08-26 for the trial-inquiry tool wave (+5 tools: bookings_add_lead, labels_mark,
  *  comms_find_replies, todos_add, todos_mark — feature-trial-inquiry-tools; ZMCP-20260805
  *  token-audit baseline updated). */
-const TOTAL_SCHEMA_MAX = 71_000;
+// Raised 71 000 → 72 300 on 2026-08-27: sessions_update add-mode + classes_find_classes
+// with_sessions/sort/sessions_count (ZMCP-20260827-003/004).
+const TOTAL_SCHEMA_MAX = 72_300;
 
 /**
  * Tools already over PER_TOOL_SCHEMA_MAX when the budget landed. Each is held
@@ -169,6 +171,9 @@ const OVER_BUDGET: Record<string, number> = {
   classes_update: 6_842,
   comms_send_message: 5_363,
   classes_commit_class: 5_111,
+  // sessions_update gained a second MODE (add-mode: create sessions on an existing
+  // schedule) alongside edit-mode — spec ZMCP-20260827-004. Held at its measured size.
+  sessions_update: 4_932,
 };
 
 /** tool name → the `*InputSchema` export it registers with. Tools declaring an

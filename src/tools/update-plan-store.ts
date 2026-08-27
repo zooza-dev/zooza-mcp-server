@@ -32,7 +32,21 @@ export interface SessionsUpdatePlan {
   summary: Record<string, unknown>;
 }
 
-export type UpdatePlan = ClassesUpdatePlan | SessionsUpdatePlan;
+/** Add plan for sessions_update's ADD-MODE (ZMCP-20260827-004). `create_events`
+ *  are the ready-to-send bodies for a single POST /events batch — each already
+ *  carries schedule_id, course_id, trainer/place/room defaults resolved from the
+ *  schedule, absolute `date_string` + `time_string` (minutes) + duration, and
+ *  `billable: true`. Kept separate from SessionsUpdatePlan because commit POSTs
+ *  (creates) rather than PUTs (edits). */
+export interface SessionsAddPlan {
+  kind: "sessions_add";
+  company_id: number;
+  schedule_id: number;
+  create_events: Array<Record<string, unknown>>;
+  summary: Record<string, unknown>;
+}
+
+export type UpdatePlan = ClassesUpdatePlan | SessionsUpdatePlan | SessionsAddPlan;
 
 interface StoredPlan {
   plan: UpdatePlan;

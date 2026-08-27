@@ -214,6 +214,11 @@ export interface ScheduleMatch {
   place_name: string;
   capacity: number;
   registrations_count: number;
+  /** Number of sessions (events) the schedule has — from the materialised
+   *  `total_events` column. Lets a caller answer "which classes have sessions /
+   *  how many" without a sessions_find_events scan. May lag live event edits by
+   *  the cron materialiser interval; for an exact live count chain sessions_find_events. */
+  sessions_count: number;
   status: string;
   /** Whether the class currently has a trial enabled (schedule `in_trial`). */
   in_trial: boolean;
@@ -238,6 +243,9 @@ export interface RawScheduleRecord {
   place_id?: number;
   capacity?: number | string;
   status?: string;
+  /** Materialised session count (schedules.total_events). Drives sessions_count and
+   *  the with_events=1 has-sessions filter. */
+  total_events?: number | string;
   /** Schedule kind (schedules.schedule_type), e.g. lead_collection / fixed_period. */
   schedule_type?: string;
   /** Trial-enabled flag (schedules.in_trial). */

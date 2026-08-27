@@ -11,11 +11,21 @@ import type {
 } from "./types.js";
 
 const REGISTRATION_TYPES = ["single", "full2", "open"] as const;
+// Subset of api-v1's /schedules get_order_by() map (Schedules.php:911-932) that is
+// useful to an LLM. `created_desc` (→ sch.id DESC) is api-v1's own default.
+const SORT_VALUES = [
+  "created_desc",
+  "created_asc",
+  "date_asc",
+  "date_desc",
+  "name_asc",
+  "registrations_desc",
+] as const;
 
 export const findClassesTitle = "Find classes (schedules) by name";
 
 export const findClassesDescription =
-  "Search this company's CLASSES — the scheduled groups inside a programme (a \"class\" / \"group\" / \"skupina\"; internally a *schedule*) — by name (substring) and resolve them to a `schedule_id`. Reach for this whenever the user names a specific group rather than a whole programme (\"the Nejaké class\", \"the Monday 5pm group\", \"her Wednesday ballet class\"), or whenever a downstream tool needs a `schedule_id` — most importantly `comms_send_message` targeting everyone in one class (`audience.schedule_id`). This is the missing middle rung between `classes_find_courses` (finds the PROGRAMME → `course_id`) and `sessions_find_events` (finds individual dated SESSIONS → `event_id`): a class is one recurring group within a programme, made of many sessions. Optionally narrow by `course_id` (classes inside one programme), `trainer_id`, `place_id`, `day` of week, `registration_type`, `in_trial: true` (only classes currently offering a TRIAL), `active_only: true` (exclude classes whose schedule has ENDED), or `lead_only: true` (only lead-collection pipelines). Returns a slim list — `{schedule_id, name, course_id, start, end, time, trainer_id, trainer_name, place_id, place_name, capacity, registrations_count, status, in_trial, registration_url, schedule_type}` — enough to disambiguate when several classes share a name, never enough to mutate. `schedule_type` tells a real class (`fixed_period`) from a lead pipeline (`lead_collection`) — use `lead_only: true` to find the pipeline `bookings_add_lead` needs. `registration_url` is the public link a prospect clicks to book that specific class (empty when the class isn't publicly bookable or the company has no registration widget). Combine filters in ONE call — e.g. `{place_id, in_trial: true, active_only: true}` returns the bookable trial classes at a venue in a single query; do not split them across separate calls. `course_id` is returned but not the course name (resolve it with `classes_find_courses` if you need it). By default returns active + paused (inactive) classes; pass `include_archived: true` to search archived classes instead. Does NOT create or change classes (that is `classes_preview_schedule` → `classes_commit_class`) and does NOT list a class's sessions (use `sessions_find_events` with the `schedule_id`).";
+  "Search this company's CLASSES — the scheduled groups inside a programme (a \"class\" / \"group\" / \"skupina\"; internally a *schedule*) — by name (substring) and resolve them to a `schedule_id`. Reach for this whenever the user names a specific group rather than a whole programme (\"the Nejaké class\", \"the Monday 5pm group\", \"her Wednesday ballet class\"), or whenever a downstream tool needs a `schedule_id` — most importantly `comms_send_message` targeting everyone in one class (`audience.schedule_id`). This is the missing middle rung between `classes_find_courses` (finds the PROGRAMME → `course_id`) and `sessions_find_events` (finds individual dated SESSIONS → `event_id`): a class is one recurring group within a programme, made of many sessions. Optionally narrow by `course_id` (classes inside one programme), `trainer_id`, `place_id`, `day` of week, `registration_type`, `in_trial: true` (only classes currently offering a TRIAL), `active_only: true` (exclude classes whose schedule has ENDED), or `lead_only: true` (only lead-collection pipelines). To answer \"the latest classes that actually have sessions\" in ONE call, combine `with_sessions: true` (only classes whose schedule has ≥1 session) with `sort: \"created_desc\"` and a `page_size` — no need to scan `sessions_find_events`. `sort` also takes created_asc / date_asc / date_desc / name_asc / registrations_desc. Returns a slim list — `{schedule_id, name, course_id, start, end, time, trainer_id, trainer_name, place_id, place_name, capacity, registrations_count, sessions_count, status, in_trial, registration_url, schedule_type}` — enough to disambiguate when several classes share a name, never enough to mutate. `sessions_count` is the class's number of sessions (a stored/materialised count — fine for overview and \"how many\", may lag a very recent edit; chain `sessions_find_events` for an exact live count). `schedule_type` tells a real class (`fixed_period`) from a lead pipeline (`lead_collection`) — use `lead_only: true` to find the pipeline `bookings_add_lead` needs. `registration_url` is the public link a prospect clicks to book that specific class (empty when the class isn't publicly bookable or the company has no registration widget). Combine filters in ONE call — e.g. `{place_id, in_trial: true, active_only: true}` returns the bookable trial classes at a venue in a single query; do not split them across separate calls. `course_id` is returned but not the course name (resolve it with `classes_find_courses` if you need it). By default returns active + paused (inactive) classes; pass `include_archived: true` to search archived classes instead. Does NOT create or change classes (that is `classes_preview_schedule` → `classes_commit_class`) and does NOT list a class's sessions (use `sessions_find_events` with the `schedule_id`).";
 
 export const findClassesInputSchema = {
   company_id: companyIdSchema,
@@ -73,6 +83,18 @@ export const findClassesInputSchema = {
     .optional()
     .describe(
       "Set true to return only LEAD-COLLECTION schedules (schedule_type='lead_collection' — the lead pipelines that bookings_add_lead attaches leads to). Every row also carries schedule_type, so you can tell real classes apart from lead pipelines without this filter.",
+    ),
+  with_sessions: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set true to return only classes that HAVE at least one session (schedule total_events > 0). Use this for \"classes that actually have sessions\" instead of scanning sessions_find_events.",
+    ),
+  sort: z
+    .enum(SORT_VALUES)
+    .optional()
+    .describe(
+      "Result ordering. created_desc = newest class first (the default), created_asc = oldest first, date_asc/date_desc by schedule start date, name_asc alphabetical, registrations_desc most-enrolled first. Use created_desc for \"the latest classes\".",
     ),
   include_archived: z
     .boolean()
@@ -134,6 +156,12 @@ export async function runFindClasses(
   // column match — a raw schedule_type value is silently ignored (returns everything),
   // so we use the lead_only lever instead.
   if (input.lead_only) query.lead_only = 1;
+  // with_events=1 → WHERE sch.total_events > 0 (Schedules.php:728-731). A ready-made
+  // has-sessions filter; no events-table fan-out (total_events is a materialised column).
+  if (input.with_sessions) query.with_events = 1;
+  // sort_by maps 1:1 to api-v1's get_order_by() (Schedules.php:911-932). Omitted →
+  // api-v1 defaults to created_desc (newest first).
+  if (input.sort) query.sort_by = input.sort;
   // Status model: the collection defaults to active+inactive when `status` is
   // unset. The api accepts only a scalar status over the query string (piped
   // values don't split), so archived is an explicit either/or search rather
@@ -194,6 +222,7 @@ function projectSchedule(s: RawScheduleRecord): ScheduleMatch {
     place_name: pickStr(s.__calc__course_place) ?? "",
     capacity: toInt(s.capacity),
     registrations_count: toInt(s.__calc__registered),
+    sessions_count: toInt(s.total_events),
     status: pickStr(s.status) ?? "",
     in_trial: truthy(s.in_trial),
     registration_url: pickStr(s.__calc__registration_url) ?? "",

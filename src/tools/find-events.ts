@@ -43,7 +43,7 @@ const numberOrNumberArray = z.union([
 export const findEventsTitle = "Find events (scheduled sessions)";
 
 export const findEventsDescription =
-  "List **events** (scheduled sessions of classes) in the caller's company. Use this whenever you need to resolve an `event_id` from natural language (\"my next class,\" \"Monday's ballet,\" \"all swim sessions this week,\" \"Sarah's classes tomorrow\") before chaining into another tool like `sessions_get_attendance` or `sessions_mark_attendance`. With no filters, returns **ALL upcoming scheduled sessions in the company** (closest first) — not just the caller's. Filters cover date window, course, schedule, trainer, place, room, segment, billing period, status, and event-type (over-capacity, substituted, cancelled, etc.). Each returned row includes denormalised names (trainer, place, event-number), the event's date and duration, `capacity`, `free_spots` (remaining places = capacity − going, or null for open/unlimited events — use this to answer \"which sessions still have space\"), and an `attendance_counts` object (`going`, `attended`, `noshow`, `canceled`, `canceled_late`, `waitlist`). Read-only — does not modify events.\n\n**Critical: \"my sessions\" / \"what am I teaching\" / \"my classes today\".** When the user is asking for THEIR OWN sessions (any first-person framing), you MUST pass `trainer_id` matching `whoami.identity.user_id`. Without it, this tool returns every trainer's events in the company — which is almost never what the user meant when they said \"my.\" The only exception: when the caller's role is `member` or `external_member`, the server silently auto-scopes to their assignments anyway; `meta.scoped_to` in the response flags when this has happened.\n\nFilter notes:\n- `trainer_id` matches across FIVE trainer relationships including pre-substitution and schedule-level extras. Treat it as \"events trainer X is connected to,\" not strictly \"events trainer X currently teaches.\"\n- `status` uses raw db terms: `scheduled` (default — only state attendance can be tracked on), `unplanned` (includes cancelled events), `finished`, or `any`.\n- `segment_id=[0]` is a sentinel matching events with NO segment assignment.\n- Counters in `attendance_counts` may be sub-second-stale; for real-time counts on one event, chain into `sessions_get_attendance`. DISPLAYING A CLASS'S TIMETABLE: when the user wants to SEE a class's sessions (e.g. viewing or COPYING a class), render them as a weekly GRID — days across the top (Mon–Sun), time down the left, like the Zooza app calendar — collapsed to the weekday+time pattern with the run range + session count in a one-line caption; list individual dates only if the user explicitly asks. (Display only — ignore when you are merely resolving an event_id to chain into another tool.)";
+  "List **events** (scheduled sessions of classes) in the caller's company. Use this whenever you need to resolve an `event_id` from natural language (\"my next class,\" \"Monday's ballet,\" \"all swim sessions this week,\" \"Sarah's classes tomorrow\") before chaining into another tool like `sessions_get_attendance` or `sessions_mark_attendance`. With no filters at all, returns the company's **upcoming** scheduled sessions (from today onward, earliest first) — not just the caller's — so a bare call stays near-term instead of dumping years of history. **Any** filter you add returns the FULL matching set, including PAST sessions: pass a `schedule_id` to get a class's entire history (past + future), or use `from`/`to` for an explicit window. There is no `past` flag — past sessions are just a range with `from` set early (or omitted alongside another scope). Filters cover date window, course, schedule, trainer, place, room, segment, billing period, status, and event-type (over-capacity, substituted, cancelled, etc.). Each returned row includes denormalised names (trainer, place, event-number), the event's date and duration, `capacity`, `free_spots` (remaining places = capacity − going, or null for open/unlimited events — use this to answer \"which sessions still have space\"), and an `attendance_counts` object (`going`, `attended`, `noshow`, `canceled`, `canceled_late`, `waitlist`). Read-only — does not modify events.\n\n**Critical: \"my sessions\" / \"what am I teaching\" / \"my classes today\".** When the user is asking for THEIR OWN sessions (any first-person framing), you MUST pass `trainer_id` matching `whoami.identity.user_id`. Without it, this tool returns every trainer's events in the company — which is almost never what the user meant when they said \"my.\" The only exception: when the caller's role is `member` or `external_member`, the server silently auto-scopes to their assignments anyway; `meta.scoped_to` in the response flags when this has happened.\n\nFilter notes:\n- `trainer_id` matches across FIVE trainer relationships including pre-substitution and schedule-level extras. Treat it as \"events trainer X is connected to,\" not strictly \"events trainer X currently teaches.\"\n- `status` uses raw db terms: `scheduled` (default — only state attendance can be tracked on), `unplanned` (includes cancelled events), `finished`, or `any`.\n- `segment_id=[0]` is a sentinel matching events with NO segment assignment.\n- Counters in `attendance_counts` may be sub-second-stale; for real-time counts on one event, chain into `sessions_get_attendance`. DISPLAYING A CLASS'S TIMETABLE: when the user wants to SEE a class's sessions (e.g. viewing or COPYING a class), render them as a weekly GRID — days across the top (Mon–Sun), time down the left, like the Zooza app calendar — collapsed to the weekday+time pattern with the run range + session count in a one-line caption; list individual dates only if the user explicitly asks. (Display only — ignore when you are merely resolving an event_id to chain into another tool.)";
 
 export const findEventsInputSchema = {
   company_id: companyIdSchema,
@@ -54,15 +54,14 @@ export const findEventsInputSchema = {
     .describe(
       "Specific event (session) ids to fetch. Bypasses the upcoming/scheduled defaults so the requested rows come back as-is.",
     ),
-  from: z.string().optional().describe("YYYY-MM-DD, inclusive lower bound on event date."),
-  to: z.string().optional().describe("YYYY-MM-DD, inclusive upper bound on event date."),
-  date: z.string().optional().describe("YYYY-MM-DD, exact-day match."),
-  past: z
-    .boolean()
+  from: z
+    .string()
     .optional()
     .describe(
-      "When true, include events whose date is in the past. Default false. If neither past, from, to, nor date is provided, the tool injects upcoming_events=true (the dashboard default).",
+      "YYYY-MM-DD, inclusive lower bound on event date. To see PAST sessions, set this (e.g. from a schedule's start) — there is no `past` flag; past + future is simply an unbounded-below range.",
     ),
+  to: z.string().optional().describe("YYYY-MM-DD, inclusive upper bound on event date."),
+  date: z.string().optional().describe("YYYY-MM-DD, exact-day match."),
   status: z
     .enum(STATUS_VALUES)
     .optional()
@@ -127,6 +126,16 @@ export const findEventsInputSchema = {
 
 const inputSchema = z.object(findEventsInputSchema);
 
+/** Today as YYYY-MM-DD in the server's local time. Used as the default lower
+ *  bound for a fully unscoped search so it returns near-term sessions rather
+ *  than the entire history. A lower bound only needs to include today's date;
+ *  local-time is close enough (no per-company tz handling exists here yet). */
+function todayDate(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export async function runFindEvents(
   rawInput: unknown,
   auth: ZoozaAuth,
@@ -184,21 +193,39 @@ export async function runFindEvents(
     query.status = "scheduled";
   }
 
-  // Default to upcoming when caller didn't ask for any time window AND
-  // isn't pinning ids. Open-ended searches get the dashboard's "next
-  // sessions" framing; id-targeted reads stay neutral.
-  const hasDateFilter =
+  // No hidden date filter. The old code injected `upcoming_events=true` for any
+  // non-id search, which is not a sort but a set-restricting FILTER (it dropped
+  // ~8800 of 9169 past sessions on the test company) — that silently truncated
+  // schedule listings and their counts. Instead: sort date_asc (already set) and
+  // let from/to/date do all date scoping. Only a FULLY unscoped call gets a
+  // `from=today` default, so a bare "list sessions" returns near-term rows rather
+  // than the entire history oldest-first. Any scope (schedule_id, course_id, ids,
+  // trainer/place/room/segment/billing-period, type) or any explicit date filter
+  // suppresses it → the complete matching set (incl. past). spec ZMCP-20260827-002.
+  const hasScope =
+    targetingIds ||
+    input.schedule_id !== undefined ||
+    input.course_id !== undefined ||
+    input.trainer_id !== undefined ||
+    input.place_id !== undefined ||
+    input.room_id !== undefined ||
+    input.segment_id !== undefined ||
+    input.billing_period_id !== undefined ||
+    input.type !== undefined ||
     input.from !== undefined ||
     input.to !== undefined ||
-    input.date !== undefined ||
-    input.past === true;
-  if (!hasDateFilter && !targetingIds) {
-    query.upcoming_events = "true";
+    input.date !== undefined;
+  if (!hasScope) {
+    const today = todayDate();
+    query.from = today;
+    warnings.push(
+      `No filters given — defaulted to sessions from ${today} onward (ordered by date). ` +
+        "Pass from/to, a schedule_id, or a date to widen — e.g. set `from` to include past sessions.",
+    );
   }
   if (input.from !== undefined) query.from = input.from;
   if (input.to !== undefined) query.to = input.to;
   if (input.date !== undefined) query.date = input.date;
-  if (input.past === true) query.past = "true";
   if (input.type !== undefined) query.type = input.type;
   if (input.schedule_id !== undefined) query.schedule_id = input.schedule_id;
   if (input.ids !== undefined) query.ids = pipeJoin(input.ids);
@@ -325,11 +352,25 @@ function formatEventsMarkdown(
 
 function inferTitle(input: z.infer<typeof inputSchema>): string {
   if (input.type === "cancelled") return "Cancelled sessions";
-  if (input.status === "finished" || input.past === true) return "Sessions";
   if (input.status === "unplanned") return "Unplanned sessions";
-  if (input.status === "any") return "Sessions";
-  // Default path (no date filter → upcoming_events injected; status=scheduled).
-  return "Upcoming sessions";
+  // Only a FULLY unscoped search defaults to from=today (see runFindEvents) — that
+  // one is genuinely "Upcoming". Any scope or date filter returns the full matching
+  // set (which may include past), so it's just "Sessions".
+  const scoped =
+    (input.ids !== undefined && input.ids.length > 0) ||
+    input.schedule_id !== undefined ||
+    input.course_id !== undefined ||
+    input.trainer_id !== undefined ||
+    input.place_id !== undefined ||
+    input.room_id !== undefined ||
+    input.segment_id !== undefined ||
+    input.billing_period_id !== undefined ||
+    input.from !== undefined ||
+    input.to !== undefined ||
+    input.date !== undefined ||
+    input.status === "finished" ||
+    input.status === "any";
+  return scoped ? "Sessions" : "Upcoming sessions";
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
