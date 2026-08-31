@@ -6,7 +6,7 @@
 
 <p align="center">
   An open-source <a href="https://modelcontextprotocol.io">Model Context Protocol (MCP)</a> server that connects Claude, ChatGPT, and other AI assistants directly to your Zooza account.<br/>
-  Natural language scheduling, attendance tracking, and class management — no dashboard required.
+  Natural language scheduling, attendance tracking, lead follow-up, and class management — no dashboard required.
 </p>
 
 <p align="center">
@@ -36,7 +36,7 @@
 
 **Zooza MCP Server** is a free, open-source Model Context Protocol (MCP) integration for [Zooza](https://zooza.online) — the class management and scheduling software for dance schools, language academies, swim schools, music schools, STEAM programmes, sports clubs, and other activity businesses.
 
-It lets activity managers, school administrators, and franchise operators manage schedules, track attendance, create classes, handle bookings, and query their data through natural language conversation — using Claude, ChatGPT, or any MCP-compatible AI client — without opening the Zooza dashboard.
+It lets activity managers, school administrators, and franchise operators manage schedules, track attendance, create classes, handle bookings and enquiries, set up instalment billing, and query their data through natural language conversation — using Claude, ChatGPT, or any MCP-compatible AI client — without opening the Zooza dashboard.
 
 > **Zooza powers 500,000+ learners across Slovakia, the Czech Republic, Germany, the UK, and beyond** — from single-location dance schools to international franchise networks. This MCP server brings the same platform to any AI client that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
@@ -102,6 +102,27 @@ You always see a preview table and calendar first, and nothing is created until 
 "How many spots are left in the beginner English course?"
 ```
 
+### Work an enquiry from first email to enrolled
+
+An enquiry arrives, gets a reply, and then lives in someone's inbox until it goes cold. The assistant keeps the whole thread as records in Zooza instead — the enquiry becomes a trackable lead, the reply comes back where you can see it, and anything needing a human becomes a to-do with a name on it.
+
+```
+"Log this enquiry from the contact form as a lead and tag it 'spring-open-day'."
+"Did anyone reply to last week's trial invitations? Show me what they said."
+"This parent asked about sibling discounts — assign it to Katka, due Friday."
+"Tag the leads who booked a trial as 'converted' and close out the rest."
+```
+
+Nothing here emails the customer behind your back — capturing a lead sends nothing, and every outbound message still goes through the plan-then-confirm flow.
+
+### Set up instalment billing
+
+```
+"Split our €200 term fee into 4 monthly payments and offer it on the ballet programme."
+"This programme has 14 payment plans attached — clean it up, leave only the two we use."
+"Put Nováková's booking on the 3-instalment plan starting next month."
+```
+
 ### Ask for any report — in plain language
 
 No report modules, no spreadsheet formulas. Ask a business question the way you actually think about it, and the assistant pulls the real numbers and lays them out — shaped around your question, not a fixed dashboard.
@@ -165,7 +186,7 @@ Download the latest plugin from [Releases](../../releases) (file named `zooza-pl
 
 The plugin includes the MCP connection config, guided workflow skills, and automatic session context.
 
-> **Note:** Five of the 30 tools (`get_terminology`, `explain_data_model`, `comms_list_merge_vars`, `classes_list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
+> **Note:** Five of the 34 tools (`get_terminology`, `explain_data_model`, `comms_list_merge_vars`, `classes_list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
 
 ---
 
@@ -203,12 +224,13 @@ The `negotiate_terminology` tool lets Claude learn your business's specific voca
 
 ## Available tools
 
-30 tools covering scheduling, attendance, bookings, client communication, reporting, class and session editing, and Zooza domain knowledge.
+34 tools covering scheduling, attendance, bookings and leads, client communication, payments and instalment billing, reporting, class and session editing, and Zooza domain knowledge.
 
 ### Scheduling & class management
 
 | Tool | What it does |
 |---|---|
+| `classes_add_course` | Create a new programme — the container that holds pricing, payment settings, and booking-form config. Only for a genuinely new offering; a new term or time slot is a class inside an existing programme |
 | `classes_preview_schedule` | Preview a recurring class schedule before committing |
 | `classes_preview_events` | Preview individual sessions across a date range |
 | `classes_commit_class` | Create a class with a full recurring session schedule |
@@ -221,6 +243,7 @@ Every edit is a two-step **preview → confirm** — you call the same tool twic
 |---|---|
 | `classes_update` | Edit a class — name, price, capacity, billing period, instructor, venue, or duration. Call once to preview, again with the token to apply |
 | `sessions_update` | Edit specific sessions — reschedule a date/time, or change instructor, venue, or duration. Call once to preview, again with the token to apply. Can notify affected clients |
+| `classes_update_course_settings` | Change programme settings one section at a time — pricing, online booking, make-ups, trial, auto-enrolment, attendance, feedback, or archiving |
 
 ### Attendance
 
@@ -236,6 +259,7 @@ Every edit is a two-step **preview → confirm** — you call the same tool twic
 | Tool | What it does |
 |---|---|
 | `bookings_find` | Find who is enrolled in a class, resolve a client, or list unpaid registrations |
+| `bookings_add_lead` | Capture an inbound enquiry as a trackable lead record. Does not enrol, charge, or email the customer |
 
 ### Client communication
 
@@ -243,6 +267,25 @@ Every edit is a two-step **preview → confirm** — you call the same tool twic
 |---|---|
 | `comms_list_templates` | List the automated email templates Zooza sends to this company's clients |
 | `comms_send_message` | Email an audience (programme, class, booking, client, or segment). Call once to plan — nothing is sent — then again with the token to send |
+| `comms_find_replies` | Read what customers replied back to your Zooza emails, and mark a reply `todo` or `resolved` so the same one isn't handled twice |
+
+### Payments & instalment billing
+
+Setting up instalments is three separate objects: the programme carries the **price**, a **template** says how to split it, and a **plan** attaches that split to one client's booking. A programme set to instalment collection produces no payment schedule until a template is attached, and a template on a programme is not inherited — each booking needs the plan applied.
+
+| Tool | What it does |
+|---|---|
+| `setup_add_payment_template` | Create a company-level payment plan template — how many instalments, how often, with what discount and rounding. The template never carries the price |
+| `setup_update_course_templates` | Choose which templates a programme offers clients — attach new ones, and detach the ones Zooza auto-attached that shouldn't be there. Preview, then confirm |
+| `payments_add_plan` | Put one booking on a payment plan. Preview returns the total and the instalment dates, then confirm to apply |
+
+### Leads, labels & follow-up
+
+| Tool | What it does |
+|---|---|
+| `labels_mark` | Attach or detach a label on a programme, class, or registration — tag a lead `converted`, flag one `todo`. Labels on a class can be visible on the public booking widget; the output tells you which |
+| `todos_add` | Create a to-do for a colleague, optionally linked to the record it's about, with a due date — how you escalate something that needs a human |
+| `todos_mark` | Change a to-do's status once it's been handled |
 
 ### Reporting
 
@@ -298,8 +341,7 @@ Skills are playbooks that teach Claude how to combine tools correctly for real o
 | `business-model-validator` | Check whether a proposed programme structure fits Zooza's pricing and billing model before building it. |
 | `negotiate-terminology` | Interview the operator about their vocabulary and save the profile to Claude memory. |
 | `feedback-nudge` | Draft and submit a bug report or feature request to the Zooza engineering team. |
-
-**Coming next tools:** `cancel_day` · `transfer_booking` · `initiate_refund`
+| `report-page-new` | Add a brand-new page to the client reports app when a question has no existing view but the data exists. |
 
 ---
 
