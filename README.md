@@ -186,7 +186,7 @@ Download the latest plugin from [Releases](../../releases) (file named `zooza-pl
 
 The plugin includes the MCP connection config, guided workflow skills, and automatic session context.
 
-> **Note:** Five of the 34 tools (`get_terminology`, `explain_data_model`, `comms_list_merge_vars`, `classes_list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
+> **Note:** Five of the 35 tools (`get_terminology`, `explain_data_model`, `comms_list_merge_vars`, `classes_list_schedule_patterns`, `negotiate_terminology`) work without any Zooza account — useful for exploring how the data model works before connecting live data.
 
 ---
 
@@ -224,7 +224,7 @@ The `negotiate_terminology` tool lets Claude learn your business's specific voca
 
 ## Available tools
 
-34 tools covering scheduling, attendance, bookings and leads, client communication, payments and instalment billing, reporting, class and session editing, and Zooza domain knowledge.
+35 tools covering scheduling, attendance, bookings and leads, client communication, payments and instalment billing, reporting, class and session editing, and Zooza domain knowledge.
 
 ### Scheduling & class management
 
@@ -244,6 +244,7 @@ Every edit is a two-step **preview → confirm** — you call the same tool twic
 | `classes_update` | Edit a class — name, price, capacity, billing period, instructor, venue, or duration. Call once to preview, again with the token to apply |
 | `sessions_update` | Edit specific sessions — reschedule a date/time, or change instructor, venue, or duration. Call once to preview, again with the token to apply. Can notify affected clients |
 | `classes_update_course_settings` | Change programme settings one section at a time — pricing, online booking, make-ups, trial, auto-enrolment, attendance, feedback, or archiving |
+| `trainers_add_helpers` | Register additional lecturers (second instructor / assistant / helper) on classes and pick which sessions each works — "Martin Mondays, Peter Tuesdays, both Wednesdays". Call once to preview, again with the token to apply |
 
 ### Attendance
 

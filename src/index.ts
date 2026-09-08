@@ -66,6 +66,12 @@ import {
   sessionsUpdateTitle,
 } from "./tools/sessions-update.js";
 import {
+  addHelpersDescription,
+  addHelpersInputSchema,
+  addHelpersTitle,
+  runAddHelpers,
+} from "./tools/add-helpers.js";
+import {
   addCourseDescription,
   addCourseInputSchema,
   addCourseTitle,
@@ -854,6 +860,30 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
         SCOPE_WRITE,
         ctx,
         resolveCompanyId(ctx, async (args) => runSessionsUpdate(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "trainers_add_helpers",
+    {
+      title: addHelpersTitle,
+      description: addHelpersDescription,
+      inputSchema: addHelpersInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    audit(
+      "trainers_add_helpers",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runAddHelpers(args, ctx.auth)),
       ),
     ),
   );

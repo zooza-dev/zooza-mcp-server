@@ -160,7 +160,13 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
  *  token-audit baseline updated). */
 // Raised 71 000 → 72 300 on 2026-08-27: sessions_update add-mode + classes_find_classes
 // with_sessions/sort/sessions_count (ZMCP-20260827-003/004).
-const TOTAL_SCHEMA_MAX = 72_300;
+// Raised 72 300 → 77 000 on 2026-09-08 for trainers_add_helpers (ZMCP-20260908-001), the
+// first tool in the `trainers_` bucket. It costs ~4 400 chars: two nested object arrays
+// (assignments + deactivate) whose fields each need their own description. It earns the
+// space by collapsing a class-and-session fan-out — N classes x M sessions, previously
+// ~20 dual-phase calls through classes_update/sessions_update — into one previewed action.
+// The read-path half of the same wave (ZMCP-20260908-002) added no schema fields.
+const TOTAL_SCHEMA_MAX = 77_000;
 
 /**
  * Tools already over PER_TOOL_SCHEMA_MAX when the budget landed. Each is held

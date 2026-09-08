@@ -222,6 +222,11 @@ export interface ScheduleMatch {
   status: string;
   /** Whether the class currently has a trial enabled (schedule `in_trial`). */
   in_trial: boolean;
+  /** The class's additional lecturers — people who work it ALONGSIDE the main
+   *  instructor in `trainer_id`/`trainer_name`. At class level this is the
+   *  eligibility roster; which sessions each actually works comes from
+   *  sessions_find_events. `[]` when there are none. */
+  additional_trainers: AdditionalTrainer[];
   /** Public per-schedule booking URL (`__calc__registration_url`); `""` when the
    *  class isn't publicly bookable or the company has no registration widget. */
   registration_url: string;
@@ -262,6 +267,12 @@ export interface RawScheduleRecord {
     first_name?: string;
     last_name?: string;
   };
+  /** The class's ADDITIONAL lecturers. Present only when the request passed
+   *  load_trainers=1 (plural — added by api-v1 5890eb95 for handoff
+   *  zooza-mcp-to-api-v1-20260908-001), and OMITTED entirely on classes that
+   *  have none. Note load_trainer (singular) is a different flag for the MAIN
+   *  instructor above; both are wanted, neither replaces the other. */
+  trainers_schedules?: Array<{ trainer_id?: number; role?: string }>;
 }
 
 /** Curated booking row for bookings_find (default mode) — see ZMCP-20260615-002.
@@ -377,6 +388,17 @@ export interface RawUserRecord {
   role?: { role?: string } | string;
 }
 
+/** One additional lecturer on a class or a session (spec ZMCP-20260908-002).
+ *  NOT the main instructor — that stays in `trainer_id` / `trainer_name`.
+ *  `role` is the raw api-v1 enum: secondary | assistant | helper | trainer.
+ *  `trainer_name` is null when the roster lookup failed or the id is unknown —
+ *  never treat null as proof the trainer does not exist. */
+export interface AdditionalTrainer {
+  trainer_id: number;
+  trainer_name: string | null;
+  role: string | null;
+}
+
 /** Curated match shape for classes_find_resource (kind:'place') — see ZMCP-20260523-002. */
 export interface PlaceMatch {
   id: number;
@@ -465,6 +487,12 @@ export interface EventMatch {
   is_replacement: boolean;
   has_public_summary: boolean;
   cancellation_reasoning_public: string | null;
+  /** Additional lecturers actually working THIS session (trainers_events). */
+  additional_trainers: AdditionalTrainer[];
+  /** The parent class's roster of lecturers ELIGIBLE to work it
+   *  (trainers_schedules) — not necessarily on this session. Kept as a separate
+   *  field because conflating eligibility with assignment is the whole trap. */
+  class_additional_trainers: AdditionalTrainer[];
 }
 
 export interface FindEventsScopeHint {
@@ -769,4 +797,11 @@ export interface RawEventRecord {
     duration?: number | string;
   };
   segments?: Array<{ id?: number; name?: string }>;
+  /** Additional lecturers assigned to THIS session. Always loaded by api-v1
+   *  (Collection/Events load_event_trainers is hardcoded on) but OMITTED on
+   *  events that have none. */
+  trainers_events?: Array<{ trainer_id?: number; role?: string }>;
+  /** The parent class's additional-lecturer roster. Always loaded
+   *  (load_schedule_trainers), omitted when empty. */
+  trainers_schedules?: Array<{ trainer_id?: number; role?: string }>;
 }

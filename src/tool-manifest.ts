@@ -59,6 +59,7 @@ export const TOOL_NAMES: readonly string[] = [
   "submit_feedback",
   "todos_add",
   "todos_mark",
+  "trainers_add_helpers",
   "whoami",
 ];
 

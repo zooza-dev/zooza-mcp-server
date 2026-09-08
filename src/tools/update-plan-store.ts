@@ -46,7 +46,41 @@ export interface SessionsAddPlan {
   summary: Record<string, unknown>;
 }
 
-export type UpdatePlan = ClassesUpdatePlan | SessionsUpdatePlan | SessionsAddPlan;
+/** Plan for trainers_add_helpers (ZMCP-20260908-001). A bulk fan-out with no
+ *  upstream transaction, so the plan is stored per CLASS and applied in order:
+ *  roster PUTs first, then the session PUTs, then the class-level DELETEs.
+ *
+ *  The roster-before-sessions order is load-bearing, not stylistic: api-v1's
+ *  Event::add_trainer_to_event() copies `role` from trainers_schedules and
+ *  inserts even when the row is missing, producing a role-NULL assignment.
+ *  `update_mode` on a roster write is "all"/"upcoming" for an UNRESTRICTED
+ *  assignment (api-v1 fans out to the events itself, so there are no
+ *  event_writes for it) and "schedule" for a restricted one (roster only). */
+export interface HelpersPlan {
+  kind: "helpers";
+  company_id: number;
+  classes: Array<{
+    schedule_id: number;
+    name: string;
+    roster_writes: Array<{
+      trainer_id: number;
+      role: string;
+      update_mode: "all" | "upcoming" | "schedule";
+    }>;
+    event_writes: Array<{
+      event_id: number;
+      additional_trainers: Array<{ trainer_id: number; is_active: boolean }>;
+    }>;
+    roster_deletes: number[];
+  }>;
+  summary: Record<string, unknown>;
+}
+
+export type UpdatePlan =
+  | ClassesUpdatePlan
+  | SessionsUpdatePlan
+  | SessionsAddPlan
+  | HelpersPlan;
 
 interface StoredPlan {
   plan: UpdatePlan;
