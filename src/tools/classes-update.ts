@@ -402,8 +402,6 @@ export async function runClassesCommitUpdate(
               sessions_affected: plan.summary.sessions_affected ?? null,
               note: "Applied to the CLASS (schedule) itself — describe it as the class, by name/schedule id, not as a session or event. The cascade (if any) rewrote existing sessions per the scope shown in the preview.",
             },
-            null,
-            2,
           ),
         },
       ],

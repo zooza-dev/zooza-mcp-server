@@ -27,6 +27,7 @@ export const SERVER_VERSION: string = pkg.version;
  *  tool-manifest.test.ts. */
 export const TOOL_NAMES: readonly string[] = [
   "bookings_add_lead",
+  "bookings_copy_booking",
   "bookings_find",
   "classes_add_course",
   "classes_commit_class",

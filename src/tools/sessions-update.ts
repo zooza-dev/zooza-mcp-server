@@ -317,8 +317,6 @@ export async function runSessionsCommitUpdate(
                 ? { note: "api-v1 skipped some sessions (not found/locked). Re-resolve the skipped ids." }
                 : {}),
             },
-            null,
-            2,
           ),
         },
       ],

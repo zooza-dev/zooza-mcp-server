@@ -166,7 +166,12 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
 // space by collapsing a class-and-session fan-out — N classes x M sessions, previously
 // ~20 dual-phase calls through classes_update/sessions_update — into one previewed action.
 // The read-path half of the same wave (ZMCP-20260908-002) added no schema fields.
-const TOTAL_SCHEMA_MAX = 77_000;
+// Raised 77 000 → 79 400 on 2026-09-16 for bookings_copy_booking (ZMCP-20260901-001),
+// measured at 2 559 chars after trimming 502 chars of field descriptions that merely
+// restated the tool description. Registered surface now measures 79 324 across 35 tools.
+// Of this tool's 2 559, 1 359 is dual-phase boilerplate every such tool pays
+// (company_id 504, confirmed 462, token 393); ~1 200 is its own.
+const TOTAL_SCHEMA_MAX = 79_400;
 
 /**
  * Tools already over PER_TOOL_SCHEMA_MAX when the budget landed. Each is held
@@ -177,9 +182,6 @@ const OVER_BUDGET: Record<string, number> = {
   classes_update: 6_842,
   comms_send_message: 5_363,
   classes_commit_class: 5_111,
-  // sessions_update gained a second MODE (add-mode: create sessions on an existing
-  // schedule) alongside edit-mode — spec ZMCP-20260827-004. Held at its measured size.
-  sessions_update: 4_932,
 };
 
 /** tool name → the `*InputSchema` export it registers with. Tools declaring an

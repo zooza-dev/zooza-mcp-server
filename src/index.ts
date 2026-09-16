@@ -72,6 +72,12 @@ import {
   runAddHelpers,
 } from "./tools/add-helpers.js";
 import {
+  copyBookingDescription,
+  copyBookingInputSchema,
+  copyBookingTitle,
+  runCopyBooking,
+} from "./tools/copy-booking.js";
+import {
   addCourseDescription,
   addCourseInputSchema,
   addCourseTitle,
@@ -297,8 +303,18 @@ function resolveCompanyId<Args extends Record<string, unknown>>(
   handler: (args: Args) => Promise<ToolResult>,
 ): (args: Args) => Promise<ToolResult> {
   return async (args) => {
-    const incoming = (args ?? ({} as Args)) as Args & { company_id?: number };
+    const incoming = (args ?? ({} as Args)) as Args & { company_id?: number; token?: unknown };
     if (incoming.company_id !== undefined && incoming.company_id !== null) {
+      return handler(incoming);
+    }
+    // A dual-phase apply call carries a token, and the stored plan already holds the
+    // company the preview ran against — which is the company the write MUST use, since
+    // the handler reads it from the plan and never from args. Demanding company_id here
+    // only makes a multi-company caller burn a round trip re-sending a value that is
+    // then ignored; observed twice in live testing (audit.log 242, 249). This restores
+    // what the old prepare/commit split did structurally: commit halves were registered
+    // without this wrapper at all.
+    if (typeof incoming.token === "string" && incoming.token.trim().length > 0) {
       return handler(incoming);
     }
     if (ctx.session.companies.length === 1) {
@@ -884,6 +900,30 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
         SCOPE_WRITE,
         ctx,
         resolveCompanyId(ctx, async (args) => runAddHelpers(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "bookings_copy_booking",
+    {
+      title: copyBookingTitle,
+      description: copyBookingDescription,
+      inputSchema: copyBookingInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "bookings_copy_booking",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runCopyBooking(args, ctx.auth)),
       ),
     ),
   );

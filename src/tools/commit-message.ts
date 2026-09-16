@@ -94,8 +94,6 @@ export async function runCommitMessage(
                   "confirmation, then call comms_send_message again with the same token and " +
                   "confirm_large_send: true to release it.",
               },
-              null,
-              2,
             ),
           },
         ],
@@ -242,8 +240,6 @@ async function approvePendingJob(
                   note: "This job is no longer pending approval — it was already approved or cancelled (here or " +
                     "in the Zooza admin). Nothing more to do. Check Zooza admin → Messages for its status.",
                 },
-                null,
-                2,
               ),
             },
           ],
