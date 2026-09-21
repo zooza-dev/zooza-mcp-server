@@ -171,7 +171,14 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
 // restated the tool description. Registered surface now measures 79 324 across 35 tools.
 // Of this tool's 2 559, 1 359 is dual-phase boilerplate every such tool pays
 // (company_id 504, confirmed 462, token 393); ~1 200 is its own.
-const TOTAL_SCHEMA_MAX = 79_400;
+// Raised 79 400 → 82 500 on 2026-09-21 for sessions_cancel (ZMCP-20260921-001), measured
+// at 3 165 chars after trimming 659 chars of field descriptions that restated the tool
+// description. Registered surface now measures 82 489 across 37 tools. Of this tool's
+// 3 165, 1 359 is dual-phase boilerplate every such tool pays (company_id 504,
+// confirmed 462, token 393); ~1 800 is its own — five alternative scopes each need their
+// own field, which is the price of the one-entity-per-call guard being expressible in
+// the schema rather than only in prose.
+const TOTAL_SCHEMA_MAX = 82_500;
 
 /**
  * Tools already over PER_TOOL_SCHEMA_MAX when the budget landed. Each is held

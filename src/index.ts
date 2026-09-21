@@ -60,6 +60,12 @@ import {
   runClassesUpdate,
 } from "./tools/classes-update.js";
 import {
+  cancelSessionsDescription,
+  cancelSessionsInputSchema,
+  cancelSessionsTitle,
+  runCancelSessions,
+} from "./tools/cancel-sessions.js";
+import {
   runSessionsUpdate,
   sessionsUpdateDescription,
   sessionsUpdateInputSchema,
@@ -876,6 +882,30 @@ function createMcpServer(ctx: RequestAuthContext): McpServer {
         SCOPE_WRITE,
         ctx,
         resolveCompanyId(ctx, async (args) => runSessionsUpdate(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "sessions_cancel",
+    {
+      title: cancelSessionsTitle,
+      description: cancelSessionsDescription,
+      inputSchema: cancelSessionsInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "sessions_cancel",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runCancelSessions(args, ctx.auth)),
       ),
     ),
   );

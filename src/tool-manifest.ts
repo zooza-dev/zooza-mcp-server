@@ -51,6 +51,7 @@ export const TOOL_NAMES: readonly string[] = [
   "payments_add_plan",
   "reports_get_data",
   "sessions_add_summary",
+  "sessions_cancel",
   "sessions_find_events",
   "sessions_get_attendance",
   "sessions_mark_attendance",

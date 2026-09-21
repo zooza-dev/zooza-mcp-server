@@ -46,6 +46,21 @@ export interface SessionsAddPlan {
   summary: Record<string, unknown>;
 }
 
+/** Cancellation plan for sessions_cancel (ZMCP-20260921-001). `event_payloads` are
+ *  the exact PUT /events rows: each carries `id`, `status: 'unplanned'`,
+ *  `billable: false`, the reasons and — on a single-session cancel — the
+ *  replacement fields. The resolved id list lives HERE and never in the apply
+ *  call's args, so a token cannot be replayed against a wider scope.
+ *  `verify_replacement` tells the apply phase to check `replaced_by` on the
+ *  read-back, because api-v1 swallows a failed make-up creation. */
+export interface SessionsCancelPlan {
+  kind: "sessions_cancel";
+  company_id: number;
+  event_payloads: Array<Record<string, unknown> & { id: number }>;
+  verify_replacement: boolean;
+  summary: Record<string, unknown>;
+}
+
 /** Plan for trainers_add_helpers (ZMCP-20260908-001). A bulk fan-out with no
  *  upstream transaction, so the plan is stored per CLASS and applied in order:
  *  roster PUTs first, then the session PUTs, then the class-level DELETEs.
@@ -80,6 +95,7 @@ export type UpdatePlan =
   | ClassesUpdatePlan
   | SessionsUpdatePlan
   | SessionsAddPlan
+  | SessionsCancelPlan
   | HelpersPlan;
 
 interface StoredPlan {
