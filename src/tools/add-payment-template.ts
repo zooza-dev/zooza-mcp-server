@@ -52,7 +52,9 @@ export const addPaymentTemplateDescription =
   "- With `schedule_type: 'pay_as_you_go'` → `value` is a UNIT MULTIPLIER, not money: the client is charged " +
   "value × the programme's unit_price. Keep it a small count.\n\n" +
   "`schedule_type` must match the programme's price type: 'in_advance', 'single_payment' and 'by_attendance' work " +
-  "with a normal course fee; 'pay_as_you_go' is for membership pricing. Pass `course_id` to attach the template to " +
+  "with a normal course fee; 'pay_as_you_go' is for recurring membership pricing. A template is NOT a class pass: " +
+  "a fixed bundle (\"5 classes for €X, valid 6 weeks\") cannot be modelled here — tell the operator it is not " +
+  "available through these tools rather than approximating it with a discount. Pass `course_id` to attach the template to " +
   "a programme immediately — Zooza validates the combination and rejects a mismatch with the reason. Without " +
   "`course_id` the template is created but attached to nothing (still fine — attach it later or in the app). " +
   "Requires the edit_company permission.";

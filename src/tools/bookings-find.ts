@@ -50,7 +50,7 @@ export const bookingsFindDescription =
   "and resolve them to a `registration_id`, or a client to a `user_id`. Use for \"is X enrolled?\", \"who's in " +
   'this class?", "who hasn\'t paid?" (set `payment_status:["unpaid","partially_paid"]`), and "find client X". ' +
   "Filter by `search` (loose: name/email/phone) or `name`, by `course_id`/`schedule_id` (resolve via " +
-  "classes_find_courses / classes_find_classes), `user_id`, `registration_id` (one exact booking by its id), " +
+  "classes_find_courses / classes_find_classes), `billing_period_id` (a term/season), `user_id`, `registration_id` (one exact booking by its id), " +
   "`status`, `payment_status`, or booking date with " +
   "`created_from`/`created_to` (the \"new registrations this week\" lever). `distinct:true` returns " +
   "one row per client (→ `user_id`) for person lookups. Chain a result's `registration_id` or `user_id` straight " +
@@ -86,6 +86,15 @@ export const bookingsFindInputSchema = {
     .positive()
     .optional()
     .describe("Bookings in this class (schedule). Resolve the id with classes_find_classes; never guess it."),
+  billing_period_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Bookings belonging to this billing period (term/season). Resolve the id with classes_find_resource " +
+        "(kind:'billing_period'); never guess it. To cover several periods, call once per period and merge the ids.",
+    ),
   user_id: z.number().int().positive().optional().describe("All bookings of one client, by their user id."),
   registration_id: z
     .number()
@@ -202,6 +211,8 @@ export async function runBookingsFind(
   if (input.course_id !== undefined) query.course_id = input.course_id;
   if (input.schedule_id !== undefined) query.schedule_id = input.schedule_id;
   if (input.user_id !== undefined) query.user_id = input.user_id;
+  // r.billing_period_id = :billing_period_id — scalar numeric only (common.php:8794-8797).
+  if (input.billing_period_id !== undefined) query.billing_period_id = input.billing_period_id;
   // Exact single-registration filter (r.id) — common.php:7866-7917.
   if (input.registration_id !== undefined) query.registration_id = input.registration_id;
   if (input.payment_status && input.payment_status.length > 0) {
@@ -243,6 +254,7 @@ export async function runBookingsFind(
       ...(input.course_id !== undefined ? { course_id: input.course_id } : {}),
       ...(input.schedule_id !== undefined ? { schedule_id: input.schedule_id } : {}),
       ...(input.user_id !== undefined ? { user_id: input.user_id } : {}),
+      ...(input.billing_period_id !== undefined ? { billing_period_id: input.billing_period_id } : {}),
       ...(input.registration_id !== undefined ? { registration_id: input.registration_id } : {}),
       // Echo the literal groups when the caller chose them; a compact marker
       // when we applied the default — avoids shipping the 7-element default array

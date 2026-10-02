@@ -210,7 +210,7 @@ async function fetchPlace(id: number, auth: ZoozaAuth): Promise<PlaceDto> {
   return place;
 }
 
-async function fetchCoursePaymentTemplates(
+export async function fetchCoursePaymentTemplates(
   courseId: number,
   auth: ZoozaAuth,
 ): Promise<PaymentScheduleTemplateDto[]> {

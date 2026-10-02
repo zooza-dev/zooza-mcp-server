@@ -3,6 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { companyIdSchema } from "./common.js";
+import { fetchCoursePaymentTemplates } from "./preview-schedule.js";
 import type { ResolvedSchedule, ScheduleType } from "./types.js";
 
 const SCHEDULE_TYPES: [ScheduleType, ...ScheduleType[]] = [
@@ -166,7 +167,7 @@ export const commitClassInputSchema = {
     .array(z.number().int().positive())
     .optional()
     .describe(
-      "Ids of the payment schedule templates to attach to the class. Omit to keep the course's default template selection from classes_preview_schedule.",
+      "Ids of the payment schedule templates to attach to the class. Omit to attach every template the course offers (the same default classes_preview_schedule marks selected_by_default). Pass the ids explicitly to attach a subset.",
     ),
 };
 
@@ -251,9 +252,28 @@ export async function runCommitClass(
     );
   }
 
+  // Omitted = the course's full template set, the same default classes_preview_schedule
+  // marks selected_by_default (preview-schedule.ts selectedTemplateIds). Sending [] instead
+  // created classes with no payment plans at all — they billed nothing, silently (issue #25).
+  let paymentTemplateIds = input.payment_schedule_template_ids;
+  if (paymentTemplateIds === undefined) {
+    try {
+      paymentTemplateIds = (await fetchCoursePaymentTemplates(schedule.course_id, callAuth)).map(
+        (t) => t.id,
+      );
+    } catch (error) {
+      if (error instanceof ZoozaApiError) {
+        return errorResult(
+          `Could not load the course's payment templates to apply the default selection (status ${error.status}): ${error.humanMessage}. Pass payment_schedule_template_ids explicitly.`,
+        );
+      }
+      throw error;
+    }
+  }
+
   const schedulePayload = buildSchedulePayload(
     schedule,
-    input.payment_schedule_template_ids ?? [],
+    paymentTemplateIds,
     derived?.unit_price,
   );
 
@@ -337,7 +357,7 @@ export async function runCommitClass(
     registration_url: urls.registration_url,
     registration_url_active: urls.registration_url_active,
     admin_url: urls.admin_url,
-    attached_payment_template_ids: input.payment_schedule_template_ids ?? [],
+    attached_payment_template_ids: paymentTemplateIds,
     created_event_ids: createdEventIds,
     ...(derived
       ? {
@@ -351,6 +371,11 @@ export async function runCommitClass(
       : {}),
     warnings: [
       ...billableWarnings(schedule.billable_events, createdEventIds.length),
+      ...(paymentTemplateIds.length === 0
+        ? [
+            "No payment templates were attached — clients will see no payment schedule and the class bills nothing. Attach templates to the class in the Zooza admin, or check the programme's templates with setup_update_course_templates.",
+          ]
+        : []),
       ...(derived && derived.unit_price * derived.divisor !== schedule.total_price
         ? [
             `Rounding: ${derived.unit_price} x ${derived.divisor} = ${Math.round(derived.unit_price * derived.divisor * 100) / 100}, not exactly ${schedule.total_price}. Zooza's payment plan rounding settles the difference across instalments.`,

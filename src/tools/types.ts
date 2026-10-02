@@ -212,6 +212,14 @@ export interface ScheduleMatch {
   trainer_name: string;
   place_id: number;
   place_name: string;
+  /** Room within the venue (`0` = no specific room). Two classes can share a
+   *  place_id and differ only here — copy it into classes_preview_schedule. */
+  room_id: number;
+  /** The class's own session length in minutes — may differ from the
+   *  programme default that classes_preview_schedule falls back to. */
+  duration_minutes: number;
+  /** Instructor pay-rate type (`0` = none set, or hidden from the caller's role). */
+  trainer_rate_type_id: number;
   capacity: number;
   registrations_count: number;
   /** Number of sessions (events) the schedule has — from the materialised
@@ -246,6 +254,9 @@ export interface RawScheduleRecord {
   time?: string;
   trainer_id?: number;
   place_id?: number;
+  room_id?: number | string;
+  duration?: number | string;
+  trainer_rate_type_id?: number | string;
   capacity?: number | string;
   status?: string;
   /** Materialised session count (schedules.total_events). Drives sessions_count and
