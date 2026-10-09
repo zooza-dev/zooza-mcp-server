@@ -187,7 +187,9 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
 // Raised 83 500 → 85 500 on 2026-10-09 for comms_find_messages (issue #21, ~1 300
 // chars, dispatch-only so CORE_SCHEMA_MAX is untouched) plus bookings_find's
 // place_id / include_extra_fields (~180 net after trims).
-const TOTAL_SCHEMA_MAX = 85_500;
+// Raised 85 500 → 87 000 on 2026-10-09 for payments_send_invoice (issue #22, ~1 740
+// chars incl. the dual-phase token/confirmed fields; dispatch-only).
+const TOTAL_SCHEMA_MAX = 87_000;
 
 /** Ceiling for the tools LISTED by default (CORE_TOOL_NAMES) — the input schemas every
  *  client loads each conversation. Set 2026-10-09 at 41 295 measured (17 core tools

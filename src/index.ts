@@ -247,6 +247,12 @@ import {
   runCommsFindMessages,
 } from "./tools/comms-find-messages.js";
 import {
+  paymentsSendInvoiceDescription,
+  paymentsSendInvoiceInputSchema,
+  paymentsSendInvoiceTitle,
+  runPaymentsSendInvoice,
+} from "./tools/send-invoice.js";
+import {
   runTodosAdd,
   todosAddDescription,
   todosAddInputSchema,
@@ -678,6 +684,32 @@ function createMcpServer(
         SCOPE_READ,
         ctx,
         resolveCompanyId(ctx, async (args) => runCommsFindMessages(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // Dual-phase (ZMCP-20261009-003). Issues accounting documents and emails them —
+  // the token is burned before the first write, see send-invoice.ts.
+  server.registerTool(
+    "payments_send_invoice",
+    {
+      title: paymentsSendInvoiceTitle,
+      description: paymentsSendInvoiceDescription,
+      inputSchema: paymentsSendInvoiceInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "payments_send_invoice",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runPaymentsSendInvoice(args, ctx.auth)),
       ),
     ),
   );
