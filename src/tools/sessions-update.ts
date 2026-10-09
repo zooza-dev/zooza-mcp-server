@@ -17,7 +17,7 @@ const rescheduleSchema = z.discriminatedUnion("mode", [
   z.object({
     mode: z
       .literal("set")
-      .describe("Reschedule mode: move the session(s) to an explicit date (and optional time)."),
+      .describe("Explicit date (+ optional time)."),
     date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD")
@@ -26,31 +26,31 @@ const rescheduleSchema = z.discriminatedUnion("mode", [
       .string()
       .regex(/^\d{2}:\d{2}$/, "time must be HH:MM")
       .optional()
-      .describe("New start time, HH:MM. Omit to keep each session's existing time."),
+      .describe("HH:MM. Omit → keep each session's time."),
   }),
   z.object({
     mode: z
       .literal("unify_time")
-      .describe("Reschedule mode: set every selected session to the same time on its existing date."),
+      .describe("Same time for all, dates unchanged."),
     time: z
       .string()
       .regex(/^\d{2}:\d{2}$/, "time must be HH:MM")
-      .describe("Start time, HH:MM, applied to every selected session."),
+      .describe("HH:MM for every selected session."),
   }),
   z.object({
     mode: z
       .literal("shift")
-      .describe("Reschedule mode: move each session by a relative offset (days and/or minutes)."),
+      .describe("Relative offset (days and/or minutes)."),
     days: z
       .number()
       .int()
       .optional()
-      .describe("Days to shift each session by; negative moves it earlier."),
+      .describe("Days; negative = earlier."),
     minutes: z
       .number()
       .int()
       .optional()
-      .describe("Minutes to shift each session's time by; negative moves it earlier."),
+      .describe("Minutes; negative = earlier."),
   }),
 ]);
 
@@ -59,21 +59,21 @@ const changesSchema = z
     reschedule: rescheduleSchema
       .optional()
       .describe(
-        "Move the selected session(s) to a new date/time. Pick a mode: set (explicit date), unify_time (same time on existing dates), or shift (relative offset).",
+        "Move to a new date/time: set (explicit date), unify_time (same time, existing dates) or shift (relative offset).",
       ),
     trainer_id: z
       .number()
       .int()
       .positive()
       .optional()
-      .describe("Reassign the session(s) to a different instructor. Resolve with trainers_find."),
+      .describe("New instructor. Resolve via classes_find_resource kind:'trainer'."),
     trainer_rate_type_id: z
       .number()
       .int()
       .nonnegative()
       .optional()
       .describe(
-        "Set the instructor pay-rate type for the session(s). Resolve with trainers_find_rate_types.",
+        "Instructor pay-rate type. Resolve via classes_find_resource kind:'trainer_rate_type'.",
       ),
     place_id: z
       .number()
@@ -81,14 +81,14 @@ const changesSchema = z
       .positive()
       .optional()
       .describe(
-        "Move the session(s) to a different venue (place); must be sent together with room_id. Resolve with classes_find_places.",
+        "New venue; send with room_id. Resolve via classes_find_resource kind:'place'.",
       ),
     room_id: z
       .number()
       .int()
       .nonnegative()
       .optional()
-      .describe("Room within the venue for the session(s); must be sent together with place_id."),
+      .describe("Room within the venue (0 = none); send with place_id."),
     segment: z
       .union([z.number().int().nonnegative(), z.string()])
       .optional()
@@ -654,8 +654,7 @@ export const sessionsUpdateInputSchema = {
     .nonempty()
     .optional()
     .describe(
-      "EDIT-MODE. Existing session ids to change; pair with `changes`. Resolve with sessions_find_events. " +
-        "Not with schedule_id/sessions.",
+      "EDIT-MODE. Session ids to change, with `changes`; resolve via sessions_find_events. Not with schedule_id/sessions.",
     ),
   changes: changesSchema.optional().describe("EDIT-MODE. The edits to apply to `event_ids`."),
   schedule_id: z
@@ -672,15 +671,14 @@ export const sessionsUpdateInputSchema = {
     .nonempty()
     .optional()
     .describe(
-      "ADD-MODE. New sessions to create on `schedule_id`. Each needs a date; time/duration default from the " +
-        "class. For \"one more at the end\", get the last session via sessions_find_events and pass the next date.",
+      "ADD-MODE. New sessions on `schedule_id`; each needs a date, time/duration default from the class. " +
+        "\"One more at the end\": the date after the last session (sessions_find_events).",
     ),
   notify: z
     .boolean()
     .optional()
     .describe(
-      "Default false. true emails enrolled clients about the change — confirm intent with the operator first. " +
-        "Set it on the FIRST call; it is frozen into the plan.",
+      "Default false. true emails enrolled clients — confirm with the operator first. Set on the FIRST call (frozen into the plan).",
     ),
 };
 

@@ -8,6 +8,11 @@ import {
   getCallerContext,
 } from "./caller-context.js";
 import { companyIdSchema, pickStr, TRIAL_STATUSES, unwrapList } from "./common.js";
+import {
+  hasAnyTrainerLinks,
+  loadTrainerDirectory,
+  projectAdditionalTrainers,
+} from "./trainer-directory.js";
 import type {
   EventSummaryState,
   RawAttendancePerson,
@@ -28,7 +33,7 @@ const RESTRICTED_ALLOWED = ["attended", "noshow", "ignore"] as const;
 export const getAttendanceTitle = "View attendance for one class session";
 
 export const getAttendanceDescription =
-  "Read who's enrolled in **one event** (a single session of a class) and their current attendance, so you can show the list and then mark it. Pass an `event_id`; the tool returns each enrolled attendee, their current attendance value (if already marked), and per-row context the LLM needs to mark attendance correctly: `allowed_statuses[]` (the statuses the **current caller** is permitted to set for THIS attendee), `is_trial` / `is_last_trial_session` flags, warnings about cross-company or cascade-sensitive (full2) cases, and — for open-type registrations only — `entrance_voucher` info (how many unused vouchers the attendee has, and whether one is already spent on this event). Use this **before** `sessions_mark_attendance` whenever the user has not already dictated the full list of attendees and marks — typically: \"open attendance for X,\" \"who's enrolled in tomorrow's class,\" \"show me Monday's attendance.\" If the event's course has attendance tracking disabled, the tool returns an `attendance_tracking_disabled` error rather than an empty list. This tool is read-only — it never writes attendance, notes, or summaries.\n\n**Talking to the user — vocabulary.** Zooza's customers are activity brands — dance, swim, language, sport, STEAM schools. Call this **\"attendance,\" \"the attendance list,\" \"the class list,\" or \"who's coming.\"** Don't expose the tool name or use sports/HR jargon (\"roster\") — it reads as foreign to these businesses. When the user asks to \"see attendance\" / \"open the register\" / \"who's in Monday's class,\" just call this tool and render the list directly.\n\n**Attendee vs client (critical for children's-class programmes).** Each row carries TWO people:\n- `attendee` — who actually shows up to the session. Often a child (Zooza data-model name: `customer`). May have `user_id: 0` when they aren't a registered account holder, which is normal for children. `attendee.date_of_birth` is available.\n- `client` — the account holder / payer (Zooza data-model name: `buyer`). Usually the parent. Has a real `user_id`. Contact info (`email`, `phone`) lives on the client when the attendee is a child; copy from client when speaking to / messaging the family.\n- `display_name` — a pre-formatted one-line label. When attendee == client (adult attending themselves), just the one name. When they differ, `attendee_name (client_name)` — e.g. `\"Jozko Jozko (Martin Rapavy)\"`. Use this when listing attendees; the LLM doesn't need to compose it from scratch.\n\nResponse shape notes:\n- `allowed_statuses[]` already factors in the caller's role, `company.trainer_attendance_management`, and the row's cross-company state. Do not propose a status not in this array — refuse locally and explain instead of calling `sessions_mark_attendance` to discover the constraint.\n- `is_last_trial_session` is currently `null` in V1 (derivation requires either a new api-v1 field or extra per-row lookups; deferred). Treat `is_trial=true` as the trigger for caution — a future enrichment will tighten this.\n- `entrance_voucher` is non-null only when `course.registration_type=\"open\"`. Check it before setting `sessions_mark_attendance`'s `use_voucher=true` on a `going` write.\n- `summary` block at the top level surfaces whether this event already has a public / internal session summary (`public_set` / `internal_set`), whether the public one is locked, and whether the caller's role is permitted to write summaries (`writable_by_caller`). After the user has marked attendance, the LLM can use this to offer `sessions_add_summary` as a follow-up when appropriate.";
+  "Read who's enrolled in **one event** (a single session of a class) and their current attendance, so you can show the list and then mark it. Pass an `event_id`; the tool returns each enrolled attendee, their current attendance value (if already marked), and per-row context the LLM needs to mark attendance correctly: `allowed_statuses[]` (the statuses the **current caller** is permitted to set for THIS attendee), `is_trial` / `is_last_trial_session` flags, warnings about cross-company or cascade-sensitive (full2) cases, and — for open-type registrations only — `entrance_voucher` info (how many unused vouchers the attendee has, and whether one is already spent on this event). Use this **before** `sessions_mark_attendance` whenever the user has not already dictated the full list of attendees and marks — typically: \"open attendance for X,\" \"who's enrolled in tomorrow's class,\" \"show me Monday's attendance.\" If the event's course has attendance tracking disabled, the tool returns an `attendance_tracking_disabled` error rather than an empty list. This tool is read-only — it never writes attendance, notes, or summaries.\n\n**Talking to the user — vocabulary.** Zooza's customers are activity brands — dance, swim, language, sport, STEAM schools. Call this **\"attendance,\" \"the attendance list,\" \"the class list,\" or \"who's coming.\"** Don't expose the tool name or use sports/HR jargon (\"roster\") — it reads as foreign to these businesses. When the user asks to \"see attendance\" / \"open the register\" / \"who's in Monday's class,\" just call this tool and render the list directly.\n\n**Attendee vs client (critical for children's-class programmes).** Each row carries TWO people:\n- `attendee` — who actually shows up to the session. Often a child (Zooza data-model name: `customer`). May have `user_id: 0` when they aren't a registered account holder, which is normal for children. `attendee.date_of_birth` is available.\n- `client` — the account holder / payer (Zooza data-model name: `buyer`). Usually the parent. Has a real `user_id`. Contact info (`email`, `phone`) lives on the client when the attendee is a child; copy from client when speaking to / messaging the family.\n- `display_name` — a pre-formatted one-line label. When attendee == client (adult attending themselves), just the one name. When they differ, `attendee_name (client_name)` — e.g. `\"Jozko Jozko (Martin Rapavy)\"`. Use this when listing attendees; the LLM doesn't need to compose it from scratch.\n\nResponse shape notes:\n- `allowed_statuses[]` already factors in the caller's role, `company.trainer_attendance_management`, and the row's cross-company state. Do not propose a status not in this array — refuse locally and explain instead of calling `sessions_mark_attendance` to discover the constraint.\n- `is_last_trial_session` is currently `null` in V1 (derivation requires either a new api-v1 field or extra per-row lookups; deferred). Treat `is_trial=true` as the trigger for caution — a future enrichment will tighten this.\n- `entrance_voucher` is non-null only when `course.registration_type=\"open\"`. Check it before setting `sessions_mark_attendance`'s `use_voucher=true` on a `going` write.\n- `additional_trainers` — who works THIS session alongside the main instructor, as `{trainer_id, trainer_name, role}` (`secondary` = \"Secondary instructor\", `assistant` = \"Assistant\", `helper` = \"Assistant instructor\", `trainer` = \"Instructor\"); `[]` = nobody. `trainer_name` null = lookup failed, not a missing trainer. For pay, use `sessions_find_events`.\n- `summary` block at the top level surfaces whether this event already has a public / internal session summary (`public_set` / `internal_set`), whether the public one is locked, and whether the caller's role is permitted to write summaries (`writable_by_caller`). After the user has marked attendance, the LLM can use this to offer `sessions_add_summary` as a follow-up when appropriate.";
 
 export const getAttendanceInputSchema = {
   company_id: companyIdSchema,
@@ -115,6 +120,12 @@ export async function runGetAttendance(
       ),
     );
 
+    // Same projection as sessions_find_events (trainer-directory.ts). The names
+    // lookup is one extra GET, made only when this session HAS additional lecturers.
+    const additional_trainers = hasAnyTrainerLinks([eventDetail?.trainers_events])
+      ? projectAdditionalTrainers(eventDetail?.trainers_events, await loadTrainerDirectory(callAuth))
+      : [];
+
     const result: AttendanceResult = {
       event_id: input.event_id,
       course: {
@@ -128,6 +139,7 @@ export async function runGetAttendance(
         trial: attendees.filter((a) => a.is_trial).length,
       },
       summary: projectSummaryState(eventDetail, caller),
+      additional_trainers,
       attendees,
     };
 
@@ -259,6 +271,14 @@ const STATUS_DISPLAY: Record<string, { emoji: string; label: string }> = {
   ignore: { emoji: "⚫", label: "Ignore" },
 };
 
+/** Operator-facing labels for the raw additional-lecturer role enum. */
+const ROLE_LABEL: Record<string, string> = {
+  secondary: "Secondary instructor",
+  assistant: "Assistant",
+  helper: "Assistant instructor",
+  trainer: "Instructor",
+};
+
 // Show the Zooza icon at the top of the branded reply. The image URL is derived
 // from the server's public origin (config.auth.resourceUrl), so it's correct in
 // every environment — e.g. https://mcp.zooza.app/icon.png in prod. Set to false
@@ -297,6 +317,13 @@ function renderAttendanceMarkdown(result: AttendanceResult): string {
   const logo = logoUrl();
   if (logo) lines.push(`![Zooza](${logo})`, "");
   lines.push(`**Attendance — event #${result.event_id}**`, "");
+  const helpers = result.additional_trainers ?? [];
+  if (helpers.length > 0) {
+    const names = helpers.map(
+      (h) => `${escapeCell(h.trainer_name ?? `#${h.trainer_id}`)} (${ROLE_LABEL[h.role ?? ""] ?? h.role ?? "—"})`,
+    );
+    lines.push(`Also working: ${names.join(", ")}`, "");
+  }
 
   if (rows.length === 0) {
     lines.push("_No one is enrolled in this session._");

@@ -32,7 +32,7 @@ const SORT_VALUES = [
 export const findClassesTitle = "Find classes (schedules) by name";
 
 export const findClassesDescription =
-  "Search this company's CLASSES — the scheduled groups inside a programme (a \"class\" / \"group\" / \"skupina\"; internally a *schedule*) — by name (substring) and resolve them to a `schedule_id`. Reach for this whenever the user names a specific group rather than a whole programme (\"the Nejaké class\", \"the Monday 5pm group\", \"her Wednesday ballet class\"), or whenever a downstream tool needs a `schedule_id` — most importantly `comms_send_message` targeting everyone in one class (`audience.schedule_id`). This is the missing middle rung between `classes_find_courses` (finds the PROGRAMME → `course_id`) and `sessions_find_events` (finds individual dated SESSIONS → `event_id`): a class is one recurring group within a programme, made of many sessions. Optionally narrow by `course_id` (classes inside one programme), `trainer_id`, `place_id`, `day` of week, `registration_type`, `in_trial: true` (only classes currently offering a TRIAL), `active_only: true` (exclude classes whose schedule has ENDED), or `lead_only: true` (only lead-collection pipelines). To answer \"the latest classes that actually have sessions\" in ONE call, combine `with_sessions: true` (only classes whose schedule has ≥1 session) with `sort: \"created_desc\"` and a `page_size` — no need to scan `sessions_find_events`. `sort` also takes created_asc / date_asc / date_desc / name_asc / registrations_desc. Returns a slim list — `{schedule_id, name, course_id, start, end, time, trainer_id, trainer_name, place_id, place_name, room_id, duration_minutes, trainer_rate_type_id, capacity, registrations_count, sessions_count, status, in_trial, registration_url, schedule_type}` — enough to disambiguate when several classes share a name, never enough to mutate. When COPYING an existing class, pass its `room_id`, `duration_minutes` and `trainer_rate_type_id` into `classes_preview_schedule` explicitly — otherwise the preview falls back to no room, the 60-minute default and no pay rate. `room_id` 0 = no specific room; `trainer_rate_type_id` 0 = none set (or hidden from your role). `sessions_count` is the class's number of sessions (a stored/materialised count — fine for overview and \"how many\", may lag a very recent edit; chain `sessions_find_events` for an exact live count). `schedule_type` tells a real class (`fixed_period`) from a lead pipeline (`lead_collection`) — use `lead_only: true` to find the pipeline `bookings_add_lead` needs. `registration_url` is the public link a prospect clicks to book that specific class (empty when the class isn't publicly bookable or the company has no registration widget). Combine filters in ONE call — e.g. `{place_id, in_trial: true, active_only: true}` returns the bookable trial classes at a venue in a single query; do not split them across separate calls. `course_id` is returned but not the course name (resolve it with `classes_find_courses` if you need it). `additional_trainers` lists the class's ADDITIONAL lecturers — people who work it alongside the main instructor in `trainer_id`/`trainer_name` — as `{trainer_id, trainer_name, role}`, `[]` when there are none. At class level this is the eligibility roster: it says who may work the class, NOT which sessions each one actually works — for that call `sessions_find_events` with the `schedule_id` and read each session's own `additional_trainers`. Roles render as `secondary` = \"Secondary instructor\", `assistant` = \"Assistant\", `helper` = \"Assistant instructor\", `trainer` = \"Instructor\". To change the roster use `trainers_add_helpers`. By default returns active + paused (inactive) classes; pass `include_archived: true` to search archived classes instead. Does NOT create or change classes (that is `classes_preview_schedule` → `classes_commit_class`) and does NOT list a class's sessions (use `sessions_find_events` with the `schedule_id`).";
+  "Search this company's CLASSES — the scheduled groups inside a programme (a \"class\" / \"group\" / \"skupina\"; internally a *schedule*) — by name (substring) and resolve them to a `schedule_id`. Reach for this whenever the user names a specific group rather than a whole programme (\"the Nejaké class\", \"the Monday 5pm group\", \"her Wednesday ballet class\"), or whenever a downstream tool needs a `schedule_id` — most importantly `comms_send_message` targeting everyone in one class (`audience.schedule_id`). This is the missing middle rung between `classes_find_courses` (finds the PROGRAMME → `course_id`) and `sessions_find_events` (finds individual dated SESSIONS → `event_id`): a class is one recurring group within a programme, made of many sessions. Optionally narrow by `course_id` (classes inside one programme), `trainer_id`, `place_id`, `billing_period_id` (term block; one id or up to 10), `day` of week, `registration_type`, `in_trial: true` (only classes currently offering a TRIAL), `active_only: true` (exclude classes whose schedule has ENDED), or `lead_only: true` (only lead-collection pipelines). To answer \"the latest classes that actually have sessions\" in ONE call, combine `with_sessions: true` (only classes whose schedule has ≥1 session) with `sort: \"created_desc\"` and a `page_size` — no need to scan `sessions_find_events`. `sort` also takes created_asc / date_asc / date_desc / name_asc / registrations_desc. Returns a slim list — `{schedule_id, name, course_id, start, end, time, trainer_id, trainer_name, place_id, place_name, room_id, duration_minutes, trainer_rate_type_id, capacity, registrations_count, sessions_count, status, in_trial, registration_url, billing_period_id, schedule_type}` — enough to disambiguate when several classes share a name, never enough to mutate. When COPYING an existing class, pass its `room_id`, `duration_minutes` and `trainer_rate_type_id` into `classes_preview_schedule` explicitly — otherwise the preview falls back to no room, the 60-minute default and no pay rate. `room_id` 0 = no specific room; `trainer_rate_type_id` 0 = none set (or hidden from your role). `sessions_count` is the class's number of sessions (a stored/materialised count — fine for overview and \"how many\", may lag a very recent edit; chain `sessions_find_events` for an exact live count). `schedule_type` tells a real class (`fixed_period`) from a lead pipeline (`lead_collection`) — use `lead_only: true` to find the pipeline `bookings_add_lead` needs. `registration_url` is the public link a prospect clicks to book that specific class (empty when the class isn't publicly bookable or the company has no registration widget); its programme/venue/room params are rebuilt from the class's live values, so it stays correct after a class is moved. `billing_period_id` 0 = no billing period. Combine filters in ONE call — e.g. `{place_id, in_trial: true, active_only: true}` returns the bookable trial classes at a venue in a single query; do not split them across separate calls. `course_id` is returned but not the course name (resolve it with `classes_find_courses` if you need it). `additional_trainers` lists the class's ADDITIONAL lecturers — people who work it alongside the main instructor in `trainer_id`/`trainer_name` — as `{trainer_id, trainer_name, role}`, `[]` when there are none. At class level this is the eligibility roster: it says who may work the class, NOT which sessions each one actually works — for that call `sessions_find_events` with the `schedule_id` and read each session's own `additional_trainers`. Roles render as `secondary` = \"Secondary instructor\", `assistant` = \"Assistant\", `helper` = \"Assistant instructor\", `trainer` = \"Instructor\". To change the roster use `trainers_add_helpers`. By default returns active + paused (inactive) classes; pass `include_archived: true` to search archived classes instead. Does NOT create or change classes (that is `classes_preview_schedule` → `classes_commit_class`) and does NOT list a class's sessions (use `sessions_find_events` with the `schedule_id`).";
 
 export const findClassesInputSchema = {
   company_id: companyIdSchema,
@@ -60,6 +60,12 @@ export const findClassesInputSchema = {
     .positive()
     .optional()
     .describe("Only classes at this venue. Resolve with classes_find_resource (kind:'place')."),
+  billing_period_id: z
+    .union([z.number().int().positive(), z.array(z.number().int().positive()).min(1).max(10)])
+    .optional()
+    .describe(
+      "Only classes in this billing period (term block) — or these. Resolve via classes_find_resource kind:'billing_period'.",
+    ),
   day: z
     .number()
     .int()
@@ -161,6 +167,13 @@ export async function runFindClasses(
   if (input.course_id !== undefined) query.course_id = input.course_id;
   if (input.trainer_id !== undefined) query.trainer_id = input.trainer_id;
   if (input.place_id !== undefined) query.place_id = input.place_id;
+  // billing_period_id accepts pipe-separated ids (api-v1 Collection/Schedules.php:403-420).
+  if (input.billing_period_id !== undefined) {
+    const ids = Array.isArray(input.billing_period_id)
+      ? input.billing_period_id
+      : [input.billing_period_id];
+    query.billing_period_id = ids.join("|");
+  }
   if (input.day !== undefined) query.day = input.day;
   if (input.registration_type) query.registration_type = input.registration_type;
   // in_trial is a first-class boolean search param on the Schedules collection.
@@ -254,7 +267,8 @@ function projectSchedule(s: RawScheduleRecord, trainerDir: TrainerDirectory): Sc
     sessions_count: toInt(s.total_events),
     status: pickStr(s.status) ?? "",
     in_trial: truthy(s.in_trial),
-    registration_url: pickStr(s.__calc__registration_url) ?? "",
+    registration_url: rebuildRegistrationUrl(s),
+    billing_period_id: billingPeriodId(s.billing_periods_schedules),
     schedule_type: pickStr(s.schedule_type) ?? "",
     // api-v1 OMITS the key on classes with no additional lecturers (standard
     // add_sub_collection_item behaviour, like load_labels/load_segments), so
@@ -264,7 +278,49 @@ function projectSchedule(s: RawScheduleRecord, trainerDir: TrainerDirectory): Sc
   };
 }
 
-function toInt(v: number | string | undefined): number {
+const URL_ROW_PARAMS = new Set(["schedule_id", "course_id", "place_id"]);
+
+/**
+ * The stored `__calc__registration_url` is materialised once on create
+ * (api-v1 class/Schedule.php:2050-2056) as
+ * `{widget_url}?schedule_id=…&course_id=…&place_id={place}_{room}`
+ * (class/Materialization.php:579-623), but Schedule::update never refreshes it
+ * when course/place/room change (Schedule.php:2958-2973, 3082-3088, 3137-3138)
+ * and the hourly cron only fills NULL/incomplete URLs
+ * (__zooza_cron_materialize_60m.php:446-470). So keep only the widget base and
+ * any foreign params, and rebuild the three row params from the live columns.
+ * Empty stored URL → "" (not publicly bookable / no widget).
+ */
+export function rebuildRegistrationUrl(s: RawScheduleRecord): string {
+  const stored = pickStr(s.__calc__registration_url) ?? "";
+  if (!stored) return "";
+  const q = stored.indexOf("?");
+  const base = q === -1 ? stored : stored.slice(0, q);
+  if (!base) return "";
+  const kept =
+    q === -1
+      ? []
+      : stored
+          .slice(q + 1)
+          .split("&")
+          .filter((seg) => {
+            if (!seg) return false;
+            const key = new URLSearchParams(seg).keys().next().value;
+            return key === undefined || !URL_ROW_PARAMS.has(key);
+          });
+  const row = `schedule_id=${s.id}&course_id=${toInt(s.course_id)}&place_id=${toInt(s.place_id)}_${toInt(s.room_id)}`;
+  return `${base}?${[...kept, row].join("&")}`;
+}
+
+/** The class's billing period (term block) from the default-loaded
+ *  `billing_periods_schedules` sub-resource (api-v1 Collection/Schedules.php:50,
+ *  225-228). Handles object or array defensively; 0 when none. */
+function billingPeriodId(bps: RawScheduleRecord["billing_periods_schedules"]): number {
+  const row = Array.isArray(bps) ? bps[0] : bps;
+  return row ? toInt(row.billing_period_id) : 0;
+}
+
+function toInt(v: number | string | null | undefined): number {
   if (v === undefined || v === null || v === "") return 0;
   const n = typeof v === "number" ? v : Number.parseInt(v, 10);
   return Number.isFinite(n) ? n : 0;

@@ -127,6 +127,12 @@ import {
   runFindCourses,
 } from "./tools/find-courses.js";
 import {
+  findOrdersDescription,
+  findOrdersInputSchema,
+  findOrdersTitle,
+  runFindOrders,
+} from "./tools/find-orders.js";
+import {
   findEventsDescription,
   findEventsInputSchema,
   findEventsTitle,
@@ -252,6 +258,16 @@ import {
   paymentsSendInvoiceTitle,
   runPaymentsSendInvoice,
 } from "./tools/send-invoice.js";
+import {
+  classesAddShareLinkDescription,
+  classesAddShareLinkInputSchema,
+  classesAddShareLinkTitle,
+  classesListShareLinksDescription,
+  classesListShareLinksInputSchema,
+  classesListShareLinksTitle,
+  runClassesAddShareLink,
+  runClassesListShareLinks,
+} from "./tools/share-links.js";
 import {
   runTodosAdd,
   todosAddDescription,
@@ -597,6 +613,25 @@ function createMcpServer(
 
 
   server.registerTool(
+    "payments_find_orders",
+    {
+      title: findOrdersTitle,
+      description: findOrdersDescription,
+      inputSchema: findOrdersInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit(
+      "payments_find_orders",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runFindOrders(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
     "bookings_add_lead",
     {
       title: bookingsAddLeadTitle,
@@ -710,6 +745,56 @@ function createMcpServer(
         SCOPE_WRITE,
         ctx,
         resolveCompanyId(ctx, async (args) => runPaymentsSendInvoice(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // Dual-phase (ZMCP-20261009-005). One POST; the token is burned only after it
+  // lands — see share-links.ts.
+  server.registerTool(
+    "classes_add_share_link",
+    {
+      title: classesAddShareLinkTitle,
+      description: classesAddShareLinkDescription,
+      inputSchema: classesAddShareLinkInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+    },
+    audit(
+      "classes_add_share_link",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runClassesAddShareLink(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "classes_list_share_links",
+    {
+      title: classesListShareLinksTitle,
+      description: classesListShareLinksDescription,
+      inputSchema: classesListShareLinksInputSchema,
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    audit(
+      "classes_list_share_links",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runClassesListShareLinks(args, ctx.auth)),
       ),
     ),
   );

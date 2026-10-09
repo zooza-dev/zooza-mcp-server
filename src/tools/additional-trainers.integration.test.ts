@@ -89,7 +89,7 @@ describe("sessions_find_events — additional lecturers", () => {
     const [withT, withoutT] = res.events;
 
     expect(withT.additional_trainers).toEqual([
-      { trainer_id: 11031, trainer_name: "Martin Novák", role: "helper" },
+      { trainer_id: 11031, trainer_name: "Martin Novák", role: "helper", pay: null },
     ]);
     // The roster is a superset: Peter is eligible for the class but is NOT on
     // this session. Conflating the two is the whole trap this spec guards.
@@ -146,7 +146,7 @@ describe("sessions_find_events — additional lecturers", () => {
 
     const res = structured(await runFindEvents({ company_id: 1, schedule_id: 6835 }, AUTH));
     expect(res.events[0].additional_trainers).toEqual([
-      { trainer_id: 11031, trainer_name: null, role: "helper" },
+      { trainer_id: 11031, trainer_name: null, role: "helper", pay: null },
     ]);
   });
 

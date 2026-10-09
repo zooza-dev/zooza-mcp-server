@@ -81,6 +81,41 @@ export async function runFindTrainerRateTypes(
   }
 }
 
+/**
+ * Write-path guard for `trainer_rate_type_id` (spec ZMCP-20261009-007, issue #3).
+ * The app pairs a class with its pay rate by strict id match against this same
+ * GET /trainer_rates/types list (app pages/courses/schedules_detail.js:284-287,
+ * 993-1001), so an id outside the list saves fine but shows as "no rate" in the app.
+ * `0` / omitted = no rate and is always valid. A failed lookup never blocks the
+ * write — it comes back as a warning instead.
+ */
+export async function checkTrainerRateTypeId(
+  id: number | undefined,
+  auth: ZoozaAuth,
+): Promise<{ error?: string; warning?: string }> {
+  if (id === undefined || id === 0) return {};
+  let records: RawTrainerRateTypeRecord[];
+  try {
+    const raw = await zoozaFetch<
+      ApiListResponse<RawTrainerRateTypeRecord> | RawTrainerRateTypeRecord[]
+    >("/trainer_rates/types", {}, auth);
+    records = unwrapList<RawTrainerRateTypeRecord>(raw).records;
+  } catch (error) {
+    const why = error instanceof ZoozaApiError ? `api-v1 ${error.status}` : "lookup failed";
+    return {
+      warning: `Could not verify trainer_rate_type_id ${id} against the company's pay rates (${why}).`,
+    };
+  }
+  if (records.some((r) => Number(r.id) === id)) return {};
+  const valid = records.map((r) => `${r.id} (${r.name})`).join(", ");
+  return {
+    error:
+      `trainer_rate_type_id ${id} is not one of this company's trainer pay rates, so the app would show the ` +
+      `class with no rate. ${valid ? `Valid ids: ${valid}.` : "The company has no pay rates — use 0 (none)."} ` +
+      `Resolve it with classes_find_resource kind:"trainer_rate_type".`,
+  };
+}
+
 function projectRateType(r: RawTrainerRateTypeRecord): TrainerRateTypeMatch {
   return {
     id: r.id,

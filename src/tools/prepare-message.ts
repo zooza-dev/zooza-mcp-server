@@ -11,12 +11,21 @@ const audienceSchema = z
   .object({
     course_id: z.number().int().positive().optional().describe("Everyone registered in this course/programme."),
     schedule_id: z.number().int().positive().optional().describe("Everyone in this class (schedule)."),
+    billing_period_id: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "Everyone booked into this billing period (term block). ONE id — classes_find_resource kind:'billing_period'. " +
+          "Combine with course_id/schedule_id to narrow; several periods = one message each.",
+      ),
     registration_id: z
       .union([z.number().int().positive(), z.array(z.number().int().positive()).nonempty()])
       .optional()
       .describe(
-        "One booking, or a LIST of bookings — pass a single id or an array (e.g. the registration_ids from a " +
-          "bookings_find result set, so you can message an ad-hoc cohort like the unpaid roster without a saved segment).",
+        "One booking id or a LIST (e.g. a bookings_find result, to message an ad-hoc cohort like the unpaid roster " +
+          "without a saved segment).",
       ),
     user_id: z.number().int().positive().optional().describe("One client (all their registrations)."),
     segment_id: z.number().int().positive().optional().describe("A saved registration segment."),
@@ -24,20 +33,16 @@ const audienceSchema = z
       .boolean()
       .optional()
       .describe(
-        "Broadcast to the ENTIRE company — every booking, one email per client. The only audience needing no id. " +
-          "ONLY for genuinely company-wide sends. For a NAMED subset — the unpaid roster, the waitlist, one class — do " +
-          "NOT use this; resolve the cohort with bookings_find and pass its registration_id list to registration_id " +
-          "instead. This can reach a LOT of people, so ALWAYS confirm scope with the operator first, and make the " +
-          "all-vs-active choice explicit (see active_only) — do NOT silently email everyone. Pair with active_only.",
+        "Broadcast to the ENTIRE company, one email per client; no id needed. ONLY for genuinely company-wide sends — " +
+          "for a NAMED subset (unpaid roster, waitlist, one class) resolve it with bookings_find and use registration_id. " +
+          "ALWAYS confirm scope with the operator first; pair with active_only.",
       ),
     active_only: z
       .boolean()
       .optional()
       .describe(
-        "Only meaningful with whole_company. true (DEFAULT) = only clients with an ACTIVE (registered) booking — " +
-          "the safe choice. false = literally EVERYONE incl. cancelled/inactive/past clients (spammy) — use only when " +
-          "the operator has explicitly asked for that. When whole_company is set, ASK the operator which they mean and " +
-          "state plainly that the default skips cancelled/inactive people.",
+        "With whole_company only. true (DEFAULT) = clients with an ACTIVE booking. false = EVERYONE incl. " +
+          "cancelled/inactive/past (spammy) — only if the operator explicitly asks. Ask which they mean.",
       ),
     labels: z
       .array(z.number().int().positive())
@@ -57,8 +62,7 @@ const audienceSchema = z
       .boolean()
       .optional()
       .describe(
-        "Default false — the audience already includes clients marked inactive. true → send ONLY to clients " +
-          "marked inactive (former clients); everyone else is dropped.",
+        "true → ONLY clients marked inactive (former clients). Default already includes them.",
       ),
   })
   .describe("Who receives the message. At least one targeting field is required.");
@@ -108,6 +112,7 @@ type AudienceInput = z.infer<typeof audienceSchema>;
 const TARGETING_FIELDS = [
   "course_id",
   "schedule_id",
+  "billing_period_id",
   "registration_id",
   "user_id",
   "segment_id",
@@ -133,6 +138,9 @@ export function buildAudienceParams(audience: AudienceInput): Record<string, str
   const params: Record<string, string | number> = {};
   if (audience.course_id !== undefined) params.course_id = audience.course_id;
   if (audience.schedule_id !== undefined) params.schedule_id = audience.schedule_id;
+  // ONE scalar only: api-v1 takes `r.billing_period_id = :id` (common.php:8794-8797); a `|` list is silently
+  // dropped and matches the whole company, so the schema forbids arrays.
+  if (audience.billing_period_id !== undefined) params.billing_period_id = audience.billing_period_id;
   if (audience.registration_id !== undefined) {
     // api-v1 build_advanced_query explodes a `|`-joined registration_id into
     // `r.id IN (...)` (common.php:7205-7218) — same pattern as `exclude`. A single
@@ -222,7 +230,7 @@ export async function runPrepareMessage(
 
   if (!hasTargeting(input.audience)) {
     return errorResult(
-      "audience must contain at least one of: course_id, schedule_id, registration_id, user_id, segment_id, labels, " +
+      "audience must contain at least one of: course_id, schedule_id, billing_period_id, registration_id, user_id, segment_id, labels, " +
         "or whole_company:true for a company-wide broadcast. Ask the operator who the message is for — a whole " +
         "programme, one class, a single client, or everyone — then resolve the id: classes_find_courses → course_id, " +
         "classes_find_classes → schedule_id, sessions_find_events → event_id.",

@@ -233,6 +233,11 @@ export const copyBookingDescription =
   "— Zooza's per-session figure is `target_unit_price_per_session`, shown separately, and quoting it as the " +
   "price is how a booking ends up quoted ~20x too cheap. Read `target_will_owe_total` to the operator: it is " +
   "the class price PLUS the target class's registration fee, which Zooza charges on top of it.\n\n" +
+  "ANOTHER PROGRAMME IS ALLOWED. The target class may belong to a different programme than the booking " +
+  "(e.g. a free trial moving into a paid course). The preview then carries a `different_programme` warning: " +
+  "the booking is priced by the TARGET programme, no instalment plan is applied (payments_add_plan " +
+  "afterwards), and the old programme's booking-form answers are carried over — the target programme's own " +
+  "required questions are NOT asked.\n\n" +
   "SIMPLE CASE ONLY. This tool cannot set up instalment plans, pick specific term blocks, or set a custom " +
   "amount owed. If the operator needs any of those, do not improvise with other tools — tell them to use " +
   "the Copy/Transfer wizard in the Zooza admin app (open the booking, then Transfer or Copy booking).";
@@ -426,11 +431,20 @@ async function runPreview(
   // and the preflight does not expose it — `target_registration_fee` lives only inside
   // the internal price array (registrations.php:4271). Fetch it so the operator
   // approves the amount that will actually land on the booking. Only needed when this
-  // tool is about to price anything; `do_not_change` charges nothing.
-  const fee =
-    input.payments === "from_target_class"
-      ? await fetchTargetFee(target_schedule_id, callAuth)
-      : { fee: null as number | null, unit_price: null as number | null };
+  // tool is about to price anything; `do_not_change` charges nothing. The same schedule
+  // GET yields the target `course_id` for the cross-programme check below, so it is
+  // made in both cases (one call, never two).
+  const priced = input.payments === "from_target_class";
+  const fee = await fetchTargetFee(target_schedule_id, callAuth, priced);
+
+  // Cross-programme copy/move (#28). api-v1's preflight never compares courses
+  // (registrations.php:4327-4369), so the MCP does: the target course comes from the
+  // schedule GET above, the source course from the booking. If either cannot be read
+  // the check stays silent rather than guessing.
+  const currentCourseId = await fetchBookingCourseId(registration_id, callAuth);
+  if (currentCourseId !== null && fee.course_id !== null && currentCourseId !== fee.course_id) {
+    warnings.push(...differentProgrammeWarnings(props, action, input.payments!, fee));
+  }
 
   const money = buildMoney(props, action, input.payments!, fee);
   const summary = {
@@ -540,11 +554,14 @@ function buildMoney(
  * (class/Schedule.php:839-851): the schedule's own fee, falling back to the course's
  * when the schedule's is 0. Returns nulls rather than throwing — a preview that cannot
  * read the fee says so in `money.result` instead of quietly implying there is none.
+ * Also returns the schedule's `course_id` (for the cross-programme check); the fee
+ * lookup is skipped when `needFee` is false.
  */
 async function fetchTargetFee(
   scheduleId: number,
   auth: ZoozaAuth,
-): Promise<{ fee: number | null; unit_price: number | null }> {
+  needFee: boolean,
+): Promise<TargetInfo> {
   interface ScheduleRow {
     course_id?: unknown;
     registration_fee?: unknown;
@@ -554,20 +571,86 @@ async function fetchTargetFee(
   try {
     schedule = await zoozaFetch<ScheduleRow>(`/schedules/${scheduleId}`, {}, auth);
   } catch {
-    return { fee: null, unit_price: null };
+    return { fee: null, unit_price: null, course_id: null };
   }
+  const course_id = numOrNull(schedule?.course_id);
+  if (!needFee) return { fee: null, unit_price: null, course_id };
   const unit_price = numOrNull(schedule?.unit_price);
   const own = numOrNull(schedule?.registration_fee);
-  if (own !== null && own !== 0) return { fee: own, unit_price };
+  if (own !== null && own !== 0) return { fee: own, unit_price, course_id };
 
-  const courseId = numOrNull(schedule?.course_id);
-  if (courseId === null) return { fee: own, unit_price };
+  if (course_id === null) return { fee: own, unit_price, course_id };
   try {
-    const course = await zoozaFetch<{ registration_fee?: unknown }>(`/courses/${courseId}`, {}, auth);
-    return { fee: numOrNull(course?.registration_fee) ?? own, unit_price };
+    const course = await zoozaFetch<{ registration_fee?: unknown }>(`/courses/${course_id}`, {}, auth);
+    return { fee: numOrNull(course?.registration_fee) ?? own, unit_price, course_id };
   } catch {
-    return { fee: own, unit_price };
+    return { fee: own, unit_price, course_id };
   }
+}
+
+interface TargetInfo {
+  fee: number | null;
+  unit_price: number | null;
+  course_id: number | null;
+}
+
+/** The booking's programme. Null when the booking cannot be read — the cross-programme
+ *  check then stays silent (the preflight already vouched the booking exists). */
+async function fetchBookingCourseId(registrationId: number, auth: ZoozaAuth): Promise<number | null> {
+  try {
+    const raw = await zoozaFetch<{ data?: unknown } | unknown>(`/registrations/${registrationId}`, {}, auth);
+    const row = (raw as { data?: unknown })?.data ?? raw;
+    const first = Array.isArray(row) ? row[0] : row;
+    return numOrNull((first as { course_id?: unknown } | undefined)?.course_id);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Warnings for a target class in a DIFFERENT programme than the booking (#28).
+ * Facts (api-v1/registrations.php): price comes from the target programme
+ * (`price_resolution` default `target`, :5350); no payment plan is applied unless
+ * `payment_schedule` is in the POST body (:5602-5658), which this tool never sends;
+ * booking-form answers are copied as-is (:5594), so the target programme's required
+ * questions are not asked.
+ */
+function differentProgrammeWarnings(
+  props: Map<string, unknown>,
+  action: "copy" | "move",
+  payments: "from_target_class" | "do_not_change",
+  target: TargetInfo,
+): string[] {
+  const out: string[] = [];
+  const targetPrice = numOrNull(props.get("target_price"));
+  const priceText =
+    targetPrice === null
+      ? "target price not returned by Zooza"
+      : `target class price ${targetPrice}` +
+        (payments === "from_target_class" && target.fee ? ` plus a ${target.fee} registration fee` : "");
+  out.push(
+    "different_programme: the target class belongs to a DIFFERENT programme than this booking " +
+      `(e.g. trial to paid course). ${
+        payments === "from_target_class"
+          ? `It is priced by the target programme (${priceText}).`
+          : `Pricing would come from the target programme (${priceText}), but payments: do_not_change leaves it unpriced.`
+      }${
+        action === "move" && payments === "do_not_change"
+          ? ""
+          : " No instalment plan is applied — if the target programme bills in instalments, add one afterwards " +
+            "with payments_add_plan."
+      } The old programme's booking-form answers are carried over as they are; the ` +
+      "target programme's own required questions are NOT asked, so check them in the Zooza app. This does " +
+      "not mark a trial as converted.",
+  );
+  if (action === "move" && payments === "do_not_change") {
+    out.push(
+      "different_programme: this is a MOVE across programmes with payments: do_not_change — the old " +
+        "programme's payments and payment schedule stay on the booking unchanged, now attached to the " +
+        "target programme's class. Confirm with the operator that this is intended.",
+    );
+  }
+  return out;
 }
 
 function freePlaces(props: Map<string, unknown>): number | null {

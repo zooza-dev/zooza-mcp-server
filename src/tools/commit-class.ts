@@ -3,6 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { companyIdSchema } from "./common.js";
+import { checkTrainerRateTypeId } from "./find-trainer-rate-types.js";
 import { fetchCoursePaymentTemplates } from "./preview-schedule.js";
 import type { ResolvedSchedule, ScheduleType } from "./types.js";
 
@@ -45,12 +46,12 @@ const scheduleShape = z.object({
     .describe("Parent programme (course) this class belongs to. Resolve with classes_find_courses."),
   course_name: z
     .string()
-    .describe("Display name of the parent programme, carried through from classes_preview_schedule for labelling."),
+    .describe("Programme name, from classes_preview_schedule."),
   name: z
     .string()
     .optional()
     .describe(
-      "OPTIONAL custom class name — omit unless the user explicitly asked for one. When blank, api-v1 auto-renders `{course_name} {class_name} {session_dates}` for end users.",
+      "Custom class name — omit unless the user explicitly asked for one (api-v1 auto-renders a label).",
     ),
   place_id: z
     .number()
@@ -59,7 +60,7 @@ const scheduleShape = z.object({
     .describe("Venue (place) where the class runs. Resolve with classes_find_places."),
   place_name: z
     .string()
-    .describe("Display name of the venue, carried through from classes_preview_schedule for labelling."),
+    .describe("Venue name, from classes_preview_schedule."),
   room_id: z
     .number()
     .int()
@@ -91,6 +92,13 @@ const scheduleShape = z.object({
   online_registration: z
     .boolean()
     .describe("Whether clients can self-register for this class online — true publishes it on the public website."),
+  trial_enabled: z
+    .boolean()
+    .optional()
+    .describe(
+      "Whether this class accepts trial lessons. Only effective when the programme allows trials " +
+        "(classes_update_course_settings). Omit → programme default.",
+    ),
   schedule_type: z
     .enum(SCHEDULE_TYPES)
     .describe(
@@ -107,25 +115,24 @@ const scheduleShape = z.object({
   registration_fee: z
     .number()
     .nonnegative()
-    .describe("One-time enrollment fee charged on top of the class price."),
+    .describe("One-time enrollment fee on top of the class price."),
   billable_events: z
     .number()
     .nonnegative()
-    .describe("Number of billable sessions used to compute what clients owe."),
+    .describe("Billable sessions — what clients owe is computed from them."),
   billing_period_id: z
     .number()
     .int()
     .positive()
     .optional()
-    .describe("Term block (billing period) this class belongs to. Resolve with classes_find_billing_periods."),
+    .describe("Term block (billing period) of this class. Resolve via classes_find_resource kind:'billing_period'."),
   total_price: z
     .number()
     .nonnegative()
     .optional()
     .describe(
-      "The TOTAL price for the whole run, when the programme is priced in instalments. Pass it through from " +
-        "classes_preview_schedule; unit_price is then derived here as total / billable sessions. Do NOT also pass " +
-        "a non-zero unit_price — the operator quoted one number, not two.",
+      "TOTAL price for the whole run (instalment-priced programmes), passed through from classes_preview_schedule; " +
+        "unit_price is derived as total / billable sessions. Do NOT also pass a non-zero unit_price.",
     ),
 });
 
@@ -150,7 +157,7 @@ const eventShape = z.object({
     .int()
     .positive()
     .optional()
-    .describe("Optional per-session instructor override. Resolve with trainers_find; defaults to the schedule's trainer_id when omitted."),
+    .describe("Per-session instructor override; omit → the schedule's trainer_id. Resolve via classes_find_resource kind:'trainer'."),
 });
 
 export const commitClassInputSchema = {
@@ -167,7 +174,7 @@ export const commitClassInputSchema = {
     .array(z.number().int().positive())
     .optional()
     .describe(
-      "Ids of the payment schedule templates to attach to the class. Omit to attach every template the course offers (the same default classes_preview_schedule marks selected_by_default). Pass the ids explicitly to attach a subset.",
+      "Payment schedule template ids to attach. Omit → every template the course offers (classes_preview_schedule's selected_by_default); pass ids to attach a subset.",
     ),
 };
 
@@ -252,6 +259,13 @@ export async function runCommitClass(
     );
   }
 
+  // Before any write: an id outside the company's pay rates saves, but the app shows
+  // the class with no rate (issue #3).
+  const warnings: string[] = [];
+  const rateCheck = await checkTrainerRateTypeId(schedule.trainer_rate_type_id, callAuth);
+  if (rateCheck.error) return errorResult(rateCheck.error);
+  if (rateCheck.warning) warnings.push(rateCheck.warning);
+
   // Omitted = the course's full template set, the same default classes_preview_schedule
   // marks selected_by_default (preview-schedule.ts selectedTemplateIds). Sending [] instead
   // created classes with no payment plans at all — they billed nothing, silently (issue #25).
@@ -296,97 +310,161 @@ export async function runCommitClass(
   const scheduleId = extractScheduleId(scheduleResponse);
   if (!scheduleId) {
     return errorResult(
-      "api-v1 returned a schedule shape with no id field — cannot continue. Inspect the api-v1 response.",
+      "POST /v1/schedules succeeded but api-v1 returned no schedule id, so the class may already exist. Do NOT call classes_commit_class again — check for it with classes_find_classes.",
     );
   }
   const urls = extractScheduleUrls(scheduleResponse);
 
-  let createdEventIds: number[] = [];
-  if (schedule.schedule_type === "fixed_period" && input.events.length > 0) {
-    const eventsPayload = {
-      events: input.events.map((e) => ({
-        schedule_id: scheduleId,
-        course_id: schedule.course_id,
-        trainer_id: e.trainer_id ?? schedule.trainer_id,
-        trainer_rate_type_id: schedule.trainer_rate_type_id,
-        place_id: schedule.place_id,
-        room_id: schedule.room_id,
-        date_string: e.date_string,
-        time_string: e.time_minutes,
-        duration: e.duration,
-        // Sessions are billable. This is NOT cosmetic: api-v1 only applies the
-        // `billable = 1` filter when billable_events > 0 (Schedule::get_remaining_events,
-        // Schedule.php:1194-1198, gated by billable_set from get_billable_events_settings).
-        // Creating non-billable events while ALSO setting billable_events > 0 makes that
-        // filter match nothing, so remaining_events = 0 and the class prices at ZERO —
-        // silently. That combination shipped and produced a EUR 0 course (schedule 7683).
-        billable: true,
-      })),
-    };
-
-    let raw: CreatedEventResponse[] | PaginatedEventsResponse;
+  // POST /schedules ignores in_trial (not in Zooza\Resource\Schedule::insert_fields(),
+  // Resource/Schedule.php:269-297) and post_create_setup() may switch it ON from the
+  // programme's auto-add setting (class/Schedule.php:2035-2037). Only PUT
+  // /schedules/{id} sets it (class/Schedule.php:2875-2884), so apply it as a follow-up
+  // write. The class already exists here — a failure is a warning, never an error.
+  if (schedule.trial_enabled !== undefined) {
     try {
-      raw = await zoozaFetch<CreatedEventResponse[] | PaginatedEventsResponse>(
-        "/events",
-        { method: "POST", body: eventsPayload },
+      await zoozaFetch<unknown>(
+        `/schedules/${scheduleId}`,
+        { method: "PUT", body: { in_trial: schedule.trial_enabled } },
         callAuth,
       );
     } catch (error) {
-      if (error instanceof ZoozaApiError) {
-        return errorResult(
-          `Schedule ${scheduleId} was created, but POST /v1/events failed (status ${error.status}): ${error.humanMessage}. The schedule shell exists with no events — either retry the events POST or DELETE /v1/schedules/${scheduleId}.`,
-        );
-      }
-      throw error;
-    }
-    createdEventIds = extractEventIds(raw);
-    if (createdEventIds.length === 0 && input.events.length > 0) {
-      return errorResult(
-        `Schedule ${scheduleId} was created, but POST /v1/events returned no event ids in any recognised shape: ${JSON.stringify(raw).slice(0, 300)}.`,
-      );
-    }
-    if (createdEventIds.length !== input.events.length) {
-      return errorResult(
-        `api-v1 silently skipped ${input.events.length - createdEventIds.length} of ${input.events.length} sessions on POST /v1/events. Schedule ${scheduleId} exists with a partial session set (created ids: ${createdEventIds.join(", ")}). Inspect the schedule and either fix the inputs or use create_event for the missing dates.`,
+      const why = error instanceof ZoozaApiError ? `api-v1 ${error.status}: ${error.humanMessage}` : String(error);
+      warnings.push(
+        `Class ${scheduleId} was created, but setting trial lessons to ${schedule.trial_enabled ? "on" : "off"} failed (${why}). ` +
+          "Set it with classes_update (changes.trial_enabled) — do NOT commit the class again.",
       );
     }
   }
 
+  let createdEventIds: number[] = [];
+  // Everything below runs AFTER the class exists. A throw here must never surface as a
+  // tool error: the model would retry and create a duplicate class (issue #7).
+  try {
+    if (schedule.schedule_type === "fixed_period" && input.events.length > 0) {
+      const eventsPayload = {
+        events: input.events.map((e) => ({
+          schedule_id: scheduleId,
+          course_id: schedule.course_id,
+          trainer_id: e.trainer_id ?? schedule.trainer_id,
+          trainer_rate_type_id: schedule.trainer_rate_type_id,
+          place_id: schedule.place_id,
+          room_id: schedule.room_id,
+          date_string: e.date_string,
+          time_string: e.time_minutes,
+          duration: e.duration,
+          // Sessions are billable. This is NOT cosmetic: api-v1 only applies the
+          // `billable = 1` filter when billable_events > 0 (Schedule::get_remaining_events,
+          // Schedule.php:1194-1198, gated by billable_set from get_billable_events_settings).
+          // Creating non-billable events while ALSO setting billable_events > 0 makes that
+          // filter match nothing, so remaining_events = 0 and the class prices at ZERO —
+          // silently. That combination shipped and produced a EUR 0 course (schedule 7683).
+          billable: true,
+        })),
+      };
+
+      let raw: CreatedEventResponse[] | PaginatedEventsResponse;
+      try {
+        raw = await zoozaFetch<CreatedEventResponse[] | PaginatedEventsResponse>(
+          "/events",
+          { method: "POST", body: eventsPayload },
+          callAuth,
+        );
+      } catch (error) {
+        if (error instanceof ZoozaApiError) {
+          return errorResult(
+            `Schedule ${scheduleId} was created, but POST /v1/events failed (status ${error.status}): ${error.humanMessage}. The schedule shell exists with no events — either retry the events POST or DELETE /v1/schedules/${scheduleId}.${NO_RETRY}`,
+          );
+        }
+        throw error;
+      }
+      createdEventIds = extractEventIds(raw);
+      if (raw === null || raw === undefined) {
+        return partialSuccess(
+          scheduleId,
+          urls,
+          createdEventIds,
+          "POST /v1/events returned an empty response, so the session ids are unknown",
+        );
+      }
+      if (createdEventIds.length === 0 && input.events.length > 0) {
+        return errorResult(
+          `Schedule ${scheduleId} was created, but POST /v1/events returned no event ids in any recognised shape: ${JSON.stringify(raw).slice(0, 300)}.${NO_RETRY}`,
+        );
+      }
+      if (createdEventIds.length !== input.events.length) {
+        return errorResult(
+          `api-v1 silently skipped ${input.events.length - createdEventIds.length} of ${input.events.length} sessions on POST /v1/events. Schedule ${scheduleId} exists with a partial session set (created ids: ${createdEventIds.join(", ")}). Inspect the schedule and either fix the inputs or use create_event for the missing dates.${NO_RETRY}`,
+        );
+      }
+    }
+
+    const result = {
+      schedule_id: scheduleId,
+      registration_url: urls.registration_url,
+      registration_url_active: urls.registration_url_active,
+      admin_url: urls.admin_url,
+      attached_payment_template_ids: paymentTemplateIds,
+      created_event_ids: createdEventIds,
+      ...(derived
+        ? {
+            pricing: {
+              total_price: schedule.total_price,
+              billable_sessions: derived.divisor,
+              unit_price: derived.unit_price,
+              note: `Zooza charges per session, so the total ${schedule.total_price} was divided across ${derived.divisor} billable session(s) to give unit_price ${derived.unit_price}. Tell the operator the TOTAL, not the per-session figure.`,
+            },
+          }
+        : {}),
+      warnings: [
+        ...warnings,
+        ...billableWarnings(schedule.billable_events, createdEventIds.length),
+        ...(paymentTemplateIds.length === 0
+          ? [
+              "No payment templates were attached — clients will see no payment schedule and the class bills nothing. Attach templates to the class in the Zooza admin, or check the programme's templates with setup_update_course_templates.",
+            ]
+          : []),
+        ...(derived && derived.unit_price * derived.divisor !== schedule.total_price
+          ? [
+              `Rounding: ${derived.unit_price} x ${derived.divisor} = ${Math.round(derived.unit_price * derived.divisor * 100) / 100}, not exactly ${schedule.total_price}. Zooza's payment plan rounding settles the difference across instalments.`,
+            ]
+          : []),
+      ],
+    };
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(result) }],
+    };
+  } catch (error) {
+    return partialSuccess(
+      scheduleId,
+      urls,
+      createdEventIds,
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+// Appended to every post-write error: the class already exists, so a retry duplicates it (issue #7).
+const NO_RETRY =
+  " The class already exists — do NOT call classes_commit_class again.";
+
+function partialSuccess(
+  scheduleId: number,
+  urls: ReturnType<typeof extractScheduleUrls>,
+  eventIds: number[],
+  reason: string,
+): { content: Array<{ type: "text"; text: string }> } {
   const result = {
     schedule_id: scheduleId,
     registration_url: urls.registration_url,
     registration_url_active: urls.registration_url_active,
     admin_url: urls.admin_url,
-    attached_payment_template_ids: paymentTemplateIds,
-    created_event_ids: createdEventIds,
-    ...(derived
-      ? {
-          pricing: {
-            total_price: schedule.total_price,
-            billable_sessions: derived.divisor,
-            unit_price: derived.unit_price,
-            note: `Zooza charges per session, so the total ${schedule.total_price} was divided across ${derived.divisor} billable session(s) to give unit_price ${derived.unit_price}. Tell the operator the TOTAL, not the per-session figure.`,
-          },
-        }
-      : {}),
+    created_event_ids: eventIds,
     warnings: [
-      ...billableWarnings(schedule.billable_events, createdEventIds.length),
-      ...(paymentTemplateIds.length === 0
-        ? [
-            "No payment templates were attached — clients will see no payment schedule and the class bills nothing. Attach templates to the class in the Zooza admin, or check the programme's templates with setup_update_course_templates.",
-          ]
-        : []),
-      ...(derived && derived.unit_price * derived.divisor !== schedule.total_price
-        ? [
-            `Rounding: ${derived.unit_price} x ${derived.divisor} = ${Math.round(derived.unit_price * derived.divisor * 100) / 100}, not exactly ${schedule.total_price}. Zooza's payment plan rounding settles the difference across instalments.`,
-          ]
-        : []),
+      `Class ${scheduleId} was created, but reading the events step failed: ${reason}. Do NOT call classes_commit_class again — check the class with classes_find_classes / sessions_find_events.`,
     ],
   };
-
-  return {
-    content: [{ type: "text", text: JSON.stringify(result) }],
-  };
+  return { content: [{ type: "text", text: JSON.stringify(result) }] };
 }
 
 function buildSchedulePayload(
@@ -424,7 +502,8 @@ function buildSchedulePayload(
   return payload;
 }
 
-function extractScheduleId(raw: CreatedScheduleResponse): number | null {
+function extractScheduleId(raw: CreatedScheduleResponse | null | undefined): number | null {
+  if (!raw || typeof raw !== "object") return null;
   const candidates = [raw.id, raw.data?.id];
   for (const c of candidates) {
     if (typeof c === "number") return c;
@@ -436,12 +515,12 @@ function extractScheduleId(raw: CreatedScheduleResponse): number | null {
   return null;
 }
 
-function extractScheduleUrls(raw: CreatedScheduleResponse): {
+function extractScheduleUrls(raw: CreatedScheduleResponse | null | undefined): {
   registration_url: string | null;
   admin_url: string | null;
   registration_url_active: boolean;
 } {
-  const inner = raw.data ?? raw;
+  const inner = raw?.data ?? raw ?? {};
   return {
     registration_url: inner.__calc__registration_url ?? null,
     admin_url: inner.__view__admin_url ?? null,
@@ -449,9 +528,12 @@ function extractScheduleUrls(raw: CreatedScheduleResponse): {
   };
 }
 
-function extractEventIds(
-  raw: CreatedEventResponse[] | PaginatedEventsResponse,
+export function extractEventIds(
+  raw: CreatedEventResponse[] | PaginatedEventsResponse | null | undefined,
 ): number[] {
+  // zoozaFetch yields undefined for an empty body and null for a literal `null` body
+  // (zooza.ts:171-173); the schedule already exists by the time this runs.
+  if (raw === null || raw === undefined || typeof raw !== "object") return [];
   if (Array.isArray(raw)) {
     return raw
       .map((e) => e.id)

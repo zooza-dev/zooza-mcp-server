@@ -3,6 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { companyIdSchema } from "./common.js";
+import { checkTrainerRateTypeId } from "./find-trainer-rate-types.js";
 import type {
   AvailablePaymentTemplate,
   CourseDto,
@@ -79,6 +80,10 @@ export const previewScheduleInputSchema = {
     .boolean()
     .optional()
     .describe("Whether clients can self-register for this class online — true publishes it on the public website. Defaults to true."),
+  trial_enabled: z
+    .boolean()
+    .optional()
+    .describe("Whether this class accepts trial lessons. Omit → programme default."),
   unit_price: z
     .number()
     .nonnegative()
@@ -160,6 +165,9 @@ export async function runPreviewSchedule(
     );
   }
 
+  const rateCheck = await checkTrainerRateTypeId(input.trainer_rate_type_id, callAuth);
+  if (rateCheck.error) return errorResult(rateCheck.error);
+
   let templates: PaymentScheduleTemplateDto[];
   try {
     templates = await fetchCoursePaymentTemplates(input.course_id, callAuth);
@@ -180,6 +188,7 @@ export async function runPreviewSchedule(
     selected_by_default: selectedTemplateIds.includes(t.id),
   }));
   const warnings = buildWarnings(input, course, place, schedule);
+  if (rateCheck.warning) warnings.push(rateCheck.warning);
 
   const result: PreviewScheduleResult = {
     schedule,
@@ -253,6 +262,7 @@ function resolveSchedule(
     registration_fee: input.registration_fee ?? toNumber(course.registration_fee),
     billable_events: input.billable_events ?? toNumber(course.billable_events),
     billing_period_id: input.billing_period_id,
+    ...(input.trial_enabled !== undefined ? { trial_enabled: input.trial_enabled } : {}),
     // Instalment courses price from unit_price x sessions, but the session count
     // does not exist yet at course-creation time — so classes_add_course records the
     // operator's total in `price` and leaves unit_price at 0. Carry that total so
@@ -317,6 +327,13 @@ function buildWarnings(
   if (input.online_registration === undefined) {
     warnings.push(
       "Defaulted online_registration to true — the class will be published on your public website. Confirm with the user; pass online_registration: false to keep it private.",
+    );
+  }
+  // The app forces the class trial toggle off when the programme offers no trials
+  // (app pages/courses/schedules_detail.js:682-688).
+  if (input.trial_enabled === true && course.trial_type === "none") {
+    warnings.push(
+      "trial_enabled: true has no effect — this programme has trials switched off (trial_type \"none\"). Set a trial type with classes_update_course_settings first.",
     );
   }
   if (input.billing_period_id === undefined) {

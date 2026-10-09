@@ -5,6 +5,7 @@ import {
   extractMergeTags,
   findUnknownTags,
   hasTargeting,
+  prepareMessageInputSchema,
 } from "./prepare-message.js";
 
 describe("hasTargeting", () => {
@@ -142,5 +143,20 @@ describe("projectTemplates", () => {
   it("derives valid types from the live records (never hardcoded)", () => {
     const { validTypes } = projectTemplates(RECORDS, { type: "nope" });
     expect(validTypes).toEqual(["registration_cancellation", "retention_notification"]);
+  });
+});
+
+describe("audience.billing_period_id", () => {
+  it("maps to a scalar param", () => {
+    expect(buildAudienceParams({ billing_period_id: 371 })).toEqual({ billing_period_id: 371 });
+  });
+  it("counts as targeting", () => {
+    expect(hasTargeting({ billing_period_id: 1 })).toBe(true);
+  });
+  it("rejects arrays and strings", () => {
+    const s = prepareMessageInputSchema.audience;
+    expect(s.safeParse({ billing_period_id: [371, 433] }).success).toBe(false);
+    expect(s.safeParse({ billing_period_id: "371|433" }).success).toBe(false);
+    expect(s.safeParse({ billing_period_id: 371 }).success).toBe(true);
   });
 });

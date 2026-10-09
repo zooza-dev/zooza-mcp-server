@@ -22,6 +22,8 @@ export interface ResolvedSchedule {
   registration_fee: number;
   billable_events: number;
   billing_period_id?: number;
+  /** schedules.in_trial, applied by classes_commit_class as a follow-up PUT. Absent = programme default. */
+  trial_enabled?: boolean;
   /**
    * The operator's TOTAL for the whole run, carried from the course when it is
    * priced in instalments. classes_commit_class divides it by the billable session
@@ -116,6 +118,8 @@ export interface CourseDto {
   price?: number | string;
   registration_fee?: number | string;
   billable_events?: number | string;
+  /** "none" = the programme offers no trial lessons. */
+  trial_type?: string;
 }
 
 export interface PlaceDto {
@@ -238,6 +242,8 @@ export interface ScheduleMatch {
   /** Public per-schedule booking URL (`__calc__registration_url`); `""` when the
    *  class isn't publicly bookable or the company has no registration widget. */
   registration_url: string;
+  /** Billing period (term block) the class belongs to; `0` when none. */
+  billing_period_id: number;
   /** Schedule kind — e.g. `lead_collection` (a lead pipeline) or `fixed_period`;
    *  `""` when unset. Lets a caller spot a lead-collection schedule. */
   schedule_type: string;
@@ -284,6 +290,12 @@ export interface RawScheduleRecord {
    *  have none. Note load_trainer (singular) is a different flag for the MAIN
    *  instructor above; both are wanted, neither replaces the other. */
   trainers_schedules?: Array<{ trainer_id?: number; role?: string }>;
+  /** Loaded by default (load_billing_period, api-v1 Collection/Schedules.php:50,225-228). */
+  billing_periods_schedules?: BillingPeriodScheduleLink | BillingPeriodScheduleLink[] | null;
+}
+
+interface BillingPeriodScheduleLink {
+  billing_period_id?: number | string | null;
 }
 
 /** Curated booking row for bookings_find (default mode) — see ZMCP-20260615-002.
@@ -422,6 +434,38 @@ export interface AdditionalTrainer {
   trainer_id: number;
   trainer_name: string | null;
   role: string | null;
+  /** sessions_find_events only (session assignments, never the class roster):
+   *  this trainer's pay on the session — see trainer-pay.ts. null when the
+   *  session has no rate type or rates could not be read. */
+  pay?: TrainerPay | null;
+}
+
+/** One trainer's pay on one session, as api-v1's trainer report computes it. */
+export interface TrainerPay {
+  /** The trainer's own trainer_rates.unit_amount for the session's rate type;
+   *  null when they have no rate for it (the report then pays 0). */
+  unit_amount: number | null;
+  amount: number;
+}
+
+/** Session-level pay inputs on a sessions_find_events row. */
+export interface EventPay {
+  rate_type_id: number;
+  /** Rate type kind from /v1/trainer_rates/types: 'per_minute' | 'fixed'. */
+  rate_type: string | null;
+  /** 0..1 fraction (1 = full rate; cancelled sessions are zeroed by api-v1). */
+  payout_percentage: number;
+  /** Minutes the per-minute rate multiplies: the session's duration, else the class's. */
+  minutes: number;
+  main_trainer: TrainerPay | null;
+}
+
+/** Raw /v1/trainer_rates row — one trainer's amount for one rate type. */
+export interface RawTrainerRateRecord {
+  id?: number;
+  trainer_id?: number;
+  rate_id?: number;
+  unit_amount?: number | string;
 }
 
 /** Curated match shape for classes_find_resource (kind:'place') — see ZMCP-20260523-002. */
@@ -518,6 +562,10 @@ export interface EventMatch {
    *  (trainers_schedules) — not necessarily on this session. Kept as a separate
    *  field because conflating eligibility with assignment is the whole trap. */
   class_additional_trainers: AdditionalTrainer[];
+  /** Trainer pay inputs + the main trainer's amount (each additional trainer's
+   *  amount rides on its own `pay`). null when the session has no rate type or
+   *  the rate table could not be read. Spec ZMCP-20261009-011. */
+  pay: EventPay | null;
 }
 
 export interface FindEventsScopeHint {
@@ -646,6 +694,9 @@ export interface AttendanceResult {
   /** Current event-level summary state. Lets the LLM decide whether to
    *  offer sessions_add_summary as a follow-up without a second tool call. */
   summary: EventSummaryState;
+  /** Lecturers working this session alongside the main instructor
+   *  (trainers_events), with roles. [] = nobody. */
+  additional_trainers: AdditionalTrainer[];
   attendees: AttendanceRow[];
 }
 
@@ -715,6 +766,8 @@ export interface RawEventDetail {
   summary_public?: string | null;
   summary_public_locked?: boolean | number | null;
   summary_public_filled_at?: string | null;
+  /** Additional lecturers on THIS session; omitted by api-v1 when none. */
+  trainers_events?: Array<{ trainer_id?: number; role?: string }>;
 }
 
 /** Event-level summary state — surfaced as a hint by sessions_get_attendance
@@ -798,6 +851,9 @@ export interface RawEventRecord {
   summary_public?: string | null;
   summary_public_locked?: boolean | number;
   cancellation_reasoning_public?: string | null;
+  trainer_rate_type_id?: number | string;
+  /** 0..1 fraction (api-v1 `events.php:2073-2085` clamps it). */
+  trainer_payout_percentage?: number | string;
   // Materialised display + counter fields
   __calc__event_number?: string | number;
   __calc__event_trainer?: string;

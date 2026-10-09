@@ -11,6 +11,14 @@ import {
   projectAdditionalTrainers,
   type TrainerDirectory,
 } from "./trainer-directory.js";
+import {
+  EMPTY_PAY_TABLE,
+  hasAnyRateType,
+  loadTrainerPayTable,
+  projectEventPay,
+  trainerPay,
+  type TrainerPayTable,
+} from "./trainer-pay.js";
 import type {
   ApiListResponse,
   AttendanceCounts,
@@ -50,7 +58,7 @@ const numberOrNumberArray = z.union([
 export const findEventsTitle = "Find events (scheduled sessions)";
 
 export const findEventsDescription =
-  "List **events** (scheduled sessions of classes) in the caller's company. Use this whenever you need to resolve an `event_id` from natural language (\"my next class,\" \"Monday's ballet,\" \"all swim sessions this week,\" \"Sarah's classes tomorrow\") before chaining into another tool like `sessions_get_attendance` or `sessions_mark_attendance`. With no filters at all, returns the company's **upcoming** scheduled sessions (from today onward, earliest first) — not just the caller's — so a bare call stays near-term instead of dumping years of history. **Any** filter you add returns the FULL matching set, including PAST sessions: pass a `schedule_id` to get a class's entire history (past + future), or use `from`/`to` for an explicit window. There is no `past` flag — past sessions are just a range with `from` set early (or omitted alongside another scope). Filters cover date window, course, schedule, trainer, place, room, segment, billing period, status, and event-type (over-capacity, substituted, cancelled, etc.). Each returned row includes denormalised names (trainer, place, event-number), the event's date and duration, `capacity`, `free_spots` (remaining places = capacity − going, or null for open/unlimited events — use this to answer \"which sessions still have space\"), and an `attendance_counts` object (`going`, `attended`, `noshow`, `canceled`, `canceled_late`, `waitlist`). Read-only — does not modify events.\n\n**Additional lecturers.** Two separate fields, and they mean different things. `additional_trainers` = who is actually working THAT session alongside the main instructor. `class_additional_trainers` = the parent class's roster of people ELIGIBLE to work it, who are not necessarily on that session. Answer \"who is helping on Wednesday?\" from `additional_trainers`, never from the roster. Both are always arrays (`[]` = nobody), and neither includes the main instructor, who stays in `trainer_id`/`trainer_name`. Each entry is `{trainer_id, trainer_name, role}`; `role` is the raw enum — show it to operators as `secondary` = \"Secondary instructor\", `assistant` = \"Assistant\", `helper` = \"Assistant instructor\", `trainer` = \"Instructor\". `trainer_name` can be null if the lookup failed — that is not proof the trainer is gone. To CHANGE any of this, use `trainers_add_helpers`.\n\n**Critical: \"my sessions\" / \"what am I teaching\" / \"my classes today\".** When the user is asking for THEIR OWN sessions (any first-person framing), you MUST pass `trainer_id` matching `whoami.identity.user_id`. Without it, this tool returns every trainer's events in the company — which is almost never what the user meant when they said \"my.\" The only exception: when the caller's role is `member` or `external_member`, the server silently auto-scopes to their assignments anyway; `meta.scoped_to` in the response flags when this has happened.\n\nFilter notes:\n- `trainer_id` matches across FIVE trainer relationships including pre-substitution and schedule-level extras. Treat it as \"events trainer X is connected to,\" not strictly \"events trainer X currently teaches.\"\n- `status` uses raw db terms: `scheduled` (default — only state attendance can be tracked on), `unplanned` (includes cancelled events), `finished`, or `any`.\n- `segment_id=[0]` is a sentinel matching events with NO segment assignment.\n- Counters in `attendance_counts` may be sub-second-stale; for real-time counts on one event, chain into `sessions_get_attendance`. DISPLAYING A CLASS'S TIMETABLE: when the user wants to SEE a class's sessions (e.g. viewing or COPYING a class), render them as a weekly GRID — days across the top (Mon–Sun), time down the left, like the Zooza app calendar — collapsed to the weekday+time pattern with the run range + session count in a one-line caption; list individual dates only if the user explicitly asks. (Display only — ignore when you are merely resolving an event_id to chain into another tool.)";
+  "List **events** (scheduled sessions of classes) in the caller's company. Use this whenever you need to resolve an `event_id` from natural language (\"my next class,\" \"Monday's ballet,\" \"all swim sessions this week,\" \"Sarah's classes tomorrow\") before chaining into another tool like `sessions_get_attendance` or `sessions_mark_attendance`. With no filters at all, returns the company's **upcoming** scheduled sessions (from today onward, earliest first) — not just the caller's — so a bare call stays near-term instead of dumping years of history. **Any** filter you add returns the FULL matching set, including PAST sessions: pass a `schedule_id` to get a class's entire history (past + future), or use `from`/`to` for an explicit window. There is no `past` flag — past sessions are just a range with `from` set early (or omitted alongside another scope). Filters cover date window, course, schedule, trainer, place, room, segment, billing period, status, and event-type (over-capacity, substituted, cancelled, etc.). Each returned row includes denormalised names (trainer, place, event-number), the event's date and duration, `capacity`, `free_spots` (remaining places = capacity − going, or null for open/unlimited events — use this to answer \"which sessions still have space\"), and an `attendance_counts` object (`going`, `attended`, `noshow`, `canceled`, `canceled_late`, `waitlist`). Read-only — does not modify events.\n\n**Additional lecturers.** Two separate fields, and they mean different things. `additional_trainers` = who is actually working THAT session alongside the main instructor. `class_additional_trainers` = the parent class's roster of people ELIGIBLE to work it, who are not necessarily on that session. Answer \"who is helping on Wednesday?\" from `additional_trainers`, never from the roster. Both are always arrays (`[]` = nobody), and neither includes the main instructor, who stays in `trainer_id`/`trainer_name`. Each entry is `{trainer_id, trainer_name, role}`; `role` is the raw enum — show it to operators as `secondary` = \"Secondary instructor\", `assistant` = \"Assistant\", `helper` = \"Assistant instructor\", `trainer` = \"Instructor\". `trainer_name` can be null if the lookup failed — that is not proof the trainer is gone. To CHANGE any of this, use `trainers_add_helpers`.\n\n**Trainer pay (payroll).** `pay` = `{rate_type_id, rate_type, payout_percentage, minutes, main_trainer}`; each `additional_trainers[]` entry has its own `pay`. Each trainer's `{unit_amount, amount}` mirrors the Zooza trainer report: `amount = unit_amount × payout_percentage × minutes` (`fixed` rate type: no × minutes), where the RATE TYPE is the session's and `unit_amount` is that trainer's own rate for it (`null` → no rate set, amount 0). `payout_percentage` is a 0–1 fraction (cancelled sessions are 0). `pay` is null when the session has no rate type or rates are not readable for this caller. For one trainer's monthly cost, sum `pay.main_trainer.amount` ONLY on rows whose `trainer_id` is that trainer, plus `pay.amount` of THEIR entry in `additional_trainers[]` — the `trainer_id` filter also returns sessions they are merely linked to (substituted away, class roster), which pay them nothing. The roster (`class_additional_trainers`) carries no pay.\n\n**Critical: \"my sessions\" / \"what am I teaching\" / \"my classes today\".** When the user is asking for THEIR OWN sessions (any first-person framing), you MUST pass `trainer_id` matching `whoami.identity.user_id`. Without it, this tool returns every trainer's events in the company — which is almost never what the user meant when they said \"my.\" The only exception: when the caller's role is `member` or `external_member`, the server silently auto-scopes to their assignments anyway; `meta.scoped_to` in the response flags when this has happened.\n\nFilter notes:\n- `trainer_id` matches across FIVE trainer relationships including pre-substitution and schedule-level extras. Treat it as \"events trainer X is connected to,\" not strictly \"events trainer X currently teaches.\"\n- `status` uses raw db terms: `scheduled` (default — only state attendance can be tracked on), `unplanned` (includes cancelled events), `finished`, or `any`.\n- `segment_id=[0]` is a sentinel matching events with NO segment assignment.\n- Counters in `attendance_counts` may be sub-second-stale; for real-time counts on one event, chain into `sessions_get_attendance`. DISPLAYING A CLASS'S TIMETABLE: when the user wants to SEE a class's sessions (e.g. viewing or COPYING a class), render them as a weekly GRID — days across the top (Mon–Sun), time down the left, like the Zooza app calendar — collapsed to the weekday+time pattern with the run range + session count in a one-line caption; list individual dates only if the user explicitly asks. (Display only — ignore when you are merely resolving an event_id to chain into another tool.)";
 
 export const findEventsInputSchema = {
   company_id: companyIdSchema,
@@ -268,11 +276,18 @@ export async function runFindEvents(
       ...records.map((r) => r.trainers_events),
       ...records.map((r) => r.trainers_schedules),
     ]);
-    const trainerDir: TrainerDirectory = needsNames
-      ? await loadTrainerDirectory(callAuth)
-      : EMPTY_TRAINER_DIRECTORY;
+    // Pay needs the company's rate table + rate types; skipped when no row on the
+    // page has a session rate type. Runs alongside the roster lookup.
+    const needsPay = hasAnyRateType(records);
+    const [trainerDir, payTable]: [TrainerDirectory, TrainerPayTable] = await Promise.all([
+      needsNames ? loadTrainerDirectory(callAuth) : Promise.resolve(EMPTY_TRAINER_DIRECTORY),
+      needsPay ? loadTrainerPayTable(callAuth) : Promise.resolve(EMPTY_PAY_TABLE),
+    ]);
+    if (needsPay && !payTable.available) {
+      warnings.push("Trainer pay unavailable (trainer rates could not be read) — pay is null.");
+    }
 
-    const events: EventMatch[] = records.map((r) => projectEvent(r, trainerDir));
+    const events: EventMatch[] = records.map((r) => projectEvent(r, trainerDir, payTable));
 
     const scoped_to: FindEventsScopeHint | null =
       caller && isAutoScopedRole(caller.role) && caller.user_id !== null
@@ -446,7 +461,11 @@ function formatEventLine(ev: EventMatch): string {
   return parts.join(" ");
 }
 
-function projectEvent(r: RawEventRecord, trainerDir: TrainerDirectory): EventMatch {
+function projectEvent(
+  r: RawEventRecord,
+  trainerDir: TrainerDirectory,
+  payTable: TrainerPayTable,
+): EventMatch {
   const attendance_counts: AttendanceCounts = {
     going: toInt(r.__calc__attendance__going),
     attended: toInt(r.__calc__attendance__attended),
@@ -509,8 +528,12 @@ function projectEvent(r: RawEventRecord, trainerDir: TrainerDirectory): EventMat
     is_replacement: !!r.is_custom_replacement_event,
     has_public_summary,
     cancellation_reasoning_public,
-    additional_trainers: projectAdditionalTrainers(r.trainers_events, trainerDir),
+    additional_trainers: projectAdditionalTrainers(r.trainers_events, trainerDir).map((t) => ({
+      ...t,
+      pay: trainerPay(t.trainer_id, r, payTable, false),
+    })),
     class_additional_trainers: projectAdditionalTrainers(r.trainers_schedules, trainerDir),
+    pay: projectEventPay(r, payTable),
   };
 }
 

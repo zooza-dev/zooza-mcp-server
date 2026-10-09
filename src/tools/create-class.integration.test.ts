@@ -279,6 +279,55 @@ describe("classes_commit_class", () => {
     }
   });
 
+  const emptyAfterWrite: Array<[string, () => Response]> = [
+    ["an empty body", () => ({ ok: true, status: 200, text: async () => "" }) as unknown as Response],
+    ["a literal null body", () => ok(null)],
+  ];
+  for (const [label, eventsResponse] of emptyAfterWrite) {
+    it(`does not throw when the events POST returns ${label} (issue #7)`, async () => {
+      installFetch(({ url }) => {
+        if (url.endsWith("/schedules")) return ok({ id: 1 });
+        if (url.endsWith("/events")) return eventsResponse();
+        throw new Error(`unexpected fetch: ${url}`);
+      });
+
+      const result = await runCommitClass(
+        {
+          company_id: 1,
+          schedule: fixedSchedule(),
+          events: [{ date_string: "2026-05-04", time_minutes: 780, duration: 60 }],
+          payment_schedule_template_ids: [100],
+        },
+        AUTH,
+      );
+
+      expect(result.isError).toBeFalsy();
+      const out = parse(result);
+      expect(out.schedule_id).toBe(1);
+      expect(JSON.stringify(out.warnings)).toContain("Do NOT call classes_commit_class again");
+    });
+  }
+
+  it("returns partial success when a non-API error is thrown after the schedule exists", async () => {
+    installFetch(({ url }) => {
+      if (url.endsWith("/schedules")) return ok({ id: 7 });
+      throw new TypeError("fetch failed");
+    });
+
+    const result = await runCommitClass(
+      {
+        company_id: 1,
+        schedule: fixedSchedule(),
+        events: [{ date_string: "2026-05-04", time_minutes: 780, duration: 60 }],
+        payment_schedule_template_ids: [100],
+      },
+      AUTH,
+    );
+
+    expect(result.isError).toBeFalsy();
+    expect(parse(result).schedule_id).toBe(7);
+  });
+
   it("short-circuits a lead-collection class: schedule only, no events POST", async () => {
     installFetch(({ url }) => {
       if (url.endsWith("/schedules")) return ok({ id: 777 });
@@ -290,6 +339,8 @@ describe("classes_commit_class", () => {
         company_id: 1,
         schedule: fixedSchedule({ schedule_type: "lead_collection" }),
         events: [],
+        // Explicit ids skip the course-default template lookup (issue #25 change).
+        payment_schedule_template_ids: [100],
       },
       AUTH,
     );
@@ -336,6 +387,7 @@ describe("classes_commit_class", () => {
           { date_string: "2026-05-11", time_minutes: 780, duration: 60 },
           { date_string: "2026-05-18", time_minutes: 780, duration: 60 },
         ],
+        payment_schedule_template_ids: [100],
       },
       AUTH,
     );

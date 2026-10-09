@@ -189,7 +189,12 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
 // place_id / include_extra_fields (~180 net after trims).
 // Raised 85 500 → 87 000 on 2026-10-09 for payments_send_invoice (issue #22, ~1 740
 // chars incl. the dual-phase token/confirmed fields; dispatch-only).
-const TOTAL_SCHEMA_MAX = 87_000;
+// Raised 87 000 → 88 000 on 2026-10-09 for payments_find_orders (issue #17, ~1 000
+// chars: ten filter fields, company_id 504 of it; dispatch-only). Measured 87 404.
+// Raised 88 000 → 90 000 on 2026-10-09 for classes_add_share_link + classes_list_share_links
+// (issue #18, ~2 280 chars together: 1 863 of it is company_id x2 + dual-phase token/confirmed
+// boilerplate; dispatch-only). Measured 89 685.
+const TOTAL_SCHEMA_MAX = 90_000;
 
 /** Ceiling for the tools LISTED by default (CORE_TOOL_NAMES) — the input schemas every
  *  client loads each conversation. Set 2026-10-09 at 41 295 measured (17 core tools

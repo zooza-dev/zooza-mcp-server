@@ -3,6 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { companyIdSchema } from "./common.js";
+import { checkTrainerRateTypeId } from "./find-trainer-rate-types.js";
 import { dualPhaseConfirmedSchema, dualPhaseTokenSchema, resolveDualPhase } from "./dual-phase.js";
 import type { ApiListResponse } from "./types.js";
 import {
@@ -53,12 +54,9 @@ const changesSchema = z
       .optional()
       .describe(
         "Cap on the NUMBER OF REGISTRATIONS (bookings) this class accepts — NOT seats, and NOT make-up capacity. " +
-          "One registration can occupy several seats (e.g. a birthday party = 1 registration holding 7 seats), so " +
-          "this limits how many separate bookings exist, independent of seat count. `0` = OFF, no limit on the " +
-          "number of registrations — this is the normal default. Setting it to 1 restricts the class to a single " +
-          "registration; setting it to N caps it at N registrations. It does NOT by itself stop registrations or " +
-          "reduce capacity, and it has NOTHING to do with make-up/replacement (náhrady) sessions — for those use " +
-          "extra_capacity. Only set this for genuine multi-seat-per-registration scenarios.",
+          "One registration can occupy several seats (e.g. a birthday party = 1 registration holding 7 seats). " +
+          "`0` = no limit (the normal default); N caps it at N registrations. NOTHING to do with make-up " +
+          "(náhrady) sessions — use extra_capacity. Only for genuine multi-seat-per-registration scenarios.",
       ),
     price: z
       .number()
@@ -113,6 +111,13 @@ const changesSchema = z
       .boolean()
       .optional()
       .describe("Whether clients can self-register for this class online. `false` removes it from public registration."),
+    trial_enabled: z
+      .boolean()
+      .optional()
+      .describe(
+        "Whether this class accepts trial lessons. Only effective when the programme allows trials " +
+          "(classes_update_course_settings).",
+      ),
     status: z
       .enum(["active", "inactive", "archive"])
       .optional()
@@ -256,6 +261,11 @@ export async function runClassesPrepareUpdate(
 
   const callAuth = withCompany(auth, input.company_id!);
 
+  const warnings: string[] = [];
+  const rateCheck = await checkTrainerRateTypeId(changes.trainer_rate_type_id, callAuth);
+  if (rateCheck.error) return errorResult(rateCheck.error);
+  if (rateCheck.warning) warnings.push(rateCheck.warning);
+
   // Build the update-mode keys once (same for every schedule).
   const modeKeys: Record<string, string> = {};
   if (input.session_scope === "upcoming" || input.session_scope === "all") {
@@ -264,6 +274,7 @@ export async function runClassesPrepareUpdate(
 
   // Fetch each schedule to validate existence + read current values for the diff.
   const schedulePayloads: Array<Record<string, unknown> & { id: number }> = [];
+  const courseIds = new Set<number>();
   const perScheduleDiffs: Array<{
     schedule_id: number;
     name: string | null;
@@ -285,7 +296,7 @@ export async function runClassesPrepareUpdate(
     const name = typeof current.name === "string" ? current.name : null;
     const field_changes = changedFields.map((f) => ({
       field: f,
-      from: current[f] ?? null,
+      from: current[API_FIELD[f] ?? f] ?? null,
       to: (changes as Record<string, unknown>)[f],
       cascades: CASCADE_FIELDS.includes(f as CascadeField) && input.session_scope !== "class_only",
     }));
@@ -293,9 +304,11 @@ export async function runClassesPrepareUpdate(
 
     // Body: changed fields + cascade mode keys. (room_id rides along with place_id.)
     const body: Record<string, unknown> & { id: number } = { id };
-    for (const f of changedFields) body[f] = (changes as Record<string, unknown>)[f];
+    for (const f of changedFields) body[API_FIELD[f] ?? f] = (changes as Record<string, unknown>)[f];
     Object.assign(body, modeKeys);
     schedulePayloads.push(body);
+    const courseId = Number(current.course_id);
+    if (courseId > 0) courseIds.add(courseId);
   }
 
   // Best-effort count of sessions the cascade will rewrite.
@@ -308,7 +321,13 @@ export async function runClassesPrepareUpdate(
     );
   }
 
-  const warnings: string[] = [];
+  if (changes.trial_enabled === true) {
+    if (changes.course_id !== undefined) {
+      courseIds.clear();
+      courseIds.add(changes.course_id);
+    }
+    warnings.push(...(await trialOffWarnings([...courseIds], callAuth)));
+  }
   if (input.session_scope === "class_only" && cascadePresent.length > 0) {
     warnings.push(
       "class_only: the class is re-advertised with the new value but EXISTING sessions keep the old one. " +
@@ -429,6 +448,37 @@ async function fetchSchedule(id: number, auth: ZoozaAuth): Promise<ScheduleRecor
   return rec;
 }
 
+/** MCP input name → api-v1 schedule field, where they differ. `in_trial` is written by
+ *  PUT /schedules/{id} (class/Schedule.php:2875-2884, strict `=== true`) and by the bulk
+ *  route, which loops the same update (schedules.php:651-663). */
+const API_FIELD: Record<string, string> = { trial_enabled: "in_trial" };
+
+/** Best-effort: warn when trial lessons are switched on for a class whose programme
+ *  offers none — the app forces the class toggle off then (app
+ *  pages/courses/schedules_detail.js:682-688). */
+async function trialOffWarnings(courseIds: number[], auth: ZoozaAuth): Promise<string[]> {
+  const out: string[] = [];
+  for (const id of courseIds) {
+    try {
+      const raw = await zoozaFetch<{ data?: Record<string, unknown> } & Record<string, unknown>>(
+        `/courses/${id}`,
+        {},
+        auth,
+      );
+      const course = raw?.data ?? raw;
+      if (course?.trial_type === "none") {
+        out.push(
+          `Programme ${id} has trials switched off (trial_type "none"), so trial_enabled: true has no effect ` +
+            "until a trial type is set with classes_update_course_settings.",
+        );
+      }
+    } catch {
+      // The warning is advisory; a failed course read must not block the edit.
+    }
+  }
+  return out;
+}
+
 /** Sum, across schedules, the sessions the cascade will rewrite. Best-effort:
  *  returns null if the count query fails (the edit can still proceed). */
 async function countAffectedSessions(
@@ -478,7 +528,7 @@ export const classesUpdateDescription =
   "Edit one or more existing classes (a \"class\"/\"timetable\" is the recurring group within a programme) — name, " +
   "price, registration fee, capacity, make-up/replacement extra capacity (\"počet miest navyše pre náhradné " +
   "hodiny\" → extra_capacity/extra_capacity_usage, NOT registrations_cap, which caps the NUMBER OF REGISTRATIONS), " +
-  "registration-count cap, billing period, online-registration, status — and/or instructor, venue, or " +
+  "registration-count cap, billing period, online-registration, trial lessons, status — and/or instructor, venue, or " +
   "session duration.\n\n" +
   "TWO CALLS. First WITHOUT `token`: returns a preview of exactly what changes and how many sessions are " +
   "affected, plus a single-use token. Show it to the operator and get explicit approval. Then call again with " +
