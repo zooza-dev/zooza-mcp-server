@@ -113,14 +113,18 @@ function extractErrorFromResult(result: ToolResult): { message: string } {
 export function audit<Args>(
   toolName: string,
   ctx: RequestAuthContext,
-  handler: (args: Args) => Promise<ToolResult>,
-): (args: Args) => Promise<ToolResult> {
-  return async (args) => {
+  // `extra` is the SDK's per-call RequestHandlerExtra. Forwarded so a handler can
+  // emit request-scoped notifications (extra.sendNotification) — the only way a
+  // notification reaches the client on this stateless transport. Existing
+  // handlers ignore it.
+  handler: (args: Args, extra?: unknown) => Promise<ToolResult>,
+): (args: Args, extra?: unknown) => Promise<ToolResult> {
+  return async (args, extra) => {
     const requestId = randomUUID();
     const timestamp = new Date().toISOString();
     const startedAt = Date.now();
     try {
-      const result = await handler(args);
+      const result = await handler(args, extra);
       const outcome: "ok" | "error" = result.isError ? "error" : "ok";
       await write({
         timestamp,

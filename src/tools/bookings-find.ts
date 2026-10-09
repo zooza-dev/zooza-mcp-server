@@ -56,7 +56,10 @@ export const bookingsFindDescription =
   "one row per client (→ `user_id`) for person lookups. Chain a result's `registration_id` or `user_id` straight " +
   "into comms_send_message (`audience.registration_id` / `audience.user_id`). Class/programme NAMES aren't " +
   "returned — resolve the ids via classes_find_* if you need them. Defaults to active enrolments; guest, waitlist, " +
-  "canceled and deleted are excluded unless you pass `status`. Read-only — does not create or change bookings.";
+  "canceled and deleted are excluded unless you pass `status`. Money per booking: `payment_debt` = total CHARGED " +
+  "(negative), NOT what is still owed; `payment_paid` = amount received; `payment_balance` = paid + debt " +
+  "(negative = still owed, positive = overpaid). Sum `payment_paid` for income, `payment_balance` for outstanding " +
+  "debt. Read-only — does not create or change bookings.";
 
 export const bookingsFindInputSchema = {
   company_id: companyIdSchema,
@@ -302,7 +305,13 @@ function projectBooking(r: RawRegistrationRecord): RegistrationMatch {
     schedule_id: r.schedule_id ?? 0,
     status: pickStr(r.status) ?? "",
     payment_status: pickStr(r.payment_status) ?? "",
+    // Semantics verified live on api-test 2026-10-03 (reg 52816: debt -6000,
+    // paid 200, balance -5800). payment_debt is the total CHARGED (negative) —
+    // __calc__debt sums the debt rows (class/Materialization.php:972) — so it is
+    // NOT the remaining amount; that is payment_balance = paid + debt (issue #23).
     payment_debt: toNum(r.payment_debt),
+    payment_paid: toNum(r.payment_paid),
+    payment_balance: toNum(r.payment_balance),
   };
 }
 

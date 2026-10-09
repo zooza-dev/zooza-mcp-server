@@ -303,7 +303,12 @@ export interface RegistrationMatch {
   schedule_id: number;
   status: string;
   payment_status: string;
+  /** Total CHARGED (negative), not what is still owed — __calc__debt. */
   payment_debt: number;
+  /** Amount actually received — __calc__paid. */
+  payment_paid: number;
+  /** payment_paid + payment_debt: negative = still owed, positive = overpaid — __calc__balance. */
+  payment_balance: number;
 }
 
 /** Curated client row for bookings_find `distinct: true` — one row per account
@@ -335,6 +340,10 @@ export interface RawRegistrationRecord {
   payment_status?: string;
   /** r.__calc__debt AS payment_debt (common.php:6544) — decimal, may arrive as string. */
   payment_debt?: number | string;
+  /** r.__calc__paid AS payment_paid (common.php:8138). */
+  payment_paid?: number | string;
+  /** r.__calc__balance AS payment_balance (common.php:8136). */
+  payment_balance?: number | string;
 }
 
 /** Curated match shape for classes_find_resource (kind:'billing_period') — see ZMCP-20260523-004. */

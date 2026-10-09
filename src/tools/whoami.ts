@@ -109,6 +109,10 @@ interface WhoamiResult {
 
 export async function runWhoami(
   ctx: RequestAuthContext,
+  // Toolset experiment (src/toolsets.ts): the tools THIS client is listed. Without it
+  // the canary would compare a gated list against the full manifest and nag the user
+  // to refresh on every conversation.
+  visibleToolNames?: readonly string[],
 ): Promise<{ isError?: boolean; content: Array<{ type: "text"; text: string }> }> {
   const scopes = ctx.claims
     ? Array.from(ctx.claims.scopes)
@@ -138,7 +142,7 @@ export async function runWhoami(
       token_state: "active",
       last_feedback_at: null,
       feedback_count: 0,
-    });
+    }, visibleToolNames);
   }
 
   const { userValid, user_id: userIdFromBody, email, name } = extractIdentity(rawUser);
@@ -185,7 +189,7 @@ export async function runWhoami(
       token_state: "active",
       last_feedback_at: feedback.last_feedback_at,
       feedback_count: feedback.feedback_count,
-    });
+    }, visibleToolNames);
   }
 
   if (enrichedCompanies.length === 0) {
@@ -200,7 +204,7 @@ export async function runWhoami(
       token_state: "active",
       last_feedback_at: feedback.last_feedback_at,
       feedback_count: feedback.feedback_count,
-    });
+    }, visibleToolNames);
   }
 
   // Warm the per-company branding cache (logo as data URI + primary color) so the
@@ -230,7 +234,7 @@ export async function runWhoami(
     token_state: "active",
     last_feedback_at: feedback.last_feedback_at,
     feedback_count: feedback.feedback_count,
-  });
+  }, visibleToolNames);
 }
 
 // ─── Feedback status extraction ───────────────────────────────────────────────
@@ -340,10 +344,20 @@ function extractCompanyContext(
   return { region, language, locale, currency };
 }
 
-function ok(payload: WhoamiResult) {
+function ok(payload: WhoamiResult, visibleToolNames?: readonly string[]) {
   // Merge the release/tool-surface block into every status so staleness detection
   // works even before auth succeeds.
-  const enriched = { ...payload, ...RELEASE_BLOCK };
+  const release = visibleToolNames
+    ? {
+        ...RELEASE_BLOCK,
+        tool_surface: {
+          ...RELEASE_BLOCK.tool_surface,
+          count: visibleToolNames.length,
+          names: visibleToolNames,
+        },
+      }
+    : RELEASE_BLOCK;
+  const enriched = { ...payload, ...release };
   return {
     content: [{ type: "text" as const, text: JSON.stringify(enriched) }],
   };
