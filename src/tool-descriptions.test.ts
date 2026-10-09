@@ -184,7 +184,10 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
 // Since that change not every tool is LISTED: dispatcher-only tools reach the client
 // only when get_tool_schema returns them, so this ceiling now guards total catalogue
 // bloat, and CORE_SCHEMA_MAX below guards what every conversation actually loads.
-const TOTAL_SCHEMA_MAX = 83_500;
+// Raised 83 500 → 85 500 on 2026-10-09 for comms_find_messages (issue #21, ~1 300
+// chars, dispatch-only so CORE_SCHEMA_MAX is untouched) plus bookings_find's
+// place_id / include_extra_fields (~180 net after trims).
+const TOTAL_SCHEMA_MAX = 85_500;
 
 /** Ceiling for the tools LISTED by default (CORE_TOOL_NAMES) — the input schemas every
  *  client loads each conversation. Set 2026-10-09 at 41 295 measured (17 core tools

@@ -40,6 +40,7 @@ export const TOOL_NAMES: readonly string[] = [
   "classes_preview_schedule",
   "classes_update",
   "classes_update_course_settings",
+  "comms_find_messages",
   "comms_find_replies",
   "comms_list_merge_vars",
   "comms_list_templates",

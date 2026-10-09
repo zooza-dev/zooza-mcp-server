@@ -182,3 +182,19 @@ export async function zoozaFetch<T = unknown>(
     );
   }
 }
+
+/** zoozaFetch for the few api-v1 routes that answer with a raw, non-JSON body
+ *  (e.g. GET /emails/{id}/body → text/html, emails.php:6-19). */
+export async function zoozaFetchText(
+  path: string,
+  options: Pick<ZoozaRequestOptions, "query"> = {},
+  auth: ZoozaAuth,
+): Promise<string> {
+  const url = buildUrl(auth.baseUrl, path, options.query);
+  const response = await fetch(url, { headers: buildAuthHeaders(auth) });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new ZoozaApiError(response.status, path, text);
+  }
+  return text;
+}

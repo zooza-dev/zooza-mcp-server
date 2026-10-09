@@ -241,6 +241,12 @@ import {
   runCommsFindReplies,
 } from "./tools/comms-find-replies.js";
 import {
+  commsFindMessagesDescription,
+  commsFindMessagesInputSchema,
+  commsFindMessagesTitle,
+  runCommsFindMessages,
+} from "./tools/comms-find-messages.js";
+import {
   runTodosAdd,
   todosAddDescription,
   todosAddInputSchema,
@@ -648,6 +654,30 @@ function createMcpServer(
         SCOPE_WRITE,
         ctx,
         resolveCompanyId(ctx, async (args) => runCommsFindReplies(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  server.registerTool(
+    "comms_find_messages",
+    {
+      title: commsFindMessagesTitle,
+      description: commsFindMessagesDescription,
+      inputSchema: commsFindMessagesInputSchema,
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    audit(
+      "comms_find_messages",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runCommsFindMessages(args, ctx.auth)),
       ),
     ),
   );
