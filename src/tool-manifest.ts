@@ -29,6 +29,7 @@ export const TOOL_NAMES: readonly string[] = [
   "bookings_add_lead",
   "bookings_copy_booking",
   "bookings_find",
+  "call_tool",
   "classes_add_course",
   "classes_commit_class",
   "classes_find_classes",
@@ -46,6 +47,7 @@ export const TOOL_NAMES: readonly string[] = [
   "explain_data_model",
   "get_skill",
   "get_terminology",
+  "get_tool_schema",
   "labels_mark",
   "negotiate_terminology",
   "payments_add_plan",
@@ -65,5 +67,37 @@ export const TOOL_NAMES: readonly string[] = [
   "whoami",
 ];
 
-/** Number of tools the live server exposes. */
+/** Number of tools the live server registers (listed + reachable via call_tool). */
 export const TOOL_COUNT: number = TOOL_NAMES.length;
+
+/**
+ * Tools LISTED in tools/list by default — the core every client loads into context
+ * each conversation. Everything else in TOOL_NAMES stays registered but is reached
+ * through the call_tool dispatcher, named in its catalogue (spec ZMCP-20261009-001).
+ *
+ * Membership rule: the operator's daily work (resolve ids, attendance, reschedule,
+ * cancel, edit a class, move a booking, message, reports) plus the meta tools a
+ * conversation starts with. Setup flows (create class, programme settings, payment
+ * templates) and occasional tools are dispatcher-only — their skills say so.
+ * Promoting a tool here costs every conversation its full schema; demote first.
+ */
+export const CORE_TOOL_NAMES: readonly string[] = [
+  "bookings_copy_booking",
+  "bookings_find",
+  "call_tool",
+  "classes_find_classes",
+  "classes_find_courses",
+  "classes_find_resource",
+  "classes_update",
+  "comms_send_message",
+  "get_skill",
+  "get_terminology",
+  "get_tool_schema",
+  "reports_get_data",
+  "sessions_cancel",
+  "sessions_find_events",
+  "sessions_get_attendance",
+  "sessions_mark_attendance",
+  "sessions_update",
+  "whoami",
+];

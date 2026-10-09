@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { CORE_TOOL_NAMES } from "./tool-manifest.js";
 
 // Auto-discover every tool input schema: eagerly import all tool modules and
 // collect their `*InputSchema` exports. This means a NEW tool is covered by the
@@ -178,7 +179,18 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
 // confirmed 462, token 393); ~1 800 is its own — five alternative scopes each need their
 // own field, which is the price of the one-entity-per-call guard being expressible in
 // the schema rather than only in prose.
-const TOTAL_SCHEMA_MAX = 82_500;
+// Raised 82 500 → 83 500 on 2026-10-09 for the call_tool dispatcher (ZMCP-20261009-001):
+// get_tool_schema 205 + call_tool 368 = 573 chars, measured at 83 414 across 39 tools.
+// Since that change not every tool is LISTED: dispatcher-only tools reach the client
+// only when get_tool_schema returns them, so this ceiling now guards total catalogue
+// bloat, and CORE_SCHEMA_MAX below guards what every conversation actually loads.
+const TOTAL_SCHEMA_MAX = 83_500;
+
+/** Ceiling for the tools LISTED by default (CORE_TOOL_NAMES) — the input schemas every
+ *  client loads each conversation. Set 2026-10-09 at 41 295 measured (17 core tools
+ *  with an exported schema; get_skill's inline schema is skipped, as above). Promoting
+ *  a tool into core must fit here — demote or trim something first. */
+const CORE_SCHEMA_MAX = 41_500;
 
 /**
  * Tools already over PER_TOOL_SCHEMA_MAX when the budget landed. Each is held
@@ -226,5 +238,14 @@ describe("tool input schemas — size budget", () => {
   it(`all registered input schemas <= ${TOTAL_SCHEMA_MAX} chars`, () => {
     const total = REGISTERED.reduce((sum, [, shape]) => sum + schemaChars(shape), 0);
     expect(total).toBeLessThanOrEqual(TOTAL_SCHEMA_MAX);
+  });
+
+  it(`core (listed-by-default) input schemas <= ${CORE_SCHEMA_MAX} chars`, () => {
+    const core = new Set(CORE_TOOL_NAMES);
+    const total = REGISTERED.filter(([tool]) => core.has(tool)).reduce(
+      (sum, [, shape]) => sum + schemaChars(shape),
+      0,
+    );
+    expect(total).toBeLessThanOrEqual(CORE_SCHEMA_MAX);
   });
 });

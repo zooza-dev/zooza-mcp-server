@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { SERVER_VERSION, TOOL_COUNT, TOOL_NAMES } from "./tool-manifest.js";
+import { CORE_TOOL_NAMES, SERVER_VERSION, TOOL_COUNT, TOOL_NAMES } from "./tool-manifest.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const indexSrc = readFileSync(join(here, "index.ts"), "utf8");
@@ -24,6 +24,14 @@ describe("tool-manifest", () => {
     // update TOOL_NAMES in tool-manifest.ts. Keep them in lockstep — the whoami
     // staleness canary depends on this list being the real surface.
     expect([...TOOL_NAMES].sort()).toEqual(registeredToolNames());
+  });
+
+  it("every CORE tool is a registered tool, and the dispatcher is core", () => {
+    // A core name that isn't registered would be promised in tools/list and never
+    // appear; the dispatcher must be listed or dispatcher-only tools are unreachable.
+    for (const name of CORE_TOOL_NAMES) expect(TOOL_NAMES).toContain(name);
+    expect(CORE_TOOL_NAMES).toContain("call_tool");
+    expect(CORE_TOOL_NAMES).toContain("get_tool_schema");
   });
 
   it("TOOL_COUNT equals the list length", () => {

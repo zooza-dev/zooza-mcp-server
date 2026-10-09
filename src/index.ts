@@ -2,16 +2,24 @@ import express from "express";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
-  TOOLSETS_EXPERIMENT,
-  applyToolsets,
   captureToolHandles,
+  DEFAULT_LISTING,
+  dispatchOnlyToolNames,
+  hideUnlisted,
+  listedToolNames,
   parseToolsetsParam,
-  registerDispatcherTools,
-  resolveToolsets,
-  toolsetInstructions,
-  visibleToolNames,
-  type ToolsetSelection,
-} from "./toolsets.js";
+  type ToolListing,
+} from "./tool-listing.js";
+import {
+  buildCallToolDescription,
+  callToolInputSchema,
+  callToolTitle,
+  getToolSchemaDescription,
+  getToolSchemaInputSchema,
+  getToolSchemaTitle,
+  runCallTool,
+  runGetToolSchema,
+} from "./tools/dispatcher.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 import { audit } from "./audit.js";
@@ -27,7 +35,7 @@ import { ZOOZA_ICON_PNG_BASE64 } from "./icon.js";
 import { buildSkillInstructions, loadAllSkills } from "./skills.js";
 import { TERMINOLOGY_INSTRUCTIONS, TERMINOLOGY_INDEX } from "./terminology/index.js";
 import { ROUTING_INSTRUCTIONS } from "./instructions.js";
-import { SERVER_VERSION, TOOL_NAMES } from "./tool-manifest.js";
+import { SERVER_VERSION } from "./tool-manifest.js";
 import {
   commitClassDescription,
   commitClassInputSchema,
@@ -254,7 +262,6 @@ const COMBINED_INSTRUCTIONS = [
   TERMINOLOGY_INSTRUCTIONS,
   SKILL_INSTRUCTIONS,
   REPORTS_INSTRUCTIONS,
-  TOOLSETS_EXPERIMENT ? toolsetInstructions() : "",
 ]
   .filter(Boolean)
   .join("\n\n---\n\n");
@@ -374,8 +381,10 @@ function resolveCompanyId<Args extends Record<string, unknown>>(
 
 function createMcpServer(
   ctx: RequestAuthContext,
-  // Set only when ZOOZA_TOOLSETS_EXPERIMENT=1 — see src/toolsets.ts.
-  toolsets?: ToolsetSelection,
+  // Which tools tools/list shows (src/tool-listing.ts). `hide` is true only when this
+  // request IS a tools/list — the SDK rejects tools/call on a disabled tool.
+  listing: ToolListing = DEFAULT_LISTING,
+  hide = false,
 ): McpServer {
   const server = new McpServer(
     {
@@ -395,7 +404,7 @@ function createMcpServer(
     },
     COMBINED_INSTRUCTIONS ? { instructions: COMBINED_INSTRUCTIONS } : undefined,
   );
-  const toolHandles = TOOLSETS_EXPERIMENT ? captureToolHandles(server) : null;
+  const toolHandles = captureToolHandles(server);
 
   // MCP Resource — full structured glossary (market-first: no other major MCP server exposes this)
   server.registerResource(
@@ -488,7 +497,7 @@ function createMcpServer(
       annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
     },
     audit("whoami", ctx, scopeGuard<Record<string, never>>(SCOPE_READ, ctx, async () =>
-      runWhoami(ctx, toolsets ? visibleToolNames(TOOL_NAMES, toolsets.listed) : undefined),
+      runWhoami(ctx, listedToolNames(listing)),
     )),
   );
 
@@ -1272,11 +1281,32 @@ function createMcpServer(
     },
   );
 
-  if (toolHandles) {
-    const listed = toolsets?.listed ?? resolveToolsets(null);
-    registerDispatcherTools(server, ctx, toolHandles, listed);
-    if (toolsets?.gate) applyToolsets(toolHandles, listed);
-  }
+  // Dispatcher — registered LAST so its catalogue sees every other tool. No
+  // scopeGuard/resolveCompanyId here on purpose: call_tool runs the inner tool's own
+  // wrapped handler, which applies them (and writes its own audit entry).
+  server.registerTool(
+    "get_tool_schema",
+    {
+      title: getToolSchemaTitle,
+      description: getToolSchemaDescription,
+      inputSchema: getToolSchemaInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+    },
+    audit("get_tool_schema", ctx, async (args) => runGetToolSchema(args, toolHandles)),
+  );
+
+  server.registerTool(
+    "call_tool",
+    {
+      title: callToolTitle,
+      description: buildCallToolDescription(dispatchOnlyToolNames(listing), toolHandles),
+      inputSchema: callToolInputSchema,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+    },
+    audit("call_tool", ctx, async (args, extra) => runCallTool(args, toolHandles, extra)),
+  );
+
+  if (hide) hideUnlisted(toolHandles, listing);
 
   return server;
 }
@@ -1460,16 +1490,11 @@ async function main(): Promise<void> {
         }
       }
 
-      let toolsets: ToolsetSelection | undefined;
-      if (TOOLSETS_EXPERIMENT) {
-        toolsets = {
-          listed: resolveToolsets(parseToolsetsParam(req.query.toolsets)),
-          // Hide only when LISTING; a call to a hidden tool still runs.
-          gate: req.body?.method === "tools/list",
-        };
-      }
-
-      const server = createMcpServer(ctx, toolsets);
+      const server = createMcpServer(
+        ctx,
+        parseToolsetsParam(req.query.toolsets),
+        req.body?.method === "tools/list",
+      );
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: !clientAcceptsSSE,
