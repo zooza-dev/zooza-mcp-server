@@ -53,10 +53,13 @@ const audienceSchema = z
       .boolean()
       .optional()
       .describe("Default false. Also send to guest registrations (added at send time; not in the count estimate)."),
-    inactive_customers: z
+    inactive_only: z
       .boolean()
       .optional()
-      .describe("Default false. Include inactive registrations."),
+      .describe(
+        "Default false — the audience already includes clients marked inactive. true → send ONLY to clients " +
+          "marked inactive (former clients); everyone else is dropped.",
+      ),
   })
   .describe("Who receives the message. At least one targeting field is required.");
 
@@ -142,7 +145,9 @@ export function buildAudienceParams(audience: AudienceInput): Record<string, str
   if (audience.segment_id !== undefined) params.segment_id = audience.segment_id;
   if (audience.labels?.length) params.labels = audience.labels.join("|");
   if (audience.exclude?.length) params.exclude = audience.exclude.join("|");
-  if (audience.inactive_customers) params.inactive_customers = 1;
+  // inactive_customers=1 RESTRICTS to role "inactive_customer" (common.php:9008-9016);
+  // absent, inactive customers are already included. Issue #33.
+  if (audience.inactive_only) params.inactive_customers = 1;
   // Whole-company broadcast: no id filter (api-v1's build_advanced_query returns
   // all company registrations), deduped to one row per client. active_only
   // (the default) narrows to registered bookings via status — mirrors the app's
@@ -291,7 +296,7 @@ export async function runPrepareMessage(
     if (recipientCount === 0) {
       warnings.push(
         "No recipients match these filters. Common causes: wrong course/schedule id, all matching clients " +
-          "unsubscribed, inactive registrations excluded (set inactive_customers: true to include). " +
+          "unsubscribed, or inactive_only:true narrowed it to former clients only. " +
           "Refine the audience — this plan cannot be committed with 0 recipients.",
       );
     }

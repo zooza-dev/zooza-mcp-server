@@ -3,6 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { companyIdSchema, pickStr } from "./common.js";
+import { type ExtraFieldDefs, fetchExtraFieldDefs, projectExtraFields } from "./extra-fields.js";
 import type { ClientMatch, RawRegistrationRecord, RegistrationMatch } from "./types.js";
 
 // Caller-facing status groups. Each expands server-side (build_advanced_query,
@@ -51,12 +52,13 @@ export const bookingsFindDescription =
   'this class?", "who hasn\'t paid?" (set `payment_status:["unpaid","partially_paid"]`), and "find client X". ' +
   "Filter by `search` (loose: name/email/phone) or `name`, by `course_id`/`schedule_id` (resolve via " +
   "classes_find_courses / classes_find_classes), `billing_period_id` (a term/season), `user_id`, `registration_id` (one exact booking by its id), " +
-  "`status`, `payment_status`, or booking date with " +
+  "`place_id` (venue), `status`, `payment_status`, or booking date with " +
   "`created_from`/`created_to` (the \"new registrations this week\" lever). `distinct:true` returns " +
   "one row per client (→ `user_id`) for person lookups. Chain a result's `registration_id` or `user_id` straight " +
   "into comms_send_message (`audience.registration_id` / `audience.user_id`). Class/programme NAMES aren't " +
   "returned — resolve the ids via classes_find_* if you need them. Defaults to active enrolments; guest, waitlist, " +
-  "canceled and deleted are excluded unless you pass `status`. Money per booking: `payment_debt` = total CHARGED " +
+  "canceled and deleted are excluded unless you pass `status`. `include_extra_fields:true` adds each booking's " +
+  "custom booking-form answers (allergies, \"how did you hear about us\"…). Money per booking: `payment_debt` = total CHARGED " +
   "(negative), NOT what is still owed; `payment_paid` = amount received; `payment_balance` = paid + debt " +
   "(negative = still owed, positive = overpaid). Sum `payment_paid` for income, `payment_balance` for outstanding " +
   "debt. Read-only — does not create or change bookings.";
@@ -74,8 +76,7 @@ export const bookingsFindInputSchema = {
     .string()
     .optional()
     .describe(
-      "Enrolled person's name (substring, accent-insensitive). If it draws a blank for a kids' class, try `search` " +
-        "(also matches the account-holder parent).",
+      "Enrolled person's name (substring, accent-insensitive). Blank for a kids' class? Try `search` (matches the parent too).",
     ),
   course_id: z
     .number()
@@ -95,9 +96,15 @@ export const bookingsFindInputSchema = {
     .positive()
     .optional()
     .describe(
-      "Bookings belonging to this billing period (term/season). Resolve the id with classes_find_resource " +
-        "(kind:'billing_period'); never guess it. To cover several periods, call once per period and merge the ids.",
+      "Bookings in this billing period (term/season). Resolve via classes_find_resource (kind:'billing_period'); " +
+        "one period per call.",
     ),
+  place_id: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Bookings at this venue. Resolve via classes_find_resource (kind:'place')."),
   user_id: z.number().int().positive().optional().describe("All bookings of one client, by their user id."),
   registration_id: z
     .number()
@@ -105,9 +112,7 @@ export const bookingsFindInputSchema = {
     .positive()
     .optional()
     .describe(
-      "Fetch ONE exact booking by its registration id. Use this to confirm a specific registration exists or read " +
-        "who it is — unlike `search`, which substring-matches the id (search:45 also matches 145, 450). An exact " +
-        "registration_id lookup returns that booking whatever its status (only truly deleted rows are hidden).",
+      "ONE exact booking by id, whatever its status (unlike `search`, which substring-matches: 45 also hits 145).",
     ),
   status: z
     .array(z.enum(STATUS_VALUES))
@@ -128,10 +133,19 @@ export const bookingsFindInputSchema = {
       "true → one row per CLIENT (deduped by account-holder user_id), person fields only — use to find a person or " +
         "resolve a name to a single user_id. Default false → one row per booking.",
     ),
-  include_inactive: z
+  inactive_only: z
     .boolean()
     .optional()
-    .describe("Default false. Set true to also include inactive customers."),
+    .describe(
+      "true → ONLY clients marked inactive (former clients). Default already includes them; never set it to widen.",
+    ),
+  include_extra_fields: z
+    .boolean()
+    .optional()
+    .describe(
+      "true → each booking gets `extra_fields: [{field, label, value}]`: filled custom booking-form answers, " +
+        "labelled per programme. Not with `distinct`.",
+    ),
   created_from: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "created_from must be YYYY-MM-DD")
@@ -190,6 +204,15 @@ export async function runBookingsFind(
     return errorResult(`page_size must be between 1 and 200. You asked for ${pageSize}.`);
   }
 
+  if (input.include_extra_fields && input.distinct) {
+    // distinct GROUPs BY user_id, so the row's extra-field values come from an
+    // arbitrary one of the client's bookings (common.php:8806-8816) — misleading.
+    return errorResult(
+      "include_extra_fields works per booking, not with distinct:true (a client's answers differ per booking). " +
+        "Drop distinct and read extra_fields per registration.",
+    );
+  }
+
   const statusProvided = Boolean(input.status && input.status.length > 0);
   // An exact registration_id lookup should return that booking WHATEVER its status,
   // so we skip the active-only default for it (api-v1 still hides only `deleted`).
@@ -214,6 +237,8 @@ export async function runBookingsFind(
   if (input.course_id !== undefined) query.course_id = input.course_id;
   if (input.schedule_id !== undefined) query.schedule_id = input.schedule_id;
   if (input.user_id !== undefined) query.user_id = input.user_id;
+  // s.place_id = :place_id, applied when room_id is absent (common.php:8780-8784).
+  if (input.place_id !== undefined) query.place_id = input.place_id;
   // r.billing_period_id = :billing_period_id — scalar numeric only (common.php:8794-8797).
   if (input.billing_period_id !== undefined) query.billing_period_id = input.billing_period_id;
   // Exact single-registration filter (r.id) — common.php:7866-7917.
@@ -221,7 +246,10 @@ export async function runBookingsFind(
   if (input.payment_status && input.payment_status.length > 0) {
     query.billing_status = input.payment_status.join("|");
   }
-  if (input.include_inactive) query.inactive_customers = 1;
+  // inactive_customers=1 RESTRICTS to role "inactive_customer"; absent, the api
+  // already includes them alongside active customers (common.php:9008-9016).
+  // Issue #33: mapping it as "also include" emptied every customer search.
+  if (input.inactive_only) query.inactive_customers = 1;
   // Registration created-date window → DATE(r.created) >= / <= (common.php:7118-7130).
   // Pure pass-through of an existing advanced_search filter; api wants literal YYYY-MM-DD.
   if (input.created_from) query.created_from = input.created_from;
@@ -244,9 +272,30 @@ export async function runBookingsFind(
       withCompany(auth, input.company_id!),
     );
     const rows = envelope?.results ?? [];
-    const matches: Array<RegistrationMatch | ClientMatch> = input.distinct
+    let matches: Array<RegistrationMatch | ClientMatch> = input.distinct
       ? rows.map(projectClient)
       : rows.map(projectBooking);
+    let extraFieldsWarning: string | undefined;
+    if (input.include_extra_fields) {
+      let defs: ExtraFieldDefs = new Map();
+      try {
+        defs = await fetchExtraFieldDefs(
+          rows.map((r) => r.course_id ?? 0),
+          auth,
+          input.company_id!,
+        );
+      } catch (error) {
+        // Values are still worth returning; they just lose their labels.
+        extraFieldsWarning =
+          "Could not load the programmes' field labels" +
+          (error instanceof ZoozaApiError ? ` (api-v1 ${error.status})` : "") +
+          " — extra_fields are labelled by column and choice answers show their raw key.";
+      }
+      matches = matches.map((m, i) => ({
+        ...m,
+        extra_fields: projectExtraFields(rows[i] as Record<string, unknown>, rows[i].course_id ?? 0, defs),
+      }));
+    }
     const total = envelope?.total ?? matches.length;
     const totalIsCapped = Boolean(envelope?.total_capped);
     const truncated = total > (page + 1) * pageSize;
@@ -257,6 +306,7 @@ export async function runBookingsFind(
       ...(input.course_id !== undefined ? { course_id: input.course_id } : {}),
       ...(input.schedule_id !== undefined ? { schedule_id: input.schedule_id } : {}),
       ...(input.user_id !== undefined ? { user_id: input.user_id } : {}),
+      ...(input.place_id !== undefined ? { place_id: input.place_id } : {}),
       ...(input.billing_period_id !== undefined ? { billing_period_id: input.billing_period_id } : {}),
       ...(input.registration_id !== undefined ? { registration_id: input.registration_id } : {}),
       // Echo the literal groups when the caller chose them; a compact marker
@@ -264,8 +314,9 @@ export async function runBookingsFind(
       // on every call.
       status: statusProvided ? input.status : exactLookup ? "any (exact lookup)" : "default_active",
       ...(input.payment_status?.length ? { payment_status: input.payment_status } : {}),
-      ...(input.include_inactive ? { include_inactive: true } : {}),
+      ...(input.inactive_only ? { inactive_only: true } : {}),
       ...(input.distinct ? { distinct: true } : {}),
+      ...(input.include_extra_fields ? { include_extra_fields: true } : {}),
     };
 
     const result = {
@@ -277,6 +328,7 @@ export async function runBookingsFind(
       // Always false under count=exact; surface only if it ever fires, rather
       // than shipping `false` on every call.
       ...(totalIsCapped ? { total_is_capped: true } : {}),
+      ...(extraFieldsWarning ? { warning: extraFieldsWarning } : {}),
       echo,
     };
     // Compact JSON (no pretty-print) — this is a list tool returning up to 200

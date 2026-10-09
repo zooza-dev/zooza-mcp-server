@@ -15,7 +15,7 @@ describe("hasTargeting", () => {
 
   it("rejects empty audiences and modifier-only audiences", () => {
     expect(hasTargeting({})).toBe(false);
-    expect(hasTargeting({ guests: true, inactive_customers: true })).toBe(false);
+    expect(hasTargeting({ guests: true, inactive_only: true })).toBe(false);
     expect(hasTargeting({ labels: [] })).toBe(false);
     expect(hasTargeting({ exclude: [5] })).toBe(false);
   });
@@ -35,7 +35,7 @@ describe("buildAudienceParams", () => {
         course_id: 211,
         labels: [1, 2],
         exclude: [9, 10],
-        inactive_customers: true,
+        inactive_only: true,
         guests: true, // not a query param — handled via message_jobs params at commit
       }),
     ).toEqual({

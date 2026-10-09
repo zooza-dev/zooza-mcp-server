@@ -309,6 +309,8 @@ export interface RegistrationMatch {
   payment_paid: number;
   /** payment_paid + payment_debt: negative = still owed, positive = overpaid — __calc__balance. */
   payment_balance: number;
+  /** Only with include_extra_fields — filled custom booking-form answers. */
+  extra_fields?: Array<{ field: string; label: string; value: string }>;
 }
 
 /** Curated client row for bookings_find `distinct: true` — one row per account
@@ -344,6 +346,9 @@ export interface RawRegistrationRecord {
   payment_paid?: number | string;
   /** r.__calc__balance AS payment_balance (common.php:8136). */
   payment_balance?: number | string;
+  /** r.__extra_fields__extra_field_N AS ef_extra_field_N (common.php:8174-8188) —
+   *  the raw answer; a choice field holds the option KEY. See extra-fields.ts. */
+  [efSlot: `ef_extra_field_${number}`]: string | number | null | undefined;
 }
 
 /** Curated match shape for classes_find_resource (kind:'billing_period') — see ZMCP-20260523-004. */
