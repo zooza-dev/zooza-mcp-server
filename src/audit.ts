@@ -31,6 +31,13 @@ function brand(result: ToolResult): ToolResult {
   // Off for the Cowork live-artifact bridge — its callMcpTool return validator
   // rejects non-text content blocks, so the image breaks every bridge call.
   if (!config.zooza.brandImage) return result;
+  // Never on an error: the Anthropic Messages API rejects a tool_result with
+  // is_error and any non-text block ("all content must be type `text` if
+  // `is_error` is true"), so an API-driven client lost the whole turn on every
+  // directive error ("ask the operator which widget…") — evals 2026-10-12.
+  if (result.isError) return result;
+  // call_tool returns the inner tool's already-branded result; brand once.
+  if (result.content[0] === ZOOZA_LOGO_BLOCK) return result;
   return { ...result, content: [ZOOZA_LOGO_BLOCK, ...result.content] };
 }
 
