@@ -36,12 +36,12 @@ export const previewScheduleInputSchema = {
     .number()
     .int()
     .positive()
-    .describe("Venue (place) where the class will run. Resolve with classes_find_places."),
+    .describe("Venue (place) where the class will run. Resolve: classes_find_resource kind:place."),
   trainer_id: z
     .number()
     .int()
     .positive()
-    .describe("Instructor assigned to the class. Resolve with trainers_find."),
+    .describe("Instructor assigned to the class. Resolve: classes_find_resource kind:trainer."),
   room_id: z
     .number()
     .int()
@@ -53,7 +53,7 @@ export const previewScheduleInputSchema = {
     .int()
     .nonnegative()
     .optional()
-    .describe("Trainer PAY-RATE type (what the instructor is paid, not what clients pay). Resolve with trainers_find_rate_types. Defaults to 0 (none)."),
+    .describe("Trainer PAY-RATE type (what the instructor is paid, not what clients pay). Resolve: classes_find_resource kind:trainer_rate_type. Defaults to 0 (none)."),
   schedule_type: z
     .enum(SCHEDULE_TYPES)
     .describe(

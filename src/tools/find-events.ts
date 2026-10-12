@@ -103,11 +103,11 @@ export const findEventsInputSchema = {
   trainer_id: numberOrNumberArray
     .optional()
     .describe(
-      "Restrict to sessions an instructor is connected to (one or more). Resolve with trainers_find. See the trainer filter note above — this matches across five trainer relationships.",
+      "Restrict to sessions an instructor is connected to (one or more). Resolve: classes_find_resource kind:trainer. See the trainer filter note above — this matches across five trainer relationships.",
     ),
   place_id: numberOrNumberArray
     .optional()
-    .describe("Restrict to sessions at one or more venues (places). Resolve with classes_find_places."),
+    .describe("Restrict to sessions at one or more venues (places). Resolve: classes_find_resource kind:place."),
   room_id: numberOrNumberArray
     .optional()
     .describe("Restrict to sessions held in one or more specific rooms within a venue."),

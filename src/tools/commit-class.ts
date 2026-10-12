@@ -57,7 +57,7 @@ const scheduleShape = z.object({
     .number()
     .int()
     .positive()
-    .describe("Venue (place) where the class runs. Resolve with classes_find_places."),
+    .describe("Venue (place). Resolve: classes_find_resource kind:place."),
   place_name: z
     .string()
     .describe("Venue name, from classes_preview_schedule."),
@@ -70,12 +70,12 @@ const scheduleShape = z.object({
     .number()
     .int()
     .positive()
-    .describe("Instructor assigned to the class. Resolve with trainers_find."),
+    .describe("Instructor assigned to the class. Resolve: classes_find_resource kind:trainer."),
   trainer_rate_type_id: z
     .number()
     .int()
     .nonnegative()
-    .describe("Trainer PAY-RATE type (what the instructor is paid, not what clients pay). Resolve with trainers_find_rate_types. `0` = none."),
+    .describe("Trainer PAY-RATE type (what the instructor is paid, not what clients pay). Resolve: classes_find_resource kind:trainer_rate_type. `0` = none."),
   capacity: z
     .number()
     .int()

@@ -47,7 +47,9 @@ export const cancelSessionsDescription =
   "TWO CALLS. First WITHOUT `token`: returns every affected session, the client count, how many emails would be " +
   "sent, and what will NOT happen — plus a single-use token. Show that to the operator and get explicit approval. " +
   "Then call again with `token` + `confirmed: true` to apply; send nothing else, the plan is frozen.\n\n" +
-  "`reason` is required and is recorded for staff only. `public_reason` is what clients read and is required when " +
+  "`reason` is required and is recorded for staff only — it must be the operator's own words: if they did not " +
+  "say why, ASK before the first call; never invent a placeholder such as \"cancelled by operator\". " +
+  "`public_reason` is what clients read and is required when " +
   "`notify` is true — one email per session per client, so five sessions in a class of 25 is 125 messages; the " +
   "preview states the exact count either way.\n\n" +
   "Optionally create a make-up session with `replacement_date`, which moves the attendees onto the new date. " +
@@ -119,7 +121,7 @@ export const cancelSessionsInputSchema = {
     .min(1)
     .optional()
     .describe(
-      "REQUIRED. Internal, staff-only; Zooza cannot clear it later.",
+      "REQUIRED. Internal, staff-only; Zooza cannot clear it later. The operator's stated reason — ask, never invent.",
     ),
   public_reason: z
     .string()

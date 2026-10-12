@@ -39,7 +39,7 @@ export const findTrainersInputSchema = {
     .positive()
     .optional()
     .describe(
-      "Only trainers associated with this venue. Resolve the venue id first with classes_find_places; never guess it. Virtual (placeholder) trainers are still returned regardless of this filter.",
+      "Only trainers associated with this venue. Resolve the venue id first with classes_find_resource kind:place; never guess it. Virtual (placeholder) trainers are still returned regardless of this filter.",
     ),
   course_id: z
     .number()

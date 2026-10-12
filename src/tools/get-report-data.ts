@@ -32,7 +32,7 @@ export const getReportDataInputSchema = {
     .describe(`Question to pull data for. One of: ${REPORT_VIEWS.join(", ")}. Default "summary".`),
   from: z.string().optional().describe('First month YYYY-MM-01. Both from+to or neither (default: last 6 months).'),
   to: z.string().optional().describe("Last month YYYY-MM-01."),
-  company_id: z.number().int().optional().describe("Resolved from the session when omitted."),
+  company_id: z.coerce.number().int().optional().describe("Resolved from the session when omitted."),
 };
 
 const inputSchema = z.object(getReportDataInputSchema);

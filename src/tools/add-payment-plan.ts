@@ -72,7 +72,7 @@ export const addPaymentPlanInputSchema = {
 };
 
 const previewInput = z.object({
-  company_id: z.number().int().positive().optional(),
+  company_id: z.coerce.number().int().positive().optional(),
   registration_id: z.number().int().positive(),
   payment_schedule_id: z.number().int().positive().optional(),
   total_price: z.number().nonnegative().optional(),

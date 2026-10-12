@@ -129,7 +129,7 @@ const changesSchema = z
       .positive()
       .optional()
       .describe(
-        "Instructor assigned to the class. Resolve with trainers_find. CASCADE field — changing it requires session_scope.",
+        "Instructor assigned to the class. Resolve: classes_find_resource kind:trainer. CASCADE field — changing it requires session_scope.",
       ),
     trainer_rate_type_id: z
       .number()
@@ -137,8 +137,8 @@ const changesSchema = z
       .nonnegative()
       .optional()
       .describe(
-        "Trainer PAY-RATE type for this class (what the instructor is paid, not what clients pay). Resolve with " +
-          "trainers_find_rate_types. CASCADE field — changing it requires session_scope.",
+        "Trainer PAY-RATE type for this class (what the instructor is paid, not what clients pay). Resolve: " +
+          "classes_find_resource kind:trainer_rate_type. CASCADE field — changing it requires session_scope.",
       ),
     duration: z
       .number()
@@ -152,7 +152,7 @@ const changesSchema = z
       .positive()
       .optional()
       .describe(
-        "Venue (place) for the class. Resolve with classes_find_places. Must be changed together with room_id. " +
+        "Venue (place) for the class. Resolve: classes_find_resource kind:place. Must be changed together with room_id. " +
           "CASCADE field — changing it requires session_scope.",
       ),
     room_id: z

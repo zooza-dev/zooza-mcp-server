@@ -65,7 +65,7 @@ export const updateCourseTemplatesInputSchema = {
 };
 
 const previewInput = z.object({
-  company_id: z.number().int().positive().optional(),
+  company_id: z.coerce.number().int().positive().optional(),
   course_id: z.number().int().positive(),
   template_ids: z.array(z.number().int().positive()),
 });

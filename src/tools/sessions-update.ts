@@ -628,6 +628,9 @@ export const sessionsUpdateTitle = "Edit specific sessions (preview, then apply)
 
 export const sessionsUpdateDescription =
   "Edit specific individual sessions (events) of a class, OR add new sessions to a class. Two modes, one tool.\n\n" +
+  "NOT for a change that holds from a date onward or for every session (\"from next week Jana teaches the " +
+  "Monday class\", \"the class moves to Room B\") — that is ONE classes_update call with session_scope " +
+  "('upcoming' or 'all'), never a per-session edit of each date.\n\n" +
   "EDIT-MODE — pass `event_ids` + `changes`: reschedule a session's date/time, or change a hand-picked " +
   "session's instructor, venue/room, block, or duration. Works on one session or a chosen set.\n\n" +
   "ADD-MODE — pass `schedule_id` + `sessions`: CREATE one or more new sessions on an existing class (e.g. " +
@@ -641,8 +644,7 @@ export const sessionsUpdateDescription =
   "approval (and, if `notify` is set, confirm that clients will be emailed). Then call again with `token` + " +
   "`confirmed: true` to apply — send nothing else, the plan is frozen.\n\n" +
   "Use EDIT-MODE when the user points at particular sessions (\"move next Tuesday's class to Wednesday 5pm\", " +
-  "\"give Friday's session to Jana\"). To change an attribute across ALL or all upcoming sessions of a class in " +
-  "one go, use classes_update with session_scope instead. To cancel sessions, use the cancellation tools — this " +
+  "\"give Friday's session to Jana\"). To cancel sessions, use the cancellation tools — this " +
   "tool does not cancel.";
 
 export const sessionsUpdateInputSchema = {

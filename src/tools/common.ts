@@ -11,8 +11,12 @@ import type { ApiListResponse } from "./types.js";
  *
  * The description surfaces in the JSON schema served to MCP clients and
  * is the primary discovery hint for the LLM.
+ *
+ * Coerced: a client calling a dispatch-only tool directly by name never saw its
+ * schema and tends to send "1" — evals 2026-10-12 caught classes_preview_schedule
+ * rejecting exactly that. The JSON schema still advertises an integer.
  */
-export const companyIdSchema = z
+export const companyIdSchema = z.coerce
   .number()
   .int()
   .positive()

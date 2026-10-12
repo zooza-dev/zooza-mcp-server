@@ -212,7 +212,7 @@ export const addHelpersInputSchema = {
 
 const previewInput = z
   .object({
-    company_id: z.number().int().positive().optional(),
+    company_id: z.coerce.number().int().positive().optional(),
     schedule_ids: z.array(z.number().int().positive()).min(1).optional(),
     course_id: z.number().int().positive().optional(),
     billing_period_id: z.number().int().positive().optional(),

@@ -27,7 +27,7 @@ export const previewEventsInputSchema = {
     .int()
     .positive()
     .describe(
-      "Venue (place) the sessions run at. Required so api-v1 applies the correct subdivision-scoped school-holiday calendar. Resolve with classes_find_places.",
+      "Venue (place) the sessions run at. Required so api-v1 applies the correct subdivision-scoped school-holiday calendar. Resolve: classes_find_resource kind:place.",
     ),
   from_date: z
     .string()
@@ -69,7 +69,7 @@ export const previewEventsInputSchema = {
           .int()
           .positive()
           .optional()
-          .describe("Optional per-block instructor override. Resolve with trainers_find."),
+          .describe("Per-block instructor override. Resolve: classes_find_resource kind:trainer."),
         count: z
           .number()
           .int()
@@ -109,7 +109,7 @@ export const previewEventsInputSchema = {
           .int()
           .positive()
           .optional()
-          .describe("Optional per-session instructor override. Resolve with trainers_find."),
+          .describe("Per-session instructor override. Resolve: classes_find_resource kind:trainer."),
       }),
     )
     .optional()

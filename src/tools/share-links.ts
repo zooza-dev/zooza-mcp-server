@@ -68,7 +68,7 @@ export const classesAddShareLinkInputSchema = {
 };
 
 const addPreviewSchema = z.object({
-  company_id: z.number().int().positive().optional(),
+  company_id: z.coerce.number().int().positive().optional(),
   schedule_id: z.number().int().positive(),
   expires: z.string().regex(DATE).nullable().optional(),
   application_id: z.number().int().positive().optional(),

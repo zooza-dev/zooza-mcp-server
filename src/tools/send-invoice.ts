@@ -72,7 +72,7 @@ export const paymentsSendInvoiceInputSchema = {
 };
 
 const previewSchema = z.object({
-  company_id: z.number().int().positive().optional(),
+  company_id: z.coerce.number().int().positive().optional(),
   registration_ids: z.array(z.number().int().positive()).min(1).max(MAX_REGISTRATIONS),
   period_start: z.string().regex(DATE).optional(),
   period_end: z.string().regex(DATE).optional(),
