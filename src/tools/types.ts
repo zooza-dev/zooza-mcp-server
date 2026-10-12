@@ -322,6 +322,8 @@ export interface RegistrationMatch {
   payment_paid: number;
   /** payment_paid + payment_debt: negative = still owed, positive = overpaid — __calc__balance. */
   payment_balance: number;
+  /** When the booking was made, "YYYY-MM-DD HH:MM:SS" — "the most recent booking". */
+  created?: string;
   /** Only with include_extra_fields — filled custom booking-form answers. */
   extra_fields?: Array<{ field: string; label: string; value: string }>;
   /** When the class meets (class-info.ts); absent when unknown. */
@@ -344,6 +346,8 @@ export interface ClientMatch {
  *  fields bookings_find projects are typed (the $select is large; common.php:6469+). */
 export interface RawRegistrationRecord {
   registration_id?: number;
+  /** r.created AS created (common.php:8064) — when the booking was made. */
+  created?: string;
   user_id?: number | string;
   /** r.__users__full_name (common.php:6542) — the account holder / payer. */
   full_name?: string;

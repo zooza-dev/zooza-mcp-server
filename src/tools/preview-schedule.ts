@@ -109,7 +109,7 @@ export const previewScheduleInputSchema = {
     .int()
     .positive()
     .optional()
-    .describe("Term block (billing period) this class belongs to. Resolve with classes_find_billing_periods. Falls back to the most recent active period when omitted."),
+    .describe("Term block (billing period) this class belongs to. Resolve: classes_find_resource kind:billing_period. Falls back to the most recent active period when omitted."),
   payment_schedule_template_ids: z
     .array(z.number().int().positive())
     .optional()
@@ -338,7 +338,7 @@ function buildWarnings(
   }
   if (input.billing_period_id === undefined) {
     warnings.push(
-      "billing_period_id not provided — api-v1 will fall back to the most recent active billing period. Ask the user which billing period applies before committing (use classes_find_resource (kind:'billing_period') once available).",
+      "billing_period_id not provided — api-v1 will fall back to the most recent active billing period. Ask the user which billing period applies before committing (resolve it with classes_find_resource kind:'billing_period').",
     );
   }
   return warnings;

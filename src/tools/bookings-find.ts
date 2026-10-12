@@ -58,7 +58,7 @@ export const bookingsFindDescription =
   "one row per client (→ `user_id`) for person lookups. Chain a result's `registration_id` or `user_id` straight " +
   "into comms_send_message (`audience.registration_id` / `audience.user_id`). Each booking row carries when its " +
   "class meets — `class_name`, `class_weekday` (day of the first session), `class_time` (HH:MM) — so \"his Tuesday " +
-  "class\" needs no classes_find_classes call; programme names are not returned (classes_find_courses). Defaults to active enrolments; guest, waitlist, " +
+  "class\" needs no classes_find_classes call — and `created` (when the booking was made, for \"most recent\"); programme names are not returned (classes_find_courses). Defaults to active enrolments; guest, waitlist, " +
   "canceled and deleted are excluded unless you pass `status`. A row's `status` may read `pre_*` " +
   "(e.g. pre_registered = not yet confirmed); its group filter (`registered`) already includes it. `include_extra_fields:true` adds each booking's " +
   "custom booking-form answers (allergies, \"how did you hear about us\"…). Money per booking: `payment_debt` = total CHARGED " +
@@ -382,6 +382,7 @@ function projectBooking(r: RawRegistrationRecord): RegistrationMatch {
     course_id: r.course_id ?? 0,
     schedule_id: r.schedule_id ?? 0,
     status: pickStr(r.status) ?? "",
+    ...(pickStr(r.created) ? { created: pickStr(r.created) } : {}),
     payment_status: pickStr(r.payment_status) ?? "",
     // Semantics verified live on api-test 2026-10-03 (reg 52816: debt -6000,
     // paid 200, balance -5800). payment_debt is the total CHARGED (negative) —

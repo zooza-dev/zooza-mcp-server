@@ -121,7 +121,7 @@ export const findEventsInputSchema = {
   billing_period_id: numberOrNumberArray
     .optional()
     .describe(
-      "Restrict to sessions in one or more billing periods (term blocks). Resolve with classes_find_billing_periods.",
+      "Restrict to sessions in one or more billing periods (term blocks). Resolve: classes_find_resource kind:billing_period.",
     ),
   sort: z
     .enum(SORT_VALUES)
