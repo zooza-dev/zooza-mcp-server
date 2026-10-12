@@ -38,6 +38,19 @@ export const TRIAL_STATUSES = new Set(["trial_started", "trial_not_started"]);
  * the "blank strings are absent" rule lives in exactly one place (it was
  * copy-pasted verbatim into four tool files).
  */
+/** A schedule's `time` as HH:MM. api-v1 stores and serialises it as an int of
+ *  MINUTES since midnight (Resource/Schedule.php:31 casts 'time' to int; Schedule.php:869
+ *  renders it via time_to_timestring) — 1170 is 19:30. A "HH:MM[:SS]" string is
+ *  accepted too. Undefined when absent or unparseable. */
+export function scheduleTimeHHMM(v: unknown): string | undefined {
+  const minutes = typeof v === "number" ? v : typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : NaN;
+  if (Number.isInteger(minutes) && minutes >= 0 && minutes < 24 * 60) {
+    return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  }
+  const m = typeof v === "string" ? v.match(/^(\d{1,2}):(\d{2})/) : null;
+  return m ? `${m[1].padStart(2, "0")}:${m[2]}` : undefined;
+}
+
 export function pickStr(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const t = v.trim();

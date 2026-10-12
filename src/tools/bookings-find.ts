@@ -3,6 +3,7 @@ import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
 import { companyIdSchema, pickStr } from "./common.js";
+import { type ClassInfo, fetchClassInfo } from "./class-info.js";
 import { type ExtraFieldDefs, fetchExtraFieldDefs, projectExtraFields } from "./extra-fields.js";
 import type { ClientMatch, RawRegistrationRecord, RegistrationMatch } from "./types.js";
 
@@ -55,8 +56,9 @@ export const bookingsFindDescription =
   "`place_id` (venue), `status`, `payment_status`, or booking date with " +
   "`created_from`/`created_to` (the \"new registrations this week\" lever). `distinct:true` returns " +
   "one row per client (→ `user_id`) for person lookups. Chain a result's `registration_id` or `user_id` straight " +
-  "into comms_send_message (`audience.registration_id` / `audience.user_id`). Class/programme NAMES aren't " +
-  "returned — resolve the ids via classes_find_* if you need them. Defaults to active enrolments; guest, waitlist, " +
+  "into comms_send_message (`audience.registration_id` / `audience.user_id`). Each booking row carries when its " +
+  "class meets — `class_name`, `class_weekday` (day of the first session), `class_time` (HH:MM) — so \"his Tuesday " +
+  "class\" needs no classes_find_classes call; programme names are not returned (classes_find_courses). Defaults to active enrolments; guest, waitlist, " +
   "canceled and deleted are excluded unless you pass `status`. `include_extra_fields:true` adds each booking's " +
   "custom booking-form answers (allergies, \"how did you hear about us\"…). Money per booking: `payment_debt` = total CHARGED " +
   "(negative), NOT what is still owed; `payment_paid` = amount received; `payment_balance` = paid + debt " +
@@ -296,6 +298,25 @@ export async function runBookingsFind(
         extra_fields: projectExtraFields(rows[i] as Record<string, unknown>, rows[i].course_id ?? 0, defs),
       }));
     }
+    let classInfoWarning: string | undefined;
+    if (!input.distinct && rows.length > 0) {
+      let classes = new Map<number, ClassInfo>();
+      try {
+        classes = await fetchClassInfo(
+          rows.map((r) => r.schedule_id ?? 0),
+          auth,
+          input.company_id!,
+        );
+      } catch (error) {
+        // The bookings are the answer; when the class runs is a convenience.
+        classInfoWarning =
+          "Could not load when each class meets" +
+          (error instanceof ZoozaApiError ? ` (api-v1 ${error.status})` : "") +
+          " — class_name/class_weekday/class_time are missing; use classes_find_classes with the schedule_id.";
+      }
+      matches = matches.map((m, i) => ({ ...m, ...classes.get(rows[i].schedule_id ?? 0) }));
+    }
+    const warning = [extraFieldsWarning, classInfoWarning].filter(Boolean).join(" ") || undefined;
     const total = envelope?.total ?? matches.length;
     const totalIsCapped = Boolean(envelope?.total_capped);
     const truncated = total > (page + 1) * pageSize;
@@ -328,7 +349,7 @@ export async function runBookingsFind(
       // Always false under count=exact; surface only if it ever fires, rather
       // than shipping `false` on every call.
       ...(totalIsCapped ? { total_is_capped: true } : {}),
-      ...(extraFieldsWarning ? { warning: extraFieldsWarning } : {}),
+      ...(warning ? { warning } : {}),
       echo,
     };
     // Compact JSON (no pretty-print) — this is a list tool returning up to 200

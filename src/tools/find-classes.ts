@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withCompany } from "../auth/session-store.js";
 import type { ZoozaAuth } from "../auth/types.js";
 import { ZoozaApiError, zoozaFetch } from "../zooza.js";
-import { companyIdSchema, pickStr, unwrapList } from "./common.js";
+import { companyIdSchema, pickStr, scheduleTimeHHMM, unwrapList } from "./common.js";
 import {
   EMPTY_TRAINER_DIRECTORY,
   hasAnyTrainerLinks,
@@ -251,7 +251,8 @@ function projectSchedule(s: RawScheduleRecord, trainerDir: TrainerDirectory): Sc
     course_id: s.course_id ?? 0,
     start: pickStr(s.start) ?? "",
     end: pickStr(s.end) ?? "",
-    time: pickStr(s.time) ?? "",
+    // Was pickStr(s.time): api-v1 sends minutes as an int, so time was always "".
+    time: scheduleTimeHHMM(s.time) ?? "",
     trainer_id: s.trainer_id ?? 0,
     trainer_name: trainerName,
     place_id: s.place_id ?? 0,

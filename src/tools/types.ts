@@ -257,7 +257,8 @@ export interface RawScheduleRecord {
   course_id?: number;
   start?: string;
   end?: string;
-  time?: string;
+  /** Minutes since midnight (int) — see scheduleTimeHHMM in common.ts. */
+  time?: number | string;
   trainer_id?: number;
   place_id?: number;
   room_id?: number | string;
@@ -323,6 +324,10 @@ export interface RegistrationMatch {
   payment_balance: number;
   /** Only with include_extra_fields — filled custom booking-form answers. */
   extra_fields?: Array<{ field: string; label: string; value: string }>;
+  /** When the class meets (class-info.ts); absent when unknown. */
+  class_name?: string;
+  class_weekday?: string;
+  class_time?: string;
 }
 
 /** Curated client row for bookings_find `distinct: true` — one row per account
