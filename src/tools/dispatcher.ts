@@ -66,7 +66,14 @@ function lookup(
   name: string,
   handles: Map<string, RegisteredTool>,
 ): { handle: RegisteredTool } | { error: ToolResult } {
-  const handle = DISPATCHER.has(name) ? undefined : handles.get(name);
+  if (DISPATCHER.has(name)) {
+    // Seen in evals 2026-10-12: call_tool(name: "get_tool_schema") — nesting the
+    // dispatcher in itself. Say how to call it rather than "unknown tool".
+    return {
+      error: text(`${name} is not called through call_tool — call ${name} directly (it is in your tool list).`, true),
+    };
+  }
+  const handle = handles.get(name);
   if (handle) return { handle };
   const known = [...handles.keys()].filter((n) => !DISPATCHER.has(n)).sort();
   return { error: text(`Unknown Zooza tool "${name}". Tools: ${known.join(", ")}.`, true) };

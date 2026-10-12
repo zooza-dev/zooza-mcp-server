@@ -70,6 +70,7 @@ describe("runCallTool", () => {
     const { handles } = setup();
     const res = await runCallTool({ name: "call_tool", arguments: { name: "todos_add" } }, handles, undefined);
     expect(res.isError).toBe(true);
+    expect(textOf(res)).toContain("call call_tool directly");
   });
 
   it("errors when name is missing", async () => {
