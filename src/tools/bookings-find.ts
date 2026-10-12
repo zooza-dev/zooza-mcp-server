@@ -59,7 +59,8 @@ export const bookingsFindDescription =
   "into comms_send_message (`audience.registration_id` / `audience.user_id`). Each booking row carries when its " +
   "class meets — `class_name`, `class_weekday` (day of the first session), `class_time` (HH:MM) — so \"his Tuesday " +
   "class\" needs no classes_find_classes call; programme names are not returned (classes_find_courses). Defaults to active enrolments; guest, waitlist, " +
-  "canceled and deleted are excluded unless you pass `status`. `include_extra_fields:true` adds each booking's " +
+  "canceled and deleted are excluded unless you pass `status`. A row's `status` may read `pre_*` " +
+  "(e.g. pre_registered = not yet confirmed); its group filter (`registered`) already includes it. `include_extra_fields:true` adds each booking's " +
   "custom booking-form answers (allergies, \"how did you hear about us\"…). Money per booking: `payment_debt` = total CHARGED " +
   "(negative), NOT what is still owed; `payment_paid` = amount received; `payment_balance` = paid + debt " +
   "(negative = still owed, positive = overpaid). Sum `payment_paid` for income, `payment_balance` for outstanding " +
@@ -117,7 +118,11 @@ export const bookingsFindInputSchema = {
       "ONE exact booking by id, whatever its status (unlike `search`, which substring-matches: 45 also hits 145).",
     ),
   status: z
-    .array(z.enum(STATUS_VALUES))
+    // Rows show raw statuses, pre_* included (pre_registered = not yet confirmed),
+    // and the model filters by what it saw — evals 2026-10-12 sent
+    // "pre_registered" and got a validation error. api-v1 matches each group to
+    // both forms (common.php:8826-8835), so fold pre_X into X here.
+    .array(z.preprocess((v) => (typeof v === "string" ? v.replace(/^pre_/, "") : v), z.enum(STATUS_VALUES)))
     .optional()
     .describe(
       "Enrolment statuses to include (piped to the api). Omit → confirmed enrolments only (registered, late, " +
@@ -232,7 +237,7 @@ export async function runBookingsFind(
     page,
     page_size: pageSize,
   };
-  if (statusProvided) query.status = input.status!.join("|");
+  if (statusProvided) query.status = [...new Set(input.status!)].join("|");
   else if (!exactLookup) query.status = DEFAULT_STATUS_GROUPS.join("|");
   if (input.search) query.user = input.search; // api `user` = freetext LIKE (common.php:6972)
   if (input.name) query.ef_full_name = input.name;
