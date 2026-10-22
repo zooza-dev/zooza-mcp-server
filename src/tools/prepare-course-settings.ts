@@ -173,7 +173,7 @@ export function buildSettingsPlan(
   for (const [field, proposed] of Object.entries(effective)) {
     const current = Object.hasOwn(course, field) ? course[field] : null;
     if (!valuesEqual(current, proposed)) {
-      diff.push({ field, label: fieldLabel(field), current: current ?? null, proposed });
+      diff.push({ field, label: fieldLabel(field), current: current ?? null, proposed, ...valueLabels(field, current, proposed) });
     }
   }
   if (diff.length === 0) {
@@ -396,6 +396,20 @@ function buildWarnings(
       "Archived programmes are hidden from active lists but keep all data and bookings; reversible by setting archive back to false.",
     );
   }
+  // Open programmes only (model gate). Enforcement covers client (widget) bookings;
+  // admin bookings keep their own pass override (Enums/Open_Course_Payment_Mode.php:15-17).
+  if (proposed.get("payment_mode") === "passes_only") {
+    warnings.push(
+      "Entry pass only: clients without a valid entry pass can no longer book sessions of this programme " +
+        "online — their booking is refused, with no option to pay instead. Bookings made by staff in the app are not affected.",
+    );
+  }
+  if (proposed.get("payment_mode") === "payment_only") {
+    warnings.push(
+      "Payment only: entry passes are never used for this programme — clients who still hold unused passes " +
+        "will be charged for every session they book.",
+    );
+  }
   if (fields.has("hide_if_full") && rt === "open") {
     warnings.push("Pay-as-you-go programmes ignore hide-if-full — api-v1 forces it to 0.");
   }
@@ -503,7 +517,31 @@ const FIELD_LABELS: Record<string, string> = {
   unit_price_trial: "Trial unit price",
   feedback_during_course: "Feedback during the programme",
   feedback_after_course: "Feedback after the programme",
+  payment_mode: "How clients pay for sessions",
 };
+
+/** App wording for enum values the operator chooses by label in the app
+ *  (str_en3.js:9497-9503, enums__open_course_payment_modes__*). */
+const VALUE_LABELS: Record<string, Record<string, string>> = {
+  payment_mode: {
+    pass_first: "Use entry pass first, then payment",
+    passes_only: "Entry pass only",
+    payment_only: "Payment only",
+    both: "Client chooses each time",
+  },
+};
+
+function valueLabels(
+  field: string,
+  current: unknown,
+  proposed: unknown,
+): { current_label?: string; proposed_label?: string } {
+  if (!Object.hasOwn(VALUE_LABELS, field)) return {};
+  const labels = VALUE_LABELS[field];
+  const label = (v: unknown) =>
+    typeof v === "string" && Object.hasOwn(labels, v) ? labels[v] : undefined;
+  return { current_label: label(current), proposed_label: label(proposed) };
+}
 
 function fieldLabel(field: string): string {
   if (Object.hasOwn(FIELD_LABELS, field)) return FIELD_LABELS[field];

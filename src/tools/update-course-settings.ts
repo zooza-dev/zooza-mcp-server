@@ -34,7 +34,10 @@ export const updateCourseSettingsDescription =
   "Resolve the programme first with `classes_find_courses` (needs `course_id`). This tool edits the PROGRAMME " +
   "level — rules inherited by all its classes. To change one class/group (capacity, venue, instructor, time), use " +
   "the classes tools instead. Some sections only apply to \"booking for full programme duration\" programmes: " +
-  "trial, make-up sessions, auto-enrolment.";
+  "trial, make-up sessions, auto-enrolment.\n\n" +
+  "How clients pay for sessions on a pay-as-you-go (open) programme — entry pass vs payment — is section " +
+  "`attendance`, field `payment_mode`: `pass_first` (use entry pass first, then payment — the default), " +
+  "`passes_only` (entry pass only), `payment_only`, or `both` (client chooses each time).";
 
 export const updateCourseSettingsInputSchema = {
   company_id: companyIdSchema,

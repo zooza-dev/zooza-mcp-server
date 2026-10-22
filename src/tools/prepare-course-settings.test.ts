@@ -219,6 +219,44 @@ describe("diff", () => {
   });
 });
 
+describe("open programme payment mode", () => {
+  const open = (mode: string) => course({ registration_type: "open", payment_mode: mode });
+
+  it("diffs payment_mode with the app's labels and sends only payment_mode", () => {
+    const plan = expectPlan(buildSettingsPlan(open("passes_only"), "attendance", { payment_mode: "pass_first" }));
+    expect(plan.diff).toEqual([
+      {
+        field: "payment_mode",
+        label: "How clients pay for sessions",
+        current: "passes_only",
+        proposed: "pass_first",
+        current_label: "Entry pass only",
+        proposed_label: "Use entry pass first, then payment",
+      },
+    ]);
+    expect(plan.put_body.payment_mode).toBe("pass_first");
+    expect(plan.put_body).not.toHaveProperty("require_valid_entrance_voucher");
+    expect(plan.warnings).toEqual([]);
+  });
+
+  it("warns that passes_only refuses online bookings without a pass", () => {
+    const plan = expectPlan(buildSettingsPlan(open("pass_first"), "attendance", { payment_mode: "passes_only" }));
+    expect(plan.warnings).toEqual([expect.stringContaining("Entry pass only")]);
+  });
+
+  it("warns that payment_only ignores passes clients already hold", () => {
+    const plan = expectPlan(buildSettingsPlan(open("pass_first"), "attendance", { payment_mode: "payment_only" }));
+    expect(plan.warnings).toEqual([expect.stringContaining("Payment only")]);
+  });
+
+  it("aborts on an unchanged mode and on an unknown mode", () => {
+    expect(buildSettingsPlan(open("both"), "attendance", { payment_mode: "both" })).toMatchObject({ ok: false });
+    const bad = buildSettingsPlan(open("both"), "attendance", { payment_mode: "passes" });
+    expect(bad).toMatchObject({ ok: false });
+    expect(!bad.ok && bad.error).toContain("Allowed values: pass_first, passes_only, payment_only, both");
+  });
+});
+
 describe("put_body guard echoes", () => {
   it("always echoes current feedback flags (feedback-wipe trap)", () => {
     const plan = expectPlan(buildSettingsPlan(course(), "basic_info", { name: "New Name" }));

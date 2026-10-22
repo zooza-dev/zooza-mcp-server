@@ -21,6 +21,9 @@ export interface SettingsDiffEntry {
   label: string;
   current: unknown;
   proposed: unknown;
+  /** App wording for enum values that have one (payment_mode) — what the operator sees in the app. */
+  current_label?: string;
+  proposed_label?: string;
 }
 
 export interface CourseSettingsPlan {

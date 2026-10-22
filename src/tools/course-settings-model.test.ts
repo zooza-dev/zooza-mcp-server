@@ -61,7 +61,7 @@ describe("section model shape", () => {
     ]);
     expect(Object.keys(SECTIONS.attendance.fields)).toEqual([
       "track_attendance", "allow_rescheduling_of_events", "auto_approve_rescheduled_events",
-      "limit_reschedule_to_once", "auto_waitlist_notification", "require_valid_entrance_voucher",
+      "limit_reschedule_to_once", "auto_waitlist_notification", "payment_mode",
     ]);
     expect(Object.keys(SECTIONS.feedback.fields)).toEqual([
       "feedback_during_course", "feedback_after_course", "collect_feedback_start",
@@ -126,7 +126,7 @@ describe("section gating by programme type", () => {
   it("scopes attendance fields per programme type", () => {
     expect(firstViolation("attendance", "full2", { track_attendance: false })).toBeNull();
     expect(firstViolation("attendance", "single", { auto_waitlist_notification: true })).toBeNull();
-    expect(firstViolation("attendance", "open", { require_valid_entrance_voucher: true })).toBeNull();
+    expect(firstViolation("attendance", "open", { payment_mode: "payment_only" })).toBeNull();
 
     // A field from another type's variant is not part of the section for this programme.
     expect(firstViolation("attendance", "single", { track_attendance: false })).toEqual({
@@ -135,16 +135,31 @@ describe("section gating by programme type", () => {
       field: "track_attendance",
       allowed_fields: ["auto_waitlist_notification"],
     });
-    expect(firstViolation("attendance", "full2", { require_valid_entrance_voucher: true })).toEqual({
+    expect(firstViolation("attendance", "full2", { payment_mode: "passes_only" })).toEqual({
       kind: "unknown_field",
       section: "attendance",
-      field: "require_valid_entrance_voucher",
+      field: "payment_mode",
       allowed_fields: [
         "track_attendance", "allow_rescheduling_of_events",
         "auto_approve_rescheduled_events", "limit_reschedule_to_once",
       ],
     });
-    expect(allowedFields("attendance", "open")).toEqual(["require_valid_entrance_voucher"]);
+    expect(allowedFields("attendance", "open")).toEqual(["payment_mode"]);
+  });
+
+  it("rejects the retired legacy pass flag and unknown payment modes on open programmes", () => {
+    expect(firstViolation("attendance", "open", { require_valid_entrance_voucher: true })).toMatchObject({
+      kind: "unknown_field",
+      field: "require_valid_entrance_voucher",
+      allowed_fields: ["payment_mode"],
+    });
+    // api-v1 would drop this silently and still return success.
+    expect(firstViolation("attendance", "open", { payment_mode: "pass_only" })).toEqual({
+      kind: "invalid_enum",
+      field: "payment_mode",
+      value: "pass_only",
+      allowed_values: ["pass_first", "passes_only", "payment_only", "both"],
+    });
   });
 });
 

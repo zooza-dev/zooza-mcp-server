@@ -95,6 +95,10 @@ const TRIAL_LENGTH_TYPES = ["days", "events"] as const; // :878-883
 const RETENTION_TYPES = ["none", "suggest_schedules", "duplicate_schedule"] as const; // :1068-1079
 const COURSE_TYPES = ["course", "event", "online_event", "photography"] as const; // moduleconfig.js:2167-2184
 const TARGET_AUDIENCES = ["groups", "individuals"] as const;
+// Open programmes only. api-v1 drops an unknown value silently (Course.php:969-976),
+// so the enum check here is the only thing that surfaces a typo. Values:
+// Enums/Open_Course_Payment_Mode.php:41-44; app option list: course_settings.js:1257.
+export const PAYMENT_MODES = ["pass_first", "passes_only", "payment_only", "both"] as const;
 
 export const SECTIONS: Record<SectionName, SectionRule> = {
   basic_info: {
@@ -201,7 +205,9 @@ export const SECTIONS: Record<SectionName, SectionRule> = {
       auto_approve_rescheduled_events: { types: ["full2"] },
       limit_reschedule_to_once: { types: ["full2"] },
       auto_waitlist_notification: { types: ["single"] },
-      require_valid_entrance_voucher: { types: ["open"] },
+      // Replaces the legacy require_valid_entrance_voucher, which booking no longer
+      // reads (handoff api-v1-to-zooza-mcp-20261022-001).
+      payment_mode: { types: ["open"], enum: PAYMENT_MODES },
     },
   },
   feedback: {
