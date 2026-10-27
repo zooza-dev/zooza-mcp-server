@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "zooza-sdd@sdd-local": true,
+    "ynput-sdd@sdd-local": false
+  }
+}
