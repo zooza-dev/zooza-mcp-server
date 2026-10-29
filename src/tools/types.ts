@@ -445,36 +445,38 @@ export interface AdditionalTrainer {
   role: string | null;
   /** sessions_find_events only (session assignments, never the class roster):
    *  this trainer's pay on the session — see trainer-pay.ts. null when the
-   *  session has no rate type or rates could not be read. */
+   *  session has no pay or api-v1 listed no entry for this trainer. */
   pay?: TrainerPay | null;
 }
 
-/** One trainer's pay on one session, as api-v1's trainer report computes it. */
+/** One trainer's pay on one session, as api-v1 calculates it (= the trainer report). */
 export interface TrainerPay {
-  /** The trainer's own trainer_rates.unit_amount for the session's rate type;
-   *  null when they have no rate for it (the report then pays 0). */
-  unit_amount: number | null;
-  amount: number;
+  /** api-v1's `to_pay`, 2 dp. 0 = no rate set for the session's rate type;
+   *  null = hidden from this caller (a trainer caller sees only their own). */
+  amount: number | null;
 }
 
-/** Session-level pay inputs on a sessions_find_events row. */
+/** Session-level pay on a sessions_find_events row. */
 export interface EventPay {
   rate_type_id: number;
-  /** Rate type kind from /v1/trainer_rates/types: 'per_minute' | 'fixed'. */
+  /** Rate type kind: 'per_minute' | 'fixed'. */
   rate_type: string | null;
   /** 0..1 fraction (1 = full rate; cancelled sessions are zeroed by api-v1). */
   payout_percentage: number;
-  /** Minutes the per-minute rate multiplies: the session's duration, else the class's. */
+  /** The session's effective duration: its own, else the class's. */
   minutes: number;
+  /** null when the session has no main trainer. */
   main_trainer: TrainerPay | null;
 }
 
-/** Raw /v1/trainer_rates row — one trainer's amount for one rate type. */
-export interface RawTrainerRateRecord {
-  id?: number;
-  trainer_id?: number;
-  rate_id?: number;
-  unit_amount?: number | string;
+/** Raw `pay` sub-resource from GET /events?load_pay=1 (`api-v1/class/Trainer_Pay.php`). */
+export interface RawEventPay {
+  rate_type_id: number;
+  rate_type: string | null;
+  payout_percentage: number;
+  minutes: number;
+  main_trainer: { trainer_id: number; to_pay: number | null } | null;
+  additional_trainers: Array<{ trainer_id: number; to_pay: number | null }>;
 }
 
 /** Curated match shape for classes_find_resource (kind:'place') — see ZMCP-20260523-002. */
@@ -863,6 +865,8 @@ export interface RawEventRecord {
   trainer_rate_type_id?: number | string;
   /** 0..1 fraction (api-v1 `events.php:2073-2085` clamps it). */
   trainer_payout_percentage?: number | string;
+  /** Present only with `load_pay=1`. null = no rate type, or caller may not see financials. */
+  pay?: RawEventPay | null;
   // Materialised display + counter fields
   __calc__event_number?: string | number;
   __calc__event_trainer?: string;

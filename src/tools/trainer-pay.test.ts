@@ -5,10 +5,8 @@ import { runGetAttendance } from "./get-attendance.js";
 
 /**
  * Spec ZMCP-20261009-011 — additional trainers in attendance + trainer pay.
- *
- * Pay fixtures are the live api-test rows the GATE was verified on (2026-10-09,
- * company 1): the expected `amount`s are the `to_pay` figures GET
- * /users/{id}/report returned for those sessions, not values derived here.
+ * Spec ZMCP-20261029-001 — pay is read from api-v1 (`load_pay`), never derived here:
+ * the fixtures carry api-v1's `pay` sub-resource and the tests check only the mapping.
  */
 
 const AUTH: ZoozaAuth = {
@@ -60,26 +58,18 @@ const USERS = {
   ],
 };
 
-/** Live api-test /trainer_rates rows used by the fixtures (unit_amount per minute). */
-const RATES = {
-  total: 4,
-  data: [
-    { id: 34, trainer_id: 11083, rate_id: 6, unit_amount: 0.1667 },
-    { id: 35, trainer_id: 11081, rate_id: 6, unit_amount: 0.1667 },
-    { id: 15, trainer_id: 645, rate_id: 2, unit_amount: 0.4444 },
-    { id: 99, trainer_id: 11083, rate_id: 50, unit_amount: 12.5 },
-  ],
+/**
+ * api-test event 78175: main 11083 + secondary 11081, rate type 6, 60 min, 100%.
+ * `pay` is what api-v1 attaches with load_pay=1 (`Trainer_Pay::for_events`).
+ */
+const PAY_78175 = {
+  rate_type_id: 6,
+  rate_type: "per_minute",
+  payout_percentage: 1,
+  minutes: 60,
+  main_trainer: { trainer_id: 11083, to_pay: 10 },
+  additional_trainers: [{ trainer_id: 11081, to_pay: 10 }],
 };
-const RATE_TYPES = {
-  total: 3,
-  data: [
-    { id: 2, name: "Senior", minutes: 45, type: "per_minute" },
-    { id: 6, name: "Test", minutes: 60, type: "per_minute" },
-    { id: 50, name: "Per class", minutes: 0, type: "fixed" },
-  ],
-};
-
-/** api-test event 78175: main 11083 + secondary 11081, rate type 6, 60 min, 100%. */
 const EV_78175 = {
   id: 78175,
   schedule_id: 7441,
@@ -91,8 +81,9 @@ const EV_78175 = {
   trainer_payout_percentage: 1,
   schedule: { id: 7441, duration: 60 },
   trainers_events: [{ trainer_id: 11081, role: "secondary" }],
+  pay: PAY_78175,
 };
-/** api-test event 59772: duration 0 → falls back to the class's 60; helpers have no rate 2. */
+/** api-test event 59772: helpers have no rate for type 2, so api-v1 pays them 0. */
 const EV_59772 = {
   id: 59772,
   schedule_id: 6215,
@@ -107,94 +98,91 @@ const EV_59772 = {
     { trainer_id: 11079, role: "secondary" },
     { trainer_id: 11094, role: "assistant" },
   ],
+  pay: {
+    rate_type_id: 2,
+    rate_type: "per_minute",
+    payout_percentage: 1,
+    minutes: 60,
+    main_trainer: { trainer_id: 645, to_pay: 26.66 },
+    additional_trainers: [
+      { trainer_id: 11079, to_pay: 0 },
+      { trainer_id: 11094, to_pay: 0 },
+    ],
+  },
 };
 
-function payHandler(events: unknown[], rates: () => Response = () => ok(RATES)) {
+function payHandler(events: unknown[]) {
   return (c: FetchCall) => {
     if (c.path === "/events") return ok({ total: events.length, data: events });
     if (c.path === "/users") return ok(USERS);
-    if (c.path === "/trainer_rates") return rates();
-    if (c.path === "/trainer_rates/types") return ok(RATE_TYPES);
     return ok({});
   };
 }
 
-describe("sessions_find_events — trainer pay (mirrors the trainer report)", () => {
-  it("matches the report for main AND additional trainer (event 78175)", async () => {
+describe("sessions_find_events — trainer pay read from api-v1 (ZMCP-20261029-001)", () => {
+  it("asks for load_pay and maps main AND additional pay without any rate lookup", async () => {
     installFetch(payHandler([EV_78175]));
     const ev = structured(await runFindEvents({ company_id: 1, ids: [78175] }, AUTH)).events[0];
 
+    expect(calls.find((c) => c.path === "/events")!.query.get("load_pay")).toBe("1");
+    expect(calls.filter((c) => c.path.startsWith("/trainer_rates"))).toHaveLength(0);
     expect(ev.pay).toEqual({
       rate_type_id: 6,
       rate_type: "per_minute",
       payout_percentage: 1,
       minutes: 60,
-      // report to_pay for trainer 11083: 10.00 (main row is ROUND(…, 2))
-      main_trainer: { unit_amount: 0.1667, amount: 10 },
+      main_trainer: { amount: 10 },
     });
-    // report to_pay for trainer 11081: 10.002 (additional rows are not rounded)
     expect(ev.additional_trainers).toEqual([
-      {
-        trainer_id: 11081,
-        trainer_name: "Eva Farkašová",
-        role: "secondary",
-        pay: { unit_amount: 0.1667, amount: 10.002 },
-      },
+      { trainer_id: 11081, trainer_name: "Eva Farkašová", role: "secondary", pay: { amount: 10 } },
     ]);
   });
 
-  it("uses the class duration when the session's is 0, and pays 0 with no rate (event 59772)", async () => {
+  it("keeps to_pay 0 (no rate set) as amount 0", async () => {
     installFetch(payHandler([EV_59772]));
     const ev = structured(await runFindEvents({ company_id: 1, ids: [59772] }, AUTH)).events[0];
-
-    expect(ev.pay.minutes).toBe(60);
-    // report to_pay for trainer 645: 26.66
-    expect(ev.pay.main_trainer).toEqual({ unit_amount: 0.4444, amount: 26.66 });
-    // report to_pay for 11079 / 11094: 0 — neither has a rate for type 2
-    expect(ev.additional_trainers.map((t: any) => t.pay)).toEqual([
-      { unit_amount: null, amount: 0 },
-      { unit_amount: null, amount: 0 },
-    ]);
+    expect(ev.pay.main_trainer).toEqual({ amount: 26.66 });
+    expect(ev.additional_trainers.map((t: any) => t.pay)).toEqual([{ amount: 0 }, { amount: 0 }]);
   });
 
-  it("applies payout_percentage and skips minutes for a fixed rate type", async () => {
-    installFetch(
-      payHandler([{ ...EV_78175, trainer_rate_type_id: 50, trainer_payout_percentage: "0.5000" }]),
-    );
+  it("keeps another trainer's hidden to_pay as amount null, never 0", async () => {
+    const hidden = {
+      ...PAY_78175,
+      main_trainer: { trainer_id: 11083, to_pay: null },
+    };
+    installFetch(payHandler([{ ...EV_78175, pay: hidden }]));
     const ev = structured(await runFindEvents({ company_id: 1, ids: [78175] }, AUTH)).events[0];
-    expect(ev.pay.rate_type).toBe("fixed");
-    expect(ev.pay.main_trainer).toEqual({ unit_amount: 12.5, amount: 6.25 });
-    expect(ev.additional_trainers[0].pay).toEqual({ unit_amount: null, amount: 0 });
+    expect(ev.pay.main_trainer).toEqual({ amount: null });
+    expect(ev.additional_trainers[0].pay).toEqual({ amount: 10 });
   });
 
-  it("scales a per-minute rate by payout_percentage (cancelled sessions carry 0)", async () => {
-    installFetch(payHandler([{ ...EV_78175, trainer_payout_percentage: 0 }]));
-    const ev = structured(await runFindEvents({ company_id: 1, ids: [78175] }, AUTH)).events[0];
-    expect(ev.pay.main_trainer.amount).toBe(0);
-    expect(ev.additional_trainers[0].pay.amount).toBe(0);
+  it("passes pay: null through (no rate type / no financial access) with no warning", async () => {
+    installFetch(payHandler([{ ...EV_78175, pay: null }]));
+    const res = structured(await runFindEvents({ company_id: 1, ids: [78175] }, AUTH));
+    expect(res.events[0].pay).toBeNull();
+    expect(res.events[0].additional_trainers[0].pay).toBeNull();
+    expect(res.meta.warnings ?? []).toEqual([]);
   });
 
-  it("skips both rate lookups when no session has a rate type", async () => {
-    installFetch(payHandler([{ ...EV_78175, trainer_rate_type_id: 0 }]));
-    const ev = structured(await runFindEvents({ company_id: 1, ids: [78175] }, AUTH)).events[0];
-    expect(ev.pay).toBeNull();
-    expect(ev.additional_trainers[0].pay).toBeNull();
-    expect(calls.filter((c) => c.path.startsWith("/trainer_rates"))).toHaveLength(0);
-  });
-
-  it("fetches the rate table once per page", async () => {
-    installFetch(payHandler([EV_78175, { ...EV_78175, id: 2 }, EV_59772]));
-    await runFindEvents({ company_id: 1, schedule_id: 7441 }, AUTH);
-    expect(calls.filter((c) => c.path === "/trainer_rates")).toHaveLength(1);
-    expect(calls.filter((c) => c.path === "/trainer_rates/types")).toHaveLength(1);
-  });
-
-  it("degrades to null pay plus a warning when rates are not readable — never a fake 0", async () => {
-    installFetch(payHandler([EV_78175], () => fail(403)));
+  it("returns null pay plus a warning when the API ignored load_pay", async () => {
+    const { pay: _omit, ...withoutPay } = EV_78175;
+    installFetch(payHandler([withoutPay]));
     const res = structured(await runFindEvents({ company_id: 1, ids: [78175] }, AUTH));
     expect(res.events[0].pay).toBeNull();
     expect(res.events[0].additional_trainers[0].pay).toBeNull();
     expect(res.meta.warnings.join(" ")).toMatch(/pay unavailable/i);
+  });
+
+  it("returns main_trainer null when the session has no main trainer", async () => {
+    installFetch(payHandler([{ ...EV_78175, trainer_id: 0, pay: { ...PAY_78175, main_trainer: null } }]));
+    const ev = structured(await runFindEvents({ company_id: 1, ids: [78175] }, AUTH)).events[0];
+    expect(ev.pay.main_trainer).toBeNull();
+  });
+
+  it("gives an additional trainer with no pay entry null pay", async () => {
+    installFetch(payHandler([{ ...EV_78175, pay: { ...PAY_78175, additional_trainers: [] } }]));
+    const ev = structured(await runFindEvents({ company_id: 1, ids: [78175] }, AUTH)).events[0];
+    expect(ev.additional_trainers[0].pay).toBeNull();
   });
 
   it("keeps pay off the class roster", async () => {
