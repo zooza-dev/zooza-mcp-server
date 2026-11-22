@@ -82,7 +82,7 @@ const CONCEPT_INDEX_ID: Record<string, string | null> = {
   session: "session",
   booking: "booking",
   trainer: "instructor", // TERMINOLOGY_INDEX id is "instructor"; canonical in this tool is "Trainer"
-  billing_period: null, // no dedicated entry → always "custom"
+  billing_period: "billing-period",
   client: "client",
 };
 

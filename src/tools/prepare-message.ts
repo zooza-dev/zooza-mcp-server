@@ -17,7 +17,7 @@ const audienceSchema = z
       .positive()
       .optional()
       .describe(
-        "Everyone booked into this billing period (term block). ONE id — classes_find_resource kind:'billing_period'. " +
+        "Everyone booked into this billing period (a.k.a. term). ONE id — classes_find_resource kind:'billing_period'. " +
           "Combine with course_id/schedule_id to narrow; several periods = one message each.",
       ),
     registration_id: z

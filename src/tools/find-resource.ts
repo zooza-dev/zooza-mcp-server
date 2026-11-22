@@ -39,7 +39,7 @@ export const findResourceDescription =
   "Resolve a NAME the operator said into an id, for four kinds of company-level records. Pick `kind`:\n\n" +
   "- `place` — venues. Returns `{id, name, city, street, rooms: [{id, name, capacity}]}`. Rooms are inlined " +
   "because picking a venue is usually followed by picking a room. Filters: name, city.\n" +
-  "- `billing_period` — term blocks (e.g. \"Autumn 2026\"). Returns `{id, name, active, period_start, period_end}`; " +
+  "- `billing_period` — billing periods, a.k.a. terms (e.g. \"Autumn 2026\"). Returns `{id, name, active, period_start, period_end}`; " +
   "either date may be null, an open-ended period is valid. Filter: name. Match on the DATES, not just the name — a " +
   "period covering the term you want may be named anything.\n" +
   "- `trainer` — team members assignable to classes. Returns `{id, full_name, email, active, virtual}`. Filters: " +
@@ -59,7 +59,7 @@ export const findResourceInputSchema = {
   kind: z
     .enum(KINDS)
     .describe(
-      "Which kind of record to resolve. 'place' = venue, 'billing_period' = term block, 'trainer' = team member, " +
+      "Which kind of record to resolve. 'place' = venue, 'billing_period' = billing period (a.k.a. term), 'trainer' = team member, " +
         "'trainer_rate_type' = named pay rate.",
     ),
   name: z.string().optional().describe("Substring match on the record's name. Applies to every kind."),

@@ -125,7 +125,7 @@ const scheduleShape = z.object({
     .int()
     .positive()
     .optional()
-    .describe("Term block (billing period) of this class. Resolve via classes_find_resource kind:'billing_period'."),
+    .describe("Billing period (a.k.a. term) of this class. Resolve via classes_find_resource kind:'billing_period'."),
   total_price: z
     .number()
     .nonnegative()

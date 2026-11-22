@@ -19,7 +19,7 @@ sources: [Katarina Krskova (2026-06-11), spec ZMCP-20260523-004, api-v1 billing_
 
 ## Counterparts and pairs
 
-- Related but distinct: **blocks / term segments** (schedule segments) subdivide a schedule; billing periods subdivide the company calendar. Operators conflate the two in support conversations — confirm which one they mean.
+- Related but distinct: **blocks** (technically: segments) group sessions inside one class; billing periods subdivide the company calendar. Operators conflate the two in support conversations — confirm which one they mean.
 
 ## Edge cases
 

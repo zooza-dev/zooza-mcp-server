@@ -109,7 +109,7 @@ export const previewScheduleInputSchema = {
     .int()
     .positive()
     .optional()
-    .describe("Term block (billing period) this class belongs to. Resolve: classes_find_resource kind:billing_period. Falls back to the most recent active period when omitted."),
+    .describe("Billing period (a.k.a. term) this class belongs to. Resolve: classes_find_resource kind:billing_period. Falls back to the most recent active period when omitted."),
   payment_schedule_template_ids: z
     .array(z.number().int().positive())
     .optional()

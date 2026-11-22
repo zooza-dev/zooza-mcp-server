@@ -109,6 +109,19 @@ import {
   runAddCourse,
 } from "./tools/add-course.js";
 import {
+  addBillingPeriodDescription,
+  addBillingPeriodInputSchema,
+  addBillingPeriodTitle,
+  runAddBillingPeriod,
+} from "./tools/add-billing-period.js";
+import {
+  runShowCopyProgress,
+  showCopyProgressDescription,
+  showCopyProgressInputSchema,
+  showCopyProgressTitle,
+} from "./tools/show-copy-progress.js";
+import { copyClassDescription, copyClassInputSchema, copyClassTitle, runCopyClass } from "./tools/copy-class.js";
+import {
   bookingsFindDescription,
   bookingsFindInputSchema,
   bookingsFindTitle,
@@ -1153,6 +1166,70 @@ function createMcpServer(
         SCOPE_WRITE,
         ctx,
         resolveCompanyId(ctx, async (args) => runAddCourse(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // Spec ZMCP-20261121-001. Single-phase `add`: the mandatory exact-name pre-flight
+  // returns an existing period instead of writing, so a retry is safe. Dispatch-only.
+  server.registerTool(
+    "classes_add_billing_period",
+    {
+      title: addBillingPeriodTitle,
+      description: addBillingPeriodDescription,
+      inputSchema: addBillingPeriodInputSchema,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: true },
+    },
+    audit(
+      "classes_add_billing_period",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runAddBillingPeriod(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // Spec ZMCP-20261122-002, coverage mode. Read-only; "copied" comes from class lineage
+  // (schedules.previous), so progress survives across conversations. Dispatch-only.
+  server.registerTool(
+    "classes_show_copy_progress",
+    {
+      title: showCopyProgressTitle,
+      description: showCopyProgressDescription,
+      inputSchema: showCopyProgressInputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false, idempotentHint: true },
+    },
+    audit(
+      "classes_show_copy_progress",
+      ctx,
+      scopeGuard(
+        SCOPE_READ,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runShowCopyProgress(args, ctx.auth)),
+      ),
+    ),
+  );
+
+  // Spec ZMCP-20261122-001. Dual-phase: the preview is api-v1's own dry run
+  // (POST schedules/copy?action=preflight_check); the apply POSTs the frozen body once
+  // and returns the schedule_copy job. Never retried. Dispatch-only.
+  server.registerTool(
+    "classes_copy_class",
+    {
+      title: copyClassTitle,
+      description: copyClassDescription,
+      inputSchema: copyClassInputSchema,
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: false },
+    },
+    audit(
+      "classes_copy_class",
+      ctx,
+      scopeGuard(
+        SCOPE_WRITE,
+        ctx,
+        resolveCompanyId(ctx, async (args) => runCopyClass(args, ctx.auth)),
       ),
     ),
   );

@@ -106,7 +106,7 @@ const changesSchema = z
       .int()
       .positive()
       .optional()
-      .describe("Term block (billing period) this class belongs to. Resolve: classes_find_resource kind:billing_period."),
+      .describe("Billing period (a.k.a. term) this class belongs to. Resolve: classes_find_resource kind:billing_period."),
     online_registration: z
       .boolean()
       .optional()

@@ -242,7 +242,7 @@ export interface ScheduleMatch {
   /** Public per-schedule booking URL (`__calc__registration_url`); `""` when the
    *  class isn't publicly bookable or the company has no registration widget. */
   registration_url: string;
-  /** Billing period (term block) the class belongs to; `0` when none. */
+  /** Billing period (a.k.a. term) the class belongs to; `0` when none. */
   billing_period_id: number;
   /** Schedule kind — e.g. `lead_collection` (a lead pipeline) or `fixed_period`;
    *  `""` when unset. Lets a caller spot a lead-collection schedule. */
@@ -858,6 +858,8 @@ export interface RawEventRecord {
   duration?: number | string;
   status?: string;
   is_custom_replacement_event?: boolean | number;
+  /** Counts towards a class's billable sessions (`billable_events` pricing). */
+  billable?: boolean | number;
   substituted?: boolean | number;
   summary_public?: string | null;
   summary_public_locked?: boolean | number;

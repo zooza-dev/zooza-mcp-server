@@ -114,7 +114,7 @@ export const findEventsInputSchema = {
   billing_period_id: numberOrNumberArray
     .optional()
     .describe(
-      "Restrict to sessions in one or more billing periods (term blocks). Resolve: classes_find_resource kind:billing_period.",
+      "Restrict to sessions in one or more billing periods (a.k.a. terms). Resolve: classes_find_resource kind:billing_period.",
     ),
   sort: z
     .enum(SORT_VALUES)
@@ -466,7 +466,10 @@ function projectEvent(
   };
 
   // Segments: prefer the embedded segments[] (richer), fall back to the
-  // comma-joined __schedule_segments__name materialiser column.
+  // __schedule_segments__name materialiser column, which api-v1 joins with '|'
+  // (class/Materialization.php:421, GROUP_CONCAT … SEPARATOR '|'). It was split on ','
+  // until 2026-11-22: a session in two blocks showed as one block "A|B", and a block
+  // name containing a comma was cut in two.
   let segments: string[] = [];
   if (Array.isArray(r.segments) && r.segments.length > 0) {
     segments = r.segments
@@ -474,7 +477,7 @@ function projectEvent(
       .filter((n) => n.length > 0);
   } else if (typeof r.__schedule_segments__name === "string" && r.__schedule_segments__name.length > 0) {
     segments = r.__schedule_segments__name
-      .split(",")
+      .split("|")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
   }

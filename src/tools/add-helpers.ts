@@ -172,7 +172,7 @@ export const addHelpersInputSchema = {
     .int()
     .positive()
     .optional()
-    .describe('Term block narrowing the programme. classes_find_resource kind:"billing_period".'),
+    .describe('Billing period narrowing the programme. classes_find_resource kind:"billing_period".'),
   assignments: z
     .array(assignmentSchema)
     .optional()

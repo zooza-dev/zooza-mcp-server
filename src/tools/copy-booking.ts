@@ -21,10 +21,12 @@ import { dualPhaseConfirmedSchema, dualPhaseTokenSchema, resolveDualPhase } from
  *
  * ── The design constraint that shapes this file ──────────────────────────────
  * api-v1's copy/move accepts eleven optional fields, several of which silently
- * change money. This tool sends five and refuses the rest, because a field the LLM
- * can set is a field the LLM can set wrong. `price_resolution`, `debt`,
- * `payment_schedule` and `segments` are NEVER sent — asserted by a test, not left to
- * convention. Anything needing them is a wizard job and the tool says so.
+ * change money. This tool sends a handful and refuses the rest, because a field the
+ * LLM can set is a field the LLM can set wrong. `price_resolution` and
+ * `payment_schedule` are NEVER sent; `debt` + `registration_fee` are sent only for
+ * `payments: free | custom_amount` (spec ZMCP-20261121-002), and `segments` only with
+ * `blocks`, as ids the tool resolved from names itself — asserted by a test, not left to convention. Anything needing more is a wizard job
+ * and the tool says so.
  *
  * ── Why we do not fetch class or client names for the preview ────────────────
  * To call this tool at all, the model had to resolve `target_schedule_id` through
@@ -62,6 +64,9 @@ const VALID_STATUSES = [
   "trial_started",
   "trial_not_started",
 ] as const;
+
+const PAYMENT_MODES = ["from_target_class", "do_not_change", "free", "custom_amount"] as const;
+type PaymentMode = (typeof PAYMENT_MODES)[number];
 
 /**
  * Blocker text per ERROR check. These are the teaching messages from the spec's
@@ -155,7 +160,7 @@ function warningMessage(check: string, props: Map<string, unknown>, action: "cop
         `'${str("target_billing_period_name")}'.`
       );
     case "requested_segments_exists":
-      return "Zooza rejected one or more term blocks for the target class.";
+      return "Zooza rejected one or more blocks for the target class.";
     default:
       return null;
   }
@@ -186,17 +191,30 @@ export const copyBookingInputSchema = {
     .optional()
     .describe("Required on the FIRST call. See the tool description for which to pick."),
   payments: z
-    .enum(["from_target_class", "do_not_change"])
+    .enum(PAYMENT_MODES)
     .optional()
     .describe(
       "Required on the FIRST call — NO default, ask the operator. from_target_class = price it by the " +
-        "target class. do_not_change = on copy, no payments on the new booking; on move, leave existing " +
-        "payments untouched (Zooza's help calls this the safest option).",
+        "target class. do_not_change = copy: no payments on the new booking; move: existing payments " +
+        "untouched (safest). free = the booking costs nothing: no class price, no registration fee. " +
+        "custom_amount = the amount and fee the operator gives, e.g. agreed with the parent. Only for a " +
+        "booking that ends up enrolled (registered); any other status uses the computed price. Ask for " +
+        "both numbers.",
     ),
+  custom_balance: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("custom_amount only, then required. Class price part, >= 0."),
+  custom_registration_fee: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("custom_amount only, then required. Fee, >= 0; 0 = no fee."),
   status: z
     .enum(VALID_STATUSES)
     .optional()
-    .describe("Omit to use what Zooza computes for the target class (usual choice)."),
+    .describe("Omit to use the status Zooza computes (usual)."),
   start: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "start must be YYYY-MM-DD")
@@ -207,7 +225,15 @@ export const copyBookingInputSchema = {
     .int()
     .positive()
     .optional()
-    .describe("One-off (single-session) programmes only. Resolve with sessions_find_events."),
+    .describe("One-off programmes only. Resolve with sessions_find_events."),
+  blocks: z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .optional()
+    .describe(
+      "Only when the operator names blocks ('Mondays only'). Names from the target class. The preview " +
+        "lists the available ones if a name does not match.",
+    ),
   send_confirmation: z
     .boolean()
     .optional()
@@ -238,9 +264,17 @@ export const copyBookingDescription =
   "the booking is priced by the TARGET programme, no instalment plan is applied (payments_add_plan " +
   "afterwards), and the old programme's booking-form answers are carried over — the target programme's own " +
   "required questions are NOT asked.\n\n" +
-  "SIMPLE CASE ONLY. This tool cannot set up instalment plans, pick specific term blocks, or set a custom " +
-  "amount owed. If the operator needs any of those, do not improvise with other tools — tell them to use " +
-  "the Copy/Transfer wizard in the Zooza admin app (open the booking, then Transfer or Copy booking).";
+  "FREE, AGREED AMOUNT, SOME BLOCKS. `payments: \"free\"` when the client pays nothing for it (\"she " +
+  "doesn't pay\"). `payments: \"custom_amount\"` with BOTH `custom_balance` and `custom_registration_fee` " +
+  "when the operator gives the numbers (\"we agreed 200 plus the 20 fee\") — ask for both, 0 is allowed; " +
+  "only for a booking that ends up enrolled (registered). `blocks` when the operator names blocks of the " +
+  "target class (\"Mondays only\"); the preview prices only those blocks and lists the available names if " +
+  "one does not match. Omit `blocks` and Zooza matches blocks by name.\n\n" +
+  "SIMPLE CASE ONLY beyond that. This tool cannot set up a new instalment plan in the same call (copy, " +
+  "then payments_add_plan), do a trial conversion (enrol a trial as converted, or book a trial session), " +
+  "or write a custom confirmation email. If the operator needs one of those, do not improvise with other " +
+  "tools — tell them to use the Copy/Transfer wizard in the Zooza admin app (open the booking, then " +
+  "Transfer or Copy booking).";
 
 // ─── preview phase ────────────────────────────────────────────────────────────
 
@@ -266,20 +300,42 @@ async function runPreview(
   if (missing.length > 0) {
     return errorResult(
       `${missing.map((m) => `\`${m}\``).join(", ")} ${missing.length === 1 ? "is" : "are"} required on the ` +
-        "preview call. `action` is copy or move; `payments` is from_target_class or do_not_change — ask " +
-        "the operator rather than picking one for them.",
+        "preview call. `action` is copy or move; `payments` is from_target_class, do_not_change, free or " +
+        "custom_amount — ask the operator rather than picking one for them.",
+    );
+  }
+
+  // custom_amount's two numbers travel together, and only with custom_amount — both
+  // required so a fee of 0 is said out loud rather than defaulted.
+  const isCustom = input.payments === "custom_amount";
+  const hasBalance = input.custom_balance !== undefined;
+  const hasFee = input.custom_registration_fee !== undefined;
+  if (isCustom && (!hasBalance || !hasFee)) {
+    return errorResult(
+      "custom_amount needs custom_balance and custom_registration_fee. Ask the operator for both (0 is allowed).",
+    );
+  }
+  if (!isCustom && (hasBalance || hasFee)) {
+    return errorResult(
+      "custom_balance / custom_registration_fee only apply with payments: custom_amount.",
+    );
+  }
+
+  if (input.blocks !== undefined && input.target_event_id !== undefined) {
+    return errorResult(
+      "blocks applies to classes sold in blocks; target_event_id is for one-off sessions. Send one or the other.",
     );
   }
 
   const registration_id = input.registration_id!;
   const target_schedule_id = input.target_schedule_id!;
   const action = input.action!;
+  const payments = input.payments!;
   const callAuth = withCompany(auth, input.company_id!);
 
   // Step 1 — preflight. Read-only; returns the same checks the admin wizard renders.
-  let preflight: PreflightResponse;
-  try {
-    preflight = await zoozaFetch<PreflightResponse>(
+  const runPreflight = (segments?: number[]) =>
+    zoozaFetch<PreflightResponse>(
       "/registrations",
       {
         method: "POST",
@@ -291,11 +347,15 @@ async function runPreview(
             target_schedule_id,
             ...(input.start !== undefined ? { start: input.start } : {}),
             ...(input.target_event_id !== undefined ? { target_event_id: input.target_event_id } : {}),
+            ...(segments !== undefined ? { segments } : {}),
           },
         },
       },
       callAuth,
     );
+  let preflight: PreflightResponse;
+  try {
+    preflight = await runPreflight();
   } catch (error) {
     return zoozaError(error, "Could not check whether this copy/move is possible");
   }
@@ -306,23 +366,46 @@ async function runPreview(
   // carries NO checks, so the failed *_exists check itself never reaches us. Treat
   // a check-less response as "not found" instead of letting it fall through to the
   // missing-status path, which would invite the model to retry with a guessed status.
-  const checks = preflight && typeof preflight === "object" && !Array.isArray(preflight)
-    ? preflight.checks
-    : undefined;
-  if (!checks || typeof checks !== "object" || Object.keys(checks).length === 0) {
-    return errorResult(
-      `Zooza will not ${action} this booking. Nothing has been changed.\n- Zooza could not load the ` +
-        "target class, its programme, or the booking in this company (it does not say which). Re-resolve " +
-        "the class with classes_find_classes and the booking with bookings_find, and use the ids they " +
-        "return — do not guess an id.",
-    );
+  let parsedPreflight = readPreflight(preflight);
+  if (!parsedPreflight) return notLoadedError(action);
+
+  // Step 2b — blocks (spec ZMCP-20261121-002). The first preflight lists the target's
+  // blocks still running from `start` (registrations.php:4747-4765); names resolve to
+  // segment ids HERE, so the model never sees an id. A second preflight with those ids
+  // then prices only those blocks (Registration_Copy::price_mismatch gets them,
+  // registrations.php:4849) and counts only their sessions (:4807-4819), and its
+  // `valid_segments` is what gets committed — the same thing the admin wizard submits.
+  let chosenBlocks: SegmentRow[] | null = null;
+  let segmentIds: number[] | null = null;
+  if (input.blocks !== undefined) {
+    const resolved = resolveBlocks(input.blocks, parsedPreflight.props);
+    if (!resolved.ok) return errorResult(resolved.message);
+    chosenBlocks = resolved.blocks;
+
+    try {
+      preflight = await runPreflight(chosenBlocks.map((b) => b.id));
+    } catch (error) {
+      return zoozaError(error, "Could not check the chosen blocks");
+    }
+    parsedPreflight = readPreflight(preflight);
+    if (!parsedPreflight) return notLoadedError(action);
+
+    const requested = parsedPreflight.checks.requested_segments_exists;
+    const valid = segmentIdsOf(parsedPreflight.props.get("valid_segments"));
+    if (
+      requested?.result === "not_passed" ||
+      chosenBlocks.some((b) => !valid.includes(b.id))
+    ) {
+      return errorResult(
+        "Zooza rejected the chosen blocks for the target class. Nothing has been changed. Available: " +
+          `${listBlocks(resolved.available)}. Ask the operator which block, using these names.`,
+      );
+    }
+    // Commit what preflight vouched for, as the wizard does (handoff app-to-zooza-mcp, step 4).
+    segmentIds = [...new Set(valid)];
   }
 
-  // Properties may still be partial, so nothing below may assume a key is present.
-  const props = new Map<string, unknown>();
-  for (const p of Object.values(preflight.properties ?? {})) {
-    if (p && typeof p.name === "string") props.set(p.name, p.value);
-  }
+  const { checks, props } = parsedPreflight;
 
   const blockers: string[] = [];
   const warnings: string[] = [];
@@ -339,25 +422,34 @@ async function runPreview(
   // Payment plans — the two flags the admin wizard branches on (handoff
   // app-to-api-v1-20260909-001). Absent on an api-v1 without that handoff, in which
   // case neither rule fires. Both only matter when the tool is about to price the
-  // booking; `do_not_change` leaves plans alone by definition.
-  if (input.payments === "from_target_class") {
+  // booking; `do_not_change` leaves plans alone by definition. `free` and
+  // `custom_amount` reprice too, so a move off a plan is blocked for them as well; a
+  // free copy owes nothing, so plan advice is moot there.
+  if (payments !== "do_not_change") {
     if (props.get("current_has_payment_schedule") === true) {
       if (action === "move") {
         blockers.push(
-          "This booking is on a payment plan (instalments). Repricing it from the target class means " +
+          "This booking is on a payment plan (instalments). Repricing it " +
+            (payments === "from_target_class" ? "from the target class" : `with payments: ${payments}`) +
+            " means " +
             "rebuilding that plan, which this tool cannot do. Either preview again with payments: " +
             "\"do_not_change\" to move it and keep the plan exactly as it is, or send the operator to the " +
             "Copy/Transfer wizard in the Zooza admin app (open the booking, then Transfer).",
         );
-      } else {
+      } else if (payments !== "free") {
         warnings.push(
           "The original booking is on a payment plan, but the COPY will NOT get one — it will owe the " +
-            "full target price at once. To split it, apply a plan afterwards with payments_add_plan, or use " +
-            "the Copy/Transfer wizard in the Zooza admin app.",
+            `full ${payments === "custom_amount" ? "amount set here" : "target price"} at once. To split it, ` +
+            "apply a plan afterwards with payments_add_plan, or use the Copy/Transfer wizard in the Zooza " +
+            "admin app.",
         );
       }
     }
-    if (props.get("payment_schedules_available") === true && blockers.length === 0) {
+    if (
+      payments !== "free" &&
+      props.get("payment_schedules_available") === true &&
+      blockers.length === 0
+    ) {
       warnings.push(
         "The target class offers payment plans, but this tool does not put the booking on one. If the " +
           "operator wants instalments, apply a plan afterwards with payments_add_plan.",
@@ -372,13 +464,26 @@ async function runPreview(
   }
 
   // Step 3 — build the frozen request body. Everything this tool refuses to send is
-  // absent by construction, not by filtering: price_resolution, debt,
-  // payment_schedule and segments never appear here.
+  // absent by construction, not by filtering: price_resolution and payment_schedule
+  // never appear here, debt/registration_fee only for free/custom_amount, and
+  // segments only with `blocks`.
   const status = input.status ?? stripPrePrefix(props.get("target_status"));
   if (status === undefined) {
     return errorResult(
       "Zooza did not return a status for the target class, so the tool cannot pick one safely. Pass " +
         `\`status\` explicitly (one of: ${VALID_STATUSES.join(", ")}).`,
+    );
+  }
+
+  // api-v1 honours an admin-set price only when the booking ends up (pre_)registered;
+  // for late, waitlist or trial it computes the price itself and silently ignores the
+  // posted debt/registration_fee (audited `registration_admin_price_ignored`, agreed in
+  // handoff zooza-mcp-to-api-v1-20261121-002). Refuse rather than preview a price that
+  // will not be applied.
+  if ((payments === "free" || payments === "custom_amount") && status !== "registered") {
+    return errorResult(
+      "Zooza applies a set price only to an enrolled booking. This one would become " +
+        `'${status}', so Zooza will compute the price itself. Use from_target_class, or book it as registered.`,
     );
   }
 
@@ -391,9 +496,22 @@ async function runPreview(
   if (input.start !== undefined) body.start = input.start;
   if (input.target_event_id !== undefined) body.event_id = input.target_event_id;
   if (input.send_confirmation === true) body.send_confirmation = true;
+  // Only with `blocks`: the ids preflight confirmed as valid (Registration_Copy.php:400
+  // takes ids). Without it api-v1 auto-matches blocks by name (:377-388), as before.
+  if (segmentIds !== null) body.segments = segmentIds;
   // Only ever sent as `false`. Omitting it lets api-v1's own `true` default stand,
   // which is what `from_target_class` means (class/Registration.php:2781).
-  if (input.payments === "do_not_change") body.setup_payments = false;
+  if (payments === "do_not_change") body.setup_payments = false;
+  // An explicit debt makes api-v1 take the price as given: `isset($debt)` honours 0
+  // (registrations.php:5168-5177), and with the agreed fix the fee is exactly what was
+  // sent — the target's own fee is never added (zooza-mcp-to-api-v1-20261121-002).
+  if (payments === "free") {
+    body.debt = 0;
+    body.registration_fee = 0;
+  } else if (payments === "custom_amount") {
+    body.debt = input.custom_balance!;
+    body.registration_fee = input.custom_registration_fee!;
+  }
 
   if (input.send_confirmation === true) {
     warnings.push("send_confirmation: true — applying will email the client a booking confirmation.");
@@ -414,17 +532,7 @@ async function runPreview(
   // The `payments` choice is the one decision the operator must make themselves, and
   // nothing stops a model from picking one silently — so the preview states which was
   // picked, in the text the operator actually reads.
-  warnings.push(
-    input.payments === "do_not_change"
-      ? action === "copy"
-        ? "You chose payments: do_not_change — the new booking will carry NO payments at all. Say this to " +
-          "the operator and let them confirm it, rather than deciding for them."
-        : "You chose payments: do_not_change — the booking keeps its current price and payment schedule " +
-          "even though the target class may cost something different. Say this to the operator and let " +
-          "them confirm it, rather than deciding for them."
-      : "You chose payments: from_target_class — this re-prices the booking and can create real debt on " +
-        "the client's account. Read the `money` block to the operator and let them confirm it.",
-  );
+  warnings.push(paymentsChoiceWarning(payments, action));
 
   // The registration fee is REAL money api-v1 charges on top of the class price for
   // both copy and move (registrations.php:4480, :4979 → __resolve_registration_fee),
@@ -434,8 +542,30 @@ async function runPreview(
   // tool is about to price anything; `do_not_change` charges nothing. The same schedule
   // GET yields the target `course_id` for the cross-programme check below, so it is
   // made in both cases (one call, never two).
-  const priced = input.payments === "from_target_class";
-  const fee = await fetchTargetFee(target_schedule_id, callAuth, priced);
+  // `free` and `custom_amount` carry their own fee, so only from_target_class reads it.
+  const fee = await fetchTargetFee(target_schedule_id, callAuth, payments === "from_target_class");
+
+  // A past `start` into a class that has already started: the preflight prices from
+  // that start (class/Registration_Copy.php:107), but the create prices from NOW once
+  // the class has started (class/Registration.php:1990-1996). Live on local, 174405:
+  // preview 69, booked debt 50. Decided 2026-11-21: refuse rather than show a figure
+  // that will not land. The admin app never hits this, because it always posts an explicit debt
+  // taken from the preflight's target_price. free/custom_amount post an explicit debt and
+  // do_not_change prices nothing, so only from_target_class is affected. Fails closed
+  // when the class start cannot be read.
+  if (
+    payments === "from_target_class" &&
+    input.start !== undefined &&
+    input.start < todayDate() &&
+    fee.started !== false
+  ) {
+    return errorResult(
+      `start ${input.start} is in the past and the target class has already started. Zooza would price ` +
+        "this booking from today, not from that date, so the preview cannot show the amount that will " +
+        "land. Use a start of today or later, or payments: custom_amount with the amount the operator " +
+        "gives (or free).",
+    );
+  }
 
   // Cross-programme copy/move (#28). api-v1's preflight never compares courses
   // (registrations.php:4327-4369), so the MCP does: the target course comes from the
@@ -443,10 +573,23 @@ async function runPreview(
   // the check stays silent rather than guessing.
   const currentCourseId = await fetchBookingCourseId(registration_id, callAuth);
   if (currentCourseId !== null && fee.course_id !== null && currentCourseId !== fee.course_id) {
-    warnings.push(...differentProgrammeWarnings(props, action, input.payments!, fee));
+    warnings.push(...differentProgrammeWarnings(props, action, payments, fee));
   }
 
-  const money = buildMoney(props, action, input.payments!, fee);
+  const money = buildMoney(props, action, payments, fee, {
+    balance: typeof body.debt === "number" ? body.debt : null,
+    registration_fee: typeof body.registration_fee === "number" ? body.registration_fee : null,
+  });
+  if (chosenBlocks !== null) {
+    // Names and dates only — the segment ids stay in the frozen body.
+    money.blocks = chosenBlocks.map((b) => ({ name: b.name, start: b.start, end: b.end }));
+    money.sessions_remaining = numOrNull(props.get("remaining_events_count"));
+    money.result =
+      `${String(money.result)} Booked into these blocks only: ${chosenBlocks.map((b) => b.name).join(", ")}; ` +
+      (payments === "from_target_class"
+        ? "the target price and session count are for those blocks."
+        : "the session count is for those blocks.");
+  }
   const summary = {
     action,
     registration_id,
@@ -476,6 +619,36 @@ async function runPreview(
   };
 }
 
+/** The `payments` choice is the one decision the operator must make themselves, and
+ *  nothing stops a model from picking one silently — so the preview states which was
+ *  picked, in the text the operator actually reads. */
+function paymentsChoiceWarning(payments: PaymentMode, action: "copy" | "move"): string {
+  switch (payments) {
+    case "do_not_change":
+      return action === "copy"
+        ? "You chose payments: do_not_change — the new booking will carry NO payments at all. Say this to " +
+            "the operator and let them confirm it, rather than deciding for them."
+        : "You chose payments: do_not_change — the booking keeps its current price and payment schedule " +
+            "even though the target class may cost something different. Say this to the operator and let " +
+            "them confirm it, rather than deciding for them.";
+    case "free":
+      return (
+        "You chose payments: free — the booking will cost nothing (no class price, no registration fee), " +
+        "whatever the target class normally costs. Say this to the operator and let them confirm it."
+      );
+    case "custom_amount":
+      return (
+        "You chose payments: custom_amount — the booking is priced at the amount and fee given in this " +
+        "call, not by the target class. Read the `money` block to the operator and let them confirm it."
+      );
+    default:
+      return (
+        "You chose payments: from_target_class — this re-prices the booking and can create real debt on " +
+        "the client's account. Read the `money` block to the operator and let them confirm it."
+      );
+  }
+}
+
 /**
  * The one field the operator must actually read. Rendered as a sentence rather than
  * left as numbers, because the decision ("this creates a 240 EUR debt") is what needs
@@ -484,8 +657,9 @@ async function runPreview(
 function buildMoney(
   props: Map<string, unknown>,
   action: "copy" | "move",
-  payments: "from_target_class" | "do_not_change",
+  payments: PaymentMode,
   fee: { fee: number | null; unit_price: number | null },
+  set: { balance: number | null; registration_fee: number | null },
 ): Record<string, unknown> {
   // NOT `current_debt`: api-v1 fills that property from `$debt['debt']`
   // (registrations.php:3925), a key `Registration::get_debt( true )` never returns —
@@ -506,11 +680,31 @@ function buildMoney(
   // `do_not_change` prices nothing, so every target-side figure stays null. Reporting
   // a "will owe" total there would describe money that this call does not create — the
   // exact confusion the preview exists to prevent.
+  // `free` / `custom_amount` price the booking at the numbers frozen into the body:
+  // debt B + fee F, which api-v1 books as debt −(B+F), fee −F (spec Notes, live check).
   const priced = payments === "from_target_class";
-  const total = !priced || targetPrice === null ? null : targetPrice + (fee.fee ?? 0);
+  const setPrice = payments === "free" || payments === "custom_amount";
+  const setBalance = set.balance ?? 0;
+  const setFee = set.registration_fee ?? 0;
+  const total = setPrice
+    ? setBalance + setFee
+    : !priced || targetPrice === null
+      ? null
+      : targetPrice + (fee.fee ?? 0);
 
   let result: string;
-  if (payments === "do_not_change") {
+  if (payments === "free") {
+    result =
+      action === "copy"
+        ? "The new booking is FREE: the client will owe 0, registration fee 0. The original booking is unchanged."
+        : "The booking becomes FREE: it is repriced to 0, registration fee 0, and its existing debt reconciled against it.";
+  } else if (payments === "custom_amount") {
+    const parts = `${setBalance} for the classes plus a ${setFee} registration fee, as set by the operator`;
+    result =
+      action === "copy"
+        ? `The new booking will owe ${total} in total: ${parts}. The original booking is unchanged.`
+        : `The booking is repriced to ${total} in total: ${parts}. Its existing debt is reconciled against it.`;
+  } else if (payments === "do_not_change") {
     result =
       action === "copy"
         ? "The new booking will have NO payments — the operator adds them afterwards."
@@ -537,12 +731,15 @@ function buildMoney(
     // class and multiplies it by the billable sessions; mixing the two up is the
     // classic way to be off by a factor of ~20.
     amounts_are: "totals for the whole booking, not per-session unit prices",
+    payments_mode: payments,
     currently_owed: owed,
     credit_on_account: credit,
     already_paid: paid,
     current_class_price_total: currentPrice,
     target_class_price_total: targetPrice,
-    target_registration_fee: priced ? fee.fee : null,
+    target_registration_fee: setPrice ? setFee : priced ? fee.fee : null,
+    // Only for free/custom_amount: the class-price part the operator set (the `debt` sent).
+    ...(setPrice ? { set_balance: setBalance } : {}),
     target_will_owe_total: total,
     target_unit_price_per_session: priced ? fee.unit_price : null,
     result,
@@ -566,25 +763,28 @@ async function fetchTargetFee(
     course_id?: unknown;
     registration_fee?: unknown;
     unit_price?: unknown;
+    start?: unknown;
+    total_events?: unknown;
   }
   let schedule: ScheduleRow;
   try {
     schedule = await zoozaFetch<ScheduleRow>(`/schedules/${scheduleId}`, {}, auth);
   } catch {
-    return { fee: null, unit_price: null, course_id: null };
+    return { fee: null, unit_price: null, course_id: null, started: null };
   }
   const course_id = numOrNull(schedule?.course_id);
-  if (!needFee) return { fee: null, unit_price: null, course_id };
+  const started = scheduleStarted(schedule?.start, schedule?.total_events);
+  if (!needFee) return { fee: null, unit_price: null, course_id, started };
   const unit_price = numOrNull(schedule?.unit_price);
   const own = numOrNull(schedule?.registration_fee);
-  if (own !== null && own !== 0) return { fee: own, unit_price, course_id };
+  if (own !== null && own !== 0) return { fee: own, unit_price, course_id, started };
 
-  if (course_id === null) return { fee: own, unit_price, course_id };
+  if (course_id === null) return { fee: own, unit_price, course_id, started };
   try {
     const course = await zoozaFetch<{ registration_fee?: unknown }>(`/courses/${course_id}`, {}, auth);
-    return { fee: numOrNull(course?.registration_fee) ?? own, unit_price, course_id };
+    return { fee: numOrNull(course?.registration_fee) ?? own, unit_price, course_id, started };
   } catch {
-    return { fee: own, unit_price, course_id };
+    return { fee: own, unit_price, course_id, started };
   }
 }
 
@@ -592,6 +792,23 @@ interface TargetInfo {
   fee: number | null;
   unit_price: number | null;
   course_id: number | null;
+  /** Mirrors `Schedule::started()` (class/Schedule.php:1061-1082) at day precision:
+   *  false with no sessions, else first-session date <= today. Null = unreadable. */
+  started: boolean | null;
+}
+
+function scheduleStarted(start: unknown, totalEvents: unknown): boolean | null {
+  if (numOrNull(totalEvents) === 0) return false;
+  const day = typeof start === "string" ? start.slice(0, 10) : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  return day <= todayDate();
+}
+
+/** Local-date YYYY-MM-DD, as find-events' todayDate (no per-company tz handling yet). */
+function todayDate(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /** The booking's programme. Null when the booking cannot be read — the cross-programme
@@ -618,7 +835,7 @@ async function fetchBookingCourseId(registrationId: number, auth: ZoozaAuth): Pr
 function differentProgrammeWarnings(
   props: Map<string, unknown>,
   action: "copy" | "move",
-  payments: "from_target_class" | "do_not_change",
+  payments: PaymentMode,
   target: TargetInfo,
 ): string[] {
   const out: string[] = [];
@@ -633,7 +850,9 @@ function differentProgrammeWarnings(
       `(e.g. trial to paid course). ${
         payments === "from_target_class"
           ? `It is priced by the target programme (${priceText}).`
-          : `Pricing would come from the target programme (${priceText}), but payments: do_not_change leaves it unpriced.`
+          : payments === "do_not_change"
+            ? `Pricing would come from the target programme (${priceText}), but payments: do_not_change leaves it unpriced.`
+            : `The target programme's pricing (${priceText}) is replaced by the amount set with payments: ${payments}.`
       }${
         action === "move" && payments === "do_not_change"
           ? ""
@@ -651,6 +870,115 @@ function differentProgrammeWarnings(
     );
   }
   return out;
+}
+
+/** A preflight's checks + flattened properties, or null when it carries no checks
+ *  (api-v1's bare `return;` on a not-found entity — see Step 2). Properties may
+ *  still be partial, so callers must not assume a key is present. */
+function readPreflight(
+  preflight: PreflightResponse,
+): { checks: Record<string, PreflightCheck>; props: Map<string, unknown> } | null {
+  const checks = preflight && typeof preflight === "object" && !Array.isArray(preflight)
+    ? preflight.checks
+    : undefined;
+  if (!checks || typeof checks !== "object" || Object.keys(checks).length === 0) return null;
+  const props = new Map<string, unknown>();
+  for (const p of Object.values(preflight.properties ?? {})) {
+    if (p && typeof p.name === "string") props.set(p.name, p.value);
+  }
+  return { checks, props };
+}
+
+function notLoadedError(action: "copy" | "move") {
+  return errorResult(
+    `Zooza will not ${action} this booking. Nothing has been changed.\n- Zooza could not load the ` +
+      "target class, its programme, or the booking in this company (it does not say which). Re-resolve " +
+      "the class with classes_find_classes and the booking with bookings_find, and use the ids they " +
+      "return — do not guess an id.",
+  );
+}
+
+/** One block (schedule segment) of the target class. Dates are YYYY-MM-DD. */
+interface SegmentRow {
+  id: number;
+  name: string;
+  start: string | null;
+  end: string | null;
+}
+
+/** Preflight segment rows (`$target_schedule->get_segments()`, columns from
+ *  Zooza/Resource/Schedule_Segment.php:37) → id, name and the `__calc__start/end`
+ *  dates, trimmed from DATE_FORMAT_FULL to the day. Rows without an id or name are
+ *  dropped: a block that cannot be named cannot be picked. */
+function segmentRows(v: unknown): SegmentRow[] {
+  if (!Array.isArray(v)) return [];
+  const day = (x: unknown): string | null => {
+    const s = pickStr(x);
+    return s ? s.slice(0, 10) : null;
+  };
+  const out: SegmentRow[] = [];
+  for (const r of v) {
+    if (!r || typeof r !== "object") continue;
+    const row = r as Record<string, unknown>;
+    const id = numOrNull(row.id);
+    const name = pickStr(row.name)?.trim();
+    if (id === null || !name) continue;
+    out.push({ id, name, start: day(row.__calc__start), end: day(row.__calc__end) });
+  }
+  return out;
+}
+
+/** `valid_segments` holds serialised Schedule_Segments objects (registrations.php:4791),
+ *  whose public `id` is what the admin wizard submits (app registration_change.js:975-995). */
+function segmentIdsOf(v: unknown): number[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((r) => (r && typeof r === "object" ? numOrNull((r as { id?: unknown }).id) : null))
+    .filter((id): id is number => id !== null);
+}
+
+function listBlocks(rows: SegmentRow[]): string {
+  if (rows.length === 0) return "none from this start date";
+  return rows.map((b) => `${b.name} (${b.start ?? "?"} – ${b.end ?? "?"})`).join(", ");
+}
+
+/** Resolve the operator's block names, case-insensitively, against the first
+ *  preflight's `remaining_segments` — the blocks still running from `start`. */
+function resolveBlocks(
+  names: string[],
+  props: Map<string, unknown>,
+): { ok: true; blocks: SegmentRow[]; available: SegmentRow[] } | { ok: false; message: string } {
+  const available = segmentRows(props.get("remaining_segments"));
+  if (available.length === 0 && segmentRows(props.get("all_segments")).length === 0) {
+    return { ok: false, message: "The target class is not divided into blocks. Remove blocks." };
+  }
+  const key = (s: string) => s.trim().toLowerCase();
+  const wanted = [...new Map(names.map((n) => [key(n), n.trim()])).entries()];
+
+  const unknown = wanted.filter(([k]) => !available.some((b) => key(b.name) === k)).map(([, n]) => n);
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      message:
+        `The target class has no block named ${unknown.map((n) => `'${n}'`).join(", ")}. ` +
+        `Available: ${listBlocks(available)}.`,
+    };
+  }
+
+  const blocks: SegmentRow[] = [];
+  for (const [k, n] of wanted) {
+    const matches = available.filter((b) => key(b.name) === k);
+    if (matches.length > 1) {
+      return {
+        ok: false,
+        message:
+          `The target class has ${matches.length} blocks named '${n}' (${listBlocks(matches)}), so the ` +
+          "name does not say which one. Ask the operator to rename them in the Zooza app first.",
+      };
+    }
+    blocks.push(matches[0]);
+  }
+  return { ok: true, blocks, available };
 }
 
 function freePlaces(props: Map<string, unknown>): number | null {

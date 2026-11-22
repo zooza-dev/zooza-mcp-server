@@ -136,6 +136,46 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
     "do_not_confuse_with": []
   },
   {
+    "id": "class-defaults",
+    "canonical_en": "Class defaults",
+    "category": "product-hierarchy",
+    "definition": "Values stored on a Programme that pre-fill every new Class created in it: all-day, online booking, billing period, venue and room, instructor, pay rate, capacity, session length and price overrides. Shipped November 2026.",
+    "synonyms": [],
+    "deprecated": [],
+    "translations": {
+      "sk": "Predvolené hodnoty skupiny",
+      "cz": "Výchozí hodnoty skupiny"
+    },
+    "intent_keywords": {
+      "en": [
+        "class defaults",
+        "default capacity",
+        "capacity is always 10",
+        "pre-fill a new class",
+        "same venue every time",
+        "default instructor"
+      ],
+      "sk": [
+        "predvolená kapacita",
+        "stále mi dáva kapacitu 10",
+        "predvyplniť skupinu",
+        "nastaviť kapacitu natrvalo"
+      ],
+      "cz": [
+        "výchozí kapacita",
+        "lze nastavit výchozí kapacitu kurzu na jiné číslo než 10",
+        "předvyplnit skupinu"
+      ]
+    },
+    "ai_notes": "2026-11-20 (shipped, verified on a live screen): the first time a class is added to a programme, pressing Create opens \"Save class defaults for this programme?\" BEFORE the class is saved, listing every filled-in value with a tick box. Buttons: \"Save defaults and create class\", \"Not now, create class\" (asks again next time) and \"Back to form\" (saves nothing, creates nothing). Afterwards the add-class form carries a notice \"This form was pre-filled from this programme's class defaults\" with \"Clear defaults\", plus \"Update defaults\" once a value on the form differs from the stored one. A default that can no longer be applied (instructor gone, venue deleted) is listed in the notice with the reason, never dropped silently. The session pattern - weekdays, time, dates - and the class name are never stored, because they change every term. Defaults belong to the programme and apply to everyone in the company. THIS IS THE ANSWER TO \"CAN THE DEFAULT CAPACITY BE SOMETHING OTHER THAN 10\". The second half of that answer is that capacity, session length and pay rate live behind the collapsed \"More fields\" summary on the add-class form, which is why people cannot find them at all.",
+    "do_not_confuse_with": [
+      {
+        "term": "Programme settings",
+        "reason": "Programme settings govern how the programme behaves for clients. Class defaults only pre-fill the add-class form; changing them never alters a class that exists.\n"
+      }
+    ]
+  },
+  {
     "id": "session",
     "canonical_en": "Session",
     "category": "product-hierarchy",
@@ -206,7 +246,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "lecții"
       ]
     },
-    "ai_notes": "Customers across all markets use 'hodina' (SK/CZ), 'lekcia' (SK), 'lekce' (CZ), 'óra' (HU), 'lesson' (EN) to mean a single scheduled occurrence = Session in Zooza. Always translate these terms to 'Session' when answering or searching KB.",
+    "ai_notes": "Customers across all markets use 'hodina' (SK/CZ), 'lekcia' (SK), 'lekce' (CZ), 'óra' (HU), 'lesson' (EN) to mean a single scheduled occurrence = Session in Zooza. Always translate these terms to 'Session' when answering or searching KB. 2026-11-06 (confirmed with the founder): \"BLOCK CANCELLATIONS ON WEEKENDS AND HOLIDAYS\" (Settings - General - General, Settings for programmes) ALSO MOVES THE SESSION NOTIFICATION, not only the cancellation deadline. With it on, the notification for a Monday session goes out on the last working day before it — Friday — and the same applies to any session following a holiday. This is the answer to \"we need the reminder for Monday sessions to arrive on Friday\"; there is NO per-day or per-programme notification setting to look for. The setting's name says nothing about notifications, so neither the help nor the app reveals this. It is a general setting: switching it on changes the cancellation deadline for everything too, so both consequences have to be wanted.",
     "do_not_confuse_with": []
   },
   {
@@ -242,23 +282,35 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "single session",
         "flexible",
         "per session",
-        "no commitment"
+        "no commitment",
+        "signed up but not booked",
+        "nobody booked",
+        "who has not booked"
       ],
       "sk": [
         "platba za termín",
         "jednotlivé termíny",
         "bez záväzkov",
-        "drop-in"
+        "drop-in",
+        "prihlásený ale neprihlásený na termín",
+        "nikto nie je prihlásený",
+        "kto si nerezervoval"
       ],
       "de": [
         "einzeln",
         "flexibel",
         "ohne Bindung",
-        "einzelne Stunde"
+        "einzelne Stunde",
+        "angemeldet aber nicht gebucht"
       ]
     },
-    "ai_notes": "",
-    "do_not_confuse_with": []
+    "ai_notes": "SIGN-UPS ARE NOT ATTENDANCE (shipped 2026-09-21, app spec APP-20260920-001/-002 + API-20260921-001): open classes no longer show an enrolled/capacity bar. The class tile shows bookings on the NEXT session against that session's places plus a plain sign-up count; the class Report card shows how many sign-ups have booked no upcoming session and links to that filtered booking list (the only way in — there is no filter control on the list itself); a booking's detail says whether that person has anything booked. Two traps: \"not booked\" means not booked IN THE NEAR TERM, not \"never booked\", and the not-booked figure is NOT subtractable from the sign-up count (guests count in one, not the other). WEEKLY BOOKING NUDGE (shipped 2026-09-25, API-20260924-004 + APP-20260925-003): the old daily \"upcoming sessions\" digest is gone. Open-programme clients with no upcoming booked session now get ONE personalised email a week with Book buttons, chosen from their own state: passes expiring within 14 days > 2 or fewer passes left > healthy balance; and for non-holders, unpaid pass order > passes lapsed unused within 30 days > no passes. Clicking Book never books — it opens their picker with the session preselected. It stops itself after ~4 unanswered sends over two months; booking restarts it automatically, and an admin can restart it on the booking's Communication card — but NOT when the client has turned reminders off, where the card deliberately shows no button. BATCH BOOKING (shipped 2026-09-25, W1-20260924-001): clients pick several sessions at once in one picker with a running passes-used / left-to-pay bar, commit once, then pay once. They get ONE confirmation listing every session (template type sessions_booked, merge var BOOKED_SESSIONS) instead of one email per session.",
+    "do_not_confuse_with": [
+      {
+        "term": "Sign-up vs session booking",
+        "reason": "On a Pay-as-you-go (open) programme a registration is only a SIGN-UP — it puts nobody in any session. The client must then book individual sessions from their profile. \"Enrolled: 9\" and \"nobody is coming tomorrow\" are both true at once, and class capacity is a PER-SESSION seat limit, never a cap on sign-ups.\n"
+      }
+    ]
   },
   {
     "id": "one-off-event",
@@ -378,10 +430,10 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "Dauerauftrag"
       ]
     },
-    "ai_notes": "SETUP ORDER MATTERS: a membership fee needs a payment template created AS a membership template — that is a property chosen when the template is made, not afterwards. An ordinary template will never drive a membership fee. Create the template first (Settings → Billing & Payments → Payment schedule templates), then set the programme (Programme → Settings → Price and Payment → Membership) and attach it. If Membership \"does not work\", check what kind of template is attached before anything else. ONE PROGRAMME, ONE PAYMENT TYPE (confirmed 2026-08-30): membership and course fee cannot be mixed across classes inside one programme — the type is set on the programme. Split into two programmes when the payment MODEL differs; use Blocks when only the collection SCHEDULE differs.",
+    "ai_notes": "SETUP ORDER MATTERS: a membership fee needs a payment template created AS a membership template — that is a property chosen when the template is made, not afterwards. An ordinary template will never drive a membership fee. Create the template first (Settings → Billing & Payments → Payment schedule templates), then set the programme (Programme → Settings → Price and payment → Membership) and attach it. If Membership \"does not work\", check what kind of template is attached before anything else. ONE PROGRAMME, ONE PAYMENT TYPE (confirmed 2026-08-30): membership and term payment cannot be mixed across classes inside one programme — the type is set on the programme. Split into two programmes when the payment MODEL differs; use Blocks when only the collection SCHEDULE differs.",
     "do_not_confuse_with": [
       {
-        "term": "Course fee (SK: kurzovné, CZ: kurzovné)",
+        "term": "Term payment (SK: kurzovné, CZ: platba za semestr)",
         "reason": "The two SK/CZ words sound alike to a newcomer and are the single most common pricing mix-up. \"Členské\" = Membership: a flat amount per period, no total, what the client pays depends on how long they stay. \"Kurzovné\" = a known total for the course, divided into instalments. Confirmed 2026-08-30.\n"
       }
     ]
@@ -439,8 +491,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
     "category": "scheduling",
     "definition": "A separately purchasable segment of sessions within a single Class. A Class is divided into Blocks when not all clients attend all sessions — for example, Mondays-only vs. Tuesdays-only vs. both days combined. Each Block has its own price and clients buy only the Block(s) they need.",
     "synonyms": [
-      "blok",
-      "term"
+      "blok"
     ],
     "deprecated": [
       "segment",
@@ -496,6 +547,73 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       {
         "term": "Make-up session",
         "reason": "Make-up sessions let a client replace a missed session. Blocks define which sessions the client is enrolled in to begin with.\n"
+      },
+      {
+        "term": "Billing period",
+        "reason": "A Billing period is a company-wide time window (\"Autumn 2026\") that many Classes belong to; operators often call it a \"term\". A Block lives INSIDE one Class and groups some of its sessions. \"Term\" means Billing period, never Block.\n"
+      }
+    ]
+  },
+  {
+    "id": "billing-period",
+    "canonical_en": "Billing period",
+    "category": "scheduling",
+    "definition": "A company-wide, named time window with a start and an end date (e.g. \"Autumn 2026\", \"Spring 2027\") that Classes belong to. Each Class sits in one Billing period. Operators use it to run their year in terms: a new term means a new Billing period whose Classes are copied from the previous one.",
+    "synonyms": [
+      "term",
+      "school term",
+      "semester",
+      "season",
+      "trimester",
+      "half-year"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Fakturačné obdobie",
+      "cz": "Fakturační období"
+    },
+    "intent_keywords": {
+      "en": [
+        "term",
+        "new term",
+        "next term",
+        "semester",
+        "season",
+        "spring term",
+        "autumn term",
+        "start new term",
+        "roll over",
+        "next season"
+      ],
+      "sk": [
+        "semester",
+        "polrok",
+        "sezóna",
+        "obdobie",
+        "fakturačné obdobie",
+        "nový semester"
+      ],
+      "cz": [
+        "semestr",
+        "pololetí",
+        "sezóna",
+        "období",
+        "fakturační období"
+      ]
+    },
+    "ai_notes": "The words operators use for this vary a lot (\"term\", \"semester\", \"season\", \"course\", \"intake\", \"half-term\") and some of them mean other things at other companies. Before any write, resolve the word against the company's data (classes_find_resource kind:\"billing_period\") and confirm the match by name and dates. Never infer from the word alone. Do not call a Billing period a \"term block\": that phrase is ambiguous with Block.",
+    "do_not_confuse_with": [
+      {
+        "term": "Block",
+        "reason": "A Block groups sessions inside ONE Class. A Billing period spans many Classes. \"Term\" means Billing period, not Block.\n"
+      },
+      {
+        "term": "Programme",
+        "reason": "A Programme is the offering (e.g. \"Tots 1\") and outlives Billing periods; the same Programme has new Classes in each Billing period. Some operators say \"course\" for either one, so check against the company's data.\n"
+      },
+      {
+        "term": "Term Payment",
+        "reason": "Term Payment is a way of paying for a Billing period, not the period itself.\n"
       }
     ]
   },
@@ -832,7 +950,12 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "free session",
         "taster",
         "try out",
-        "introductory"
+        "introductory",
+        "only one trial",
+        "stop repeat trials",
+        "already had a trial",
+        "book a trial again",
+        "limit trials per client"
       ],
       "sk": [
         "skúšobná hodina",
@@ -857,7 +980,11 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       "ro": [
         "lecție de probă",
         "lectie de proba",
-        "probă"
+        "probă",
+        "sesiune demonstrativă",
+        "sesiune demonstrativa",
+        "demo",
+        "cum planific un demo"
       ],
       "hu": [
         "próbaóra",
@@ -871,8 +998,12 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "ausprobieren"
       ]
     },
-    "ai_notes": "CRITICAL DISAMBIGUATION: When customer says 'skúšobná hodina', 'zkušební hodina', 'ukázková hodina', 'próbaóra', 'trial', ask: 'Is this set up as a Zooza Trial (with its own registration form and automated follow-up), or did you create a regular session and name it that?' The answer determines entirely different instructions. Zooza Trial = has Trial funnel, own price, own form, automated enrollment flow. Manual session = regular Session with a custom name, no automation. THREE SHAPES people mean by \"trial\" (confirmed 2026-08-30): (a) the Trial tile on a Programme, carving trial places out of classes already running — the usual one; (b) a one-off session sold as a taster; (c) a separate class holding a single date. Ask which before advising — it is not guessable from the question. WHERE IT IS SET: Programme -> Settings -> Trial tile -> Edit. It is NOT under Additional fields, and there is no global trial page. PER-BLOCK CONTROL (shipped 2026-08-25): each Block carries its own trial toggle, independent of its online-registration toggle, so a class can offer some blocks for registration and others for trials. A session in two blocks stays trial-eligible if ANY of its blocks allows trials. The Programme-level setting remains the master switch. Content written before Sept 2026 saying \"trials cannot be assigned to a specific block\" is out of date.",
+    "ai_notes": "CRITICAL DISAMBIGUATION: When customer says 'skúšobná hodina', 'zkušební hodina', 'ukázková hodina', 'próbaóra', 'trial', ask: 'Is this set up as a Zooza Trial (with its own registration form and automated follow-up), or did you create a regular session and name it that?' The answer determines entirely different instructions. Zooza Trial = has Trial funnel, own price, own form, automated enrollment flow. Manual session = regular Session with a custom name, no automation. THREE SHAPES people mean by \"trial\" (confirmed 2026-08-30): (a) the Trial tile on a Programme, carving trial places out of classes already running — the usual one; (b) a one-off session sold as a taster; (c) a separate class holding a single date. Ask which before advising — it is not guessable from the question. A fourth, in Romanian only, is guest booking — see do_not_confuse_with. 2026-11-20 (owner): THERE IS NO DATE RANGE ON THE TRIAL. \"Free trials until the end of December, paid again in January\" is switching the trial type on in the programme's Trial tile now and switching it back off yourself then — by hand, or by asking Zooza AI to do it across several programmes. Never imply a scheduled end exists; the correct advice includes telling the operator to put the end date in their own diary. 2026-10-30, verified in api-v1 and app source: - The trial EMAILS (Trial Ended, Trial Follow-up, Trial Lost) are ONE template per account each. They cannot be varied per programme: those types carry supports_variants = false and are absent from the API list of types assignable to a course, so there is no \"Make a copy\" on them. Only the booking confirmation, lead email, session notification and order confirmation can be pinned to a programme. Use merge tags for per-programme wording. - Customising a trial template STOPS IT TRANSLATING. The language override applies only to Zooza's default; an edited body is one body sent to every recipient in every language. - The per-programme part is the AUTOMATION (timing, and whether it runs at all), set in the programme's Trial settings. Genuinely a separate system from the wording — never conflate them when answering. - NO SCREEN CREATES A TRIAL FROM NOTHING. A trial is always made from a booking that already exists. If the booking is \"Trial not started\" the main header button is \"Choose trial date\"; otherwise it is More - Change status - Convert to trial, which is irreversible. - Since 2026-10-27 the booking screen was rebuilt: all actions moved into the status header and \"Change status\" is ALWAYS under More, never a main button. Help text and answers that say \"open the booking and click Change status\" send people to a button that is no longer there. - KNOWN FAULT, verified in source 2026-10-30 and raised with the developers: the trial automation's \"Send booking link\" toggle does NOT gate the Trial Ended email - that email fires unconditionally. Unticking it silently turns off the two FOLLOW-UPS instead, and because the auto-lost timer counts from the last notification sent, trials are then marked Lost sooner. The booking timeline also wrongly reports the booking link as suppressed. Never tell a customer to untick it to stop the Trial Ended email. The switch that genuinely stops the whole chain for a programme is Automation status - inactive. WHERE IT IS SET: Programme -> Settings -> Trial tile -> Edit. It is NOT under Additional fields, and there is no global trial page. REPEAT TRIALS CANNOT BE BLOCKED (confirmed 2026-10-03). There is no setting that stops someone who already had a trial from booking another, in the same class or any other. The only restriction is incidental: while a trial is still in progress the same email cannot book again into the same class, which is a double-booking guard, not a limit — once the trial reaches Trial Won or Trial Lost, a fresh trial is possible. Do not invent a setting for this. What providers actually do is charge for the trial, and spot repeats by filtering Bookings on the Trial ended / Trial lost statuses. Asked seven times in one week with no answer, so answer it directly. PARTLY SHIPPED 2026-10-09 (API-20261009-001), and narrower than the 2026-10-08 discussion suggested. What shipped is PRICING, not blocking: a buyer who already has a booking in the same programme and billing period no longer gets the discounted trial price on a further PAID trial — they pay the full per-session price and the payment carries a note naming the earlier booking. Matching is on the buyer's email, so a sibling counts; any earlier booking except a deleted one counts; free trials are unaffected; there is no setting and it cannot be switched off. The booking itself is still NOT blocked. Both halves of the answer matter: \"you cannot stop them booking another trial, but since 9 October they will not get the trial price for it\". PER-BLOCK CONTROL (shipped 2026-08-25): each Block carries its own trial toggle, independent of its online-registration toggle, so a class can offer some blocks for registration and others for trials. A session in two blocks stays trial-eligible if ANY of its blocks allows trials. The Programme-level setting remains the master switch. Content written before Sept 2026 saying \"trials cannot be assigned to a specific block\" is out of date. ADMIN CAN CREATE TRIALS (confirmed by Michal 2026-09-19): create the booking, open it, \"Change status\" → \"Convert to trial\" card (shown when the class supports trials) → pick sessions. The same picker appears on copy/move with status \"Trial started\". Any text saying \"admins cannot create trial bookings, only the booking form can\" is WRONG. PRICING IS PER COMPANY (account); one legal entity with several venues = one company with several locations, one subscription. Companies cannot be merged by the system, only manually via transfers. ENTRY-PASS BALANCE/USAGE for an admin: booking detail → Credits card. There is no \"Discounts → Credits\" screen. DELETING A REGISTRATION (verified in api-v1 2026-09-19): a manual status change emails the client only when \"Send confirmation email\" is ticked. An unrequested \"you were cancelled\" email comes from the unpaid-registration auto-deletion (Payment Reminders → Delete unpaid registrations, template \"Automatic deletion\"). BOOKING CUT-OFF (shipped 2026-09-17): the programme's \"Hide from booking form N hours before the programme begins\" now also filters trial sessions on the booking form. The field is locked while Late bookings != Disabled; workaround: disable, edit, re-enable. It exists only for full-programme and one-off programme types, not pay-as-you-go. \"Paid trial\" and \"sessions shown in form = 1\" are two separate settings; the second is what limits the form to the nearest date. CANCELLING A TRIAL (confirmed 2026-09-24): trials follow the SAME global cancellation limit as any session — there is no separate trial deadline. After the limit the parent sees \"Will not attend\" instead of Cancel; a paid trial is not refunded and no make-up credit is created. TRIAL -> ENROLMENT DUPLICATES (confirmed 2026-09-23): sending a trial client the GENERAL sign-up link creates a SECOND client record and loses the original marketing source. They must use their own enrolment link — from the trial automation email, or from their client profile while the trial is active (paid trials: once paid). That link pre-fills their trial answers, links the bookings under one client and marks the trial Won.",
     "do_not_confuse_with": [
+      {
+        "term": "Guest booking (Allow bookings for one session)",
+        "reason": "A FOURTH shape people mean by \"trial\", and a translation trap. The Romanian help text for the guest setting calls it a \"sesiune demonstrativă\", so a Romanian customer asking about a \"demo\" may mean guest booking, not Trial. They are different features: guest booking sells one session out of a programme at price / number of sessions and produces the status Guest; Trial has its own funnel, statuses and automated follow-up. Ask which before advising. There is no \"demo\" concept in Zooza at all.\n"
+      },
       {
         "term": "Manually created trial session",
         "reason": "Some admins create a regular Session and name it 'skúšobná hodina' / 'zkušební hodina' without using the Zooza Trial feature at all. These manual sessions have no Trial status tracking, no automated follow-up, and no Trial funnel. When a customer mentions 'skúšobná hodina', always clarify: is it set up as a Zooza Trial, or is it a manually created session with that name?\n"
@@ -880,16 +1011,73 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
     ]
   },
   {
+    "id": "guest-booking",
+    "canonical_en": "Guest booking",
+    "category": "bookings",
+    "definition": "A booking for ONE session of a programme rather than the whole thing, enabled per programme with \"Allow bookings for one session\". The price is the programme price divided by the number of sessions, and the booking carries the status Guest. It is a way of selling a single visit — not the Trial feature, and with none of Trial's funnel, statuses or automated follow-up.",
+    "synonyms": [
+      "one-session booking",
+      "single session booking",
+      "drop-in"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Registrácia na jednu hodinu",
+      "cz": "Registrace na jednu hodinu",
+      "ro": "Înscriere pentru o singură sesiune"
+    },
+    "intent_keywords": {
+      "en": [
+        "guest booking",
+        "book one session",
+        "single session",
+        "drop in",
+        "allow bookings for one session",
+        "one-off session in a course",
+        "pay for one lesson only"
+      ],
+      "sk": [
+        "registrácia na jednu hodinu",
+        "prihlásiť sa len na jednu hodinu",
+        "jednorazová hodina",
+        "hosť"
+      ],
+      "cz": [
+        "registrace na jednu hodinu",
+        "jen jedna hodina",
+        "jednorázová hodina"
+      ],
+      "ro": [
+        "sesiune demonstrativă",
+        "o singură sesiune",
+        "demo"
+      ]
+    },
+    "ai_notes": "2026-10-30: the Romanian LABEL for this setting is still untranslated in the app (it reads \"Allow one term registrations\" in a Romanian interface) while its help text below it is translated and says \"sesiune demonstrativă\". A Romanian admin can therefore be looking at an English label for a feature they know by a word that sounds like Trial. There is no \"demo\" concept anywhere in Zooza. The status is shown in the app as \"Guest - one-off event in a session programme\".",
+    "do_not_confuse_with": [
+      {
+        "term": "Trial",
+        "reason": "Different features that the Romanian translation runs together: the help text for the guest setting calls it a \"sesiune demonstrativă\", so a Romanian customer asking about a \"demo\" may mean either. Guest booking sells one session and produces the status Guest; Trial is a funnel with its own price, form, statuses and follow-up automation. Ask which one before advising.\n"
+      },
+      {
+        "term": "Additional session",
+        "reason": "A guest buys one session of a programme they are not enrolled in. An additional session is an extra one bought by somebody who IS enrolled.\n"
+      }
+    ]
+  },
+  {
     "id": "auto-continuation",
-    "canonical_en": "Auto-continuation",
+    "canonical_en": "Auto-enrolment",
     "category": "bookings",
     "definition": "A Zooza feature that automatically contacts clients before their current Class ends and invites them to re-enrol for the next period. The client receives a personalised link, goes into their Client Profile, and selects which Class they want to continue into. The admin configures how many days before the Class ends the notification is triggered. The client must actively confirm and choose their next Class — no automatic booking is created without client action.",
     "synonyms": [
-      "auto-enrolment",
       "automatic re-enrolment",
       "automatic continuation"
     ],
-    "deprecated": [],
+    "deprecated": [
+      "Auto-continuation",
+      "Retention"
+    ],
     "translations": {
       "sk": "Automatické pokračovanie",
       "cz": "Automatické pokračování",
@@ -932,7 +1120,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "Fortsetzung"
       ]
     },
-    "ai_notes": "Auto-continuation is triggered before the Class ends (number of days is configurable). The client receives a personalised link to their Client Profile. From there they choose which Class to continue into. Important: the client MUST actively select a Class — no booking is created automatically. If the customer asks 'does the client get automatically moved?' → answer: No, they get a personalised link and must confirm their choice.",
+    "ai_notes": "Decided 2026-11-07: the user-facing term is Auto-enrolment (EN) / Automatické pokračovanie (SK). The code calls it `retention`; never show that word to users. Auto-enrolment is triggered before the Class ends (number of days is configurable). The client receives a personalised link to their Client Profile. From there they choose which Class to continue into. Important: the client MUST actively select a Class — no booking is created automatically. If the customer asks 'does the client get automatically moved?' → answer: No, they get a personalised link and must confirm their choice.",
     "do_not_confuse_with": []
   },
   {
@@ -1103,7 +1291,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "ukončit docházku"
       ]
     },
-    "ai_notes": "A PARENT CANNOT CANCEL THEIR OWN REGISTRATION. When someone asks \"how does a parent cancel\", the answer is that they cannot do it themselves — an admin does it from the registration detail, where the button sits in the first block, the one headed Registration. What the parent CAN do from their profile is cancel their attendance on an individual session. Phrased loosely (\"the child is stopping\", \"they do not want to come any more\") the request almost always means cancelling the registration, not a session. Confirmed 2026-09-05.",
+    "ai_notes": "A PARENT CANNOT CANCEL THEIR OWN REGISTRATION. When someone asks \"how does a parent cancel\", the answer is that they cannot do it themselves — an admin does it from the registration detail, where the button sits in the first block, the one headed Registration. What the parent CAN do from their profile is cancel their attendance on an individual session. Phrased loosely (\"the child is stopping\", \"they do not want to come any more\") the request almost always means cancelling the registration, not a session. Confirmed 2026-09-05. 2026-10-30: cancelling now REQUIRES a cancellation reason, chosen from the company's list (Settings - General - Cancellation reasons). Each reason sits in a fixed Zooza category, which the Cancellations report groups by; \"Booking created by mistake\" and \"Network transfer\" are deliberately not counted as cancellations. If every reason has been hidden, the booking cannot be cancelled at all until one is unhidden. Cancelling a booking that is the ROOT of a linked group now asks what should happen to the group - disband it (each pays for itself), hand the root to another booking, or remove the whole group - and where the remaining balance should go. The Cancellations report (Reports & Insights - Reports - Cancellations, BETA) is the other half. Its \"Where to look\" card deliberately stays silent below 15 bookings, 3 cancellations and a 2x difference, so \"the report shows nothing\" on a small account is correct behaviour, not a fault. Admin corrections and network transfers are counted and displayed but kept out of the rates. Do not confuse this report with the \"Cancelled\" report under Sessions, which is about cancelled SESSIONS.",
     "do_not_confuse_with": [
       {
         "term": "Cancelling attendance on one session",
@@ -1197,13 +1385,33 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "child",
         "my child",
         "student",
-        "pupil"
+        "pupil",
+        "convert participant to client",
+        "merge participants",
+        "duplicate child",
+        "make this attendee a client",
+        "give attendee a login",
+        "attendee needs own account",
+        "teenager taking over booking",
+        "move client role"
       ],
       "sk": [
         "účastník",
         "dieťa",
         "žiak",
-        "študent"
+        "študent",
+        "spojiť účastníkov",
+        "duplicitný účastník",
+        "ako z účastníka spravím klienta",
+        "spraviť z účastníka klienta",
+        "účastník potrebuje vlastné prihlásenie",
+        "presunúť rolu klienta"
+      ],
+      "cz": [
+        "účastník",
+        "dítě",
+        "sloučit klienty",
+        "stejný klient dvakrát"
       ],
       "de": [
         "Teilnehmer",
@@ -1211,8 +1419,13 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "Schüler"
       ]
     },
-    "ai_notes": "",
-    "do_not_confuse_with": []
+    "ai_notes": "AN ATTENDEE CAN NOW BE TURNED INTO A CLIENT (shipped 2026-09-27, API-20260927-001 + APP-20260927-001 + W1-20260927-001). This SUPERSEDES the earlier note, correct until 2026-09-26, that said it was impossible — do not repeat \"there is no button\", and treat any article still saying so as out of date. The action is \"Make this attendee a client\", ACCOUNT OWNER ONLY, reached from the attendee card on a booking or the person card on client detail. It gives the attendee their own login (an email) and moves the client role to them on the bookings selected. Preview changes first, then Confirm. Four outcomes by email: unused -> account created at once and NO email is sent to the attendee; already an account in this company, or an account outside it -> nothing changes until that person confirms by email (state \"Waiting for email confirmation\", cancellable); already their own login -> only the client role moves. Debt is NOT re-attributed: it stays with the booking and past invoices are not rewritten. The email of someone who already has a login cannot be changed here. Two attendees that are the same child can be merged by the operator from the client's relationships. Merging CLIENTS is Clients -> Family & Connections -> Manage -> Merge.",
+    "do_not_confuse_with": [
+      {
+        "term": "Client",
+        "reason": "One underlying object: a Person. A Person WITH an identity (an email they can log in with) is a Client; without one it is an Attendee. A Client's email is unique at database level, so duplicate clients are rare; Attendees have no such rule, which is why the same child can exist twice.\n"
+      }
+    ]
   },
   {
     "id": "instructor",
@@ -1314,11 +1527,11 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "Nachholen"
       ]
     },
-    "ai_notes": "If customer asks about: missed sessions, cancellations, replacement lessons, making up a class, attending instead on another day → treat as make-up session / attendance topic. Only discuss Billable sessions if customer explicitly asks about pricing calculation settings.",
+    "ai_notes": "If customer asks about: missed sessions, cancellations, replacement lessons, making up a class, attending instead on another day → treat as make-up session / attendance topic. Only discuss Billable sessions if customer explicitly asks about pricing calculation settings. CREDIT DELETION (confirmed 2026-09-16, registration 527759): if an instructor changes an attendance record from \"Cancelled\" to \"Did not attend\", the make-up credit created by the cancellation is DELETED. \"Parent cancelled in time, got the email, but sees no dates to book\" — check the attendance record and the activity log first. Fix: set it back to Cancelled. Prevention: Settings → General → Access → \"Attendance management settings for instructors\" = Limited (instructors only get attended / did not attend). ADMIN CANCELS A SUBSTITUTION on the session detail (where attendance is managed); SK \"zastupovanie\" = instructor substitution, NOT a booking. CANCELLING A BOOKING NOW ASKS ABOUT THE MAKE-UPS (shipped 2026-11-03, app strings replacement_conversion__*): the Cancel booking form shows \"Unused make-up sessions\" and asks how many to convert to free sessions. Everything NOT converted is cancelled with the booking. On a SCHEDULED cancellation this happens immediately, not on the cancellation date. A single credit can also be converted later from the credit detail. This SUPERSEDES the old advice to create a free session by hand — that still works but is no longer the route. CANCELLED BOOKING AND ATTENDANCE (shipped 2026-11-11, owner ruling): a cancelled booking KEEPS attended / did-not-attend / cancelled rows on sessions it already had — register, counts and export. 'Will attend' rows are hidden and uncounted, because intent is not a record once a booking has ended. No attendance row at all = not on that session. Free-event rows hold their seat regardless. Before this, cancelled bookings were dropped from registers entirely while still being listed on future dates; several operators reported both halves. MAKE-UPS ONLY FOR FULLY PAID BOOKINGS (shipped 2026-11-07): company switch in Settings -> General. Blocks the CLIENT in the widget from booking, moving or requesting a make-up while the booking is unpaid; credits are still granted; a booking inside its payment grace period counts as paid; admins are never blocked. CANCEL MAKE-UP vs UNENROL (confirmed 2026-09-23, asked 4x over a month by the same operator): unenrolling a client from a make-up session the ordinary way does NOT return the credit — the system never makes a make-up out of a make-up, so the client simply ends up one short. The \"Cancel make-up session\" button (session detail, make-up list) voids the make-up and writes a fresh credit back on the ORIGINAL missed session. The client cancelling in time from their own profile has the same effect. The registration's cancellation log prints the reason; \"Vytvorit kredit: Nie / Dovod: is_replacement\" means exactly this case.",
     "do_not_confuse_with": [
       {
         "term": "Transferred make-up session",
-        "reason": "Standard make-up session = client picks from available slots within the current class period. Transferred make-up session = unused make-up credits carried over to the next class/period when the current class ends. Configured in Settings → Make-up sessions. In SK/CZ: 'náhrada' = standard make-up; 'prenos náhrady' = transferred make-up (inter-period).\n"
+        "reason": "Standard make-up session = client picks from available slots within the current class period. Transferred make-up session = unused make-up credits carried over to the next class/period when the current class ends. Configured in Settings → Other → Make-up sessions. In SK/CZ: 'náhrada' = standard make-up; 'prenos náhrady' = transferred make-up (inter-period).\n"
       },
       {
         "term": "Custom replacement lesson",
@@ -1326,7 +1539,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       },
       {
         "term": "Free credits",
-        "reason": "Make-up sessions arise from cancellations (attendance logic). Free credits are an allowance granted on a booking (pricing/access logic). Some users incorrectly call make-ups 'free sessions' — clarify if needed.\n"
+        "reason": "Make-up sessions arise from cancellations (attendance logic). Free credits are an allowance granted on a booking (pricing/access logic). Users calling a make-up a 'free session' are no longer simply wrong: since November 2026 a make-up literally BECOMES a free session when a booking is cancelled and the admin converts it. Ask which direction they mean rather than correcting them.\n"
       },
       {
         "term": "Billable session",
@@ -1338,7 +1551,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
     "id": "transferred-make-up-session",
     "canonical_en": "Transferred make-up session",
     "category": "attendance",
-    "definition": "Unused make-up credits that are carried over to the next class or billing period when the current class ends. Configured in Settings → Make-up sessions (General Settings). Three modes: transfer up to a set number, expire all at class end, or expire after a fixed number of days. The transferred credits get a new expiration date and can be used in the next period/programme.",
+    "definition": "Unused make-up credits that are carried over to the next class or billing period when the current class ends. Configured in Settings → Other → Make-up sessions (General Settings). Three modes: transfer up to a set number, expire all at class end, or expire after a fixed number of days. The transferred credits get a new expiration date and can be used in the next period/programme.",
     "synonyms": [
       "make-up carry-over",
       "rollover make-up"
@@ -1378,11 +1591,11 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "přenesená náhrada"
       ]
     },
-    "ai_notes": "When a SK/CZ customer says 'prenos náhrady', they almost certainly mean the inter-period credit carry-over feature (transferred make-up sessions), NOT a custom replacement lesson proposal. Check Settings → Make-up sessions → General Settings. Key settings: 'Maximum number of transferred make-up sessions between billing periods' (0 = disabled), 'Number of days to use transferred make-up sessions'.",
+    "ai_notes": "When a SK/CZ customer says 'prenos náhrady', they almost certainly mean the inter-period credit carry-over feature (transferred make-up sessions), NOT a custom replacement lesson proposal. Check Settings → Other → Make-up sessions → General settings. Key settings: 'Maximum number of transferred make-up sessions between billing periods' (0 = disabled), 'Number of days to use transferred make-up sessions'. TIMING (confirmed 2026-09-14): transferred credits are generated on the day the class ends. While the class is still running, clients do NOT see them in their profile — \"when will parents see the carried-over credits?\" = on the class end date, not immediately.",
     "do_not_confuse_with": [
       {
         "term": "Make-up session",
-        "reason": "Standard make-up session = client picks a slot within the current class period. Transferred make-up session = unused credits carried into the NEXT period/class after the current class ends. Both are configured in Settings → Make-up sessions.\n"
+        "reason": "Standard make-up session = client picks a slot within the current class period. Transferred make-up session = unused credits carried into the NEXT period/class after the current class ends. Both are configured in Settings → Other → Make-up sessions.\n"
       },
       {
         "term": "Custom replacement lesson",
@@ -1510,8 +1723,27 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       "cz": "Zpoplatněný termín",
       "de": "Abrechenbare Stunde"
     },
-    "intent_keywords": {},
-    "ai_notes": "Only discuss billable sessions when a customer explicitly asks about the billable session feature or pricing calculation. Never mention billable sessions in response to attendance, cancellation, or make-up questions.",
+    "intent_keywords": {
+      "en": [
+        "billable session",
+        "paid session",
+        "euro sign on a session",
+        "money symbol on a session"
+      ],
+      "sk": [
+        "platený termín",
+        "spoplatnený termín",
+        "eurko pri termíne",
+        "znak € v kalendári",
+        "čo znamená € pri termíne"
+      ],
+      "cz": [
+        "placený termín",
+        "zpoplatněný termín",
+        "co znamená € u termínu"
+      ]
+    },
+    "ai_notes": "Only discuss billable sessions when a customer explicitly asks about the billable session feature or pricing calculation. Never mention billable sessions in response to attendance, cancellation, or make-up questions. EXCEPTION — the zero-price symptom. A booking form showing 0 for a class that has a price IS a billable-session question, even when the customer never uses the words. Setup is two steps and stopping after the first produces exactly this: by default EVERY session is billable and the price is all sessions × unit price, but the moment a class is told \"10 billable sessions\" that default flips and ONLY sessions explicitly marked billable count. Mark none and the class calculates to zero. Confirmed against a live account 2026-09-13. 2026-11-20: THE € SYMBOL IN THE CALENDAR IS THIS FLAG. \"Why does this one class show a € next to its sessions\" is a billable-session question even when the words never appear: the Billable sessions checkbox in the session creator was ticked while those sessions were made. For a company that does not use the feature deliberately, the answer is to select those sessions in Activities - Sessions and clear the flag in bulk, not to explain pricing.",
     "do_not_confuse_with": [
       {
         "term": "Make-up session",
@@ -1570,7 +1802,10 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "spôsob platby",
         "platba",
         "fakturácia",
-        "splátky"
+        "splátky",
+        "individuálna suma",
+        "vlastný platobný plán",
+        "iná suma pre jedno dieťa"
       ],
       "de": [
         "Zahlungsplan",
@@ -1579,8 +1814,13 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "wann zahlen"
       ]
     },
-    "ai_notes": "",
-    "do_not_confuse_with": []
+    "ai_notes": "2026-10-30: a running plan keeps the terms it was created with - schedule type, frequency, due day, amount, block pricing are frozen on it - so editing a template no longer changes plans already applied. Older plans (pre-freeze) still read live. An admin can now apply a template the class does not offer, without adding it to the class or the booking form. A plan can now be cancelled outright (\"Cancel payment plan\"): future instalments go, the unbilled remainder is never charged, but debt already billed STAYS OWED - cancelling is not a write-off. It cannot be resumed; an optional \"reset the charged amount\" zeroes what the booking was charged so the admin can enter the right debt by hand. Pausing is a different thing and does resume. 2026-10-24: a client who needs a different amount from everybody else gets their own plan on their booking, set up once — it then generates its own instalments and needs no monthly intervention. Never tell a customer this is recurring manual work. The amount can be stated either as a total to divide or directly as the per-instalment figure; stating the instalment figure means template discounts are not applied on top, because that figure is taken as final. Once a plan is active, adjusting the debt changes only the current instalment, not the whole plan. 2026-11-20: APPLYING A PLAN REPLACES EVERYTHING CURRENTLY CHARGED on the booking, the registration fee included. That is where the \"Correction payment\" and \"Registration fee correction\" entries nobody created come from — they take the old charges off so the new instalments can stand alone. Nothing is double-charged and processed payments are untouched, but the booking's history gets long, so re-apply a plan deliberately rather than to nudge one instalment. 2026-11-20: A PLAN STARTS ON THE DAY THE BOOKING WAS MADE, not when the class starts. Someone booking three weeks early is three weeks into their plan on day one, so the first instalment is taken at booking and the second can follow before the first lesson. Correct behaviour, and a recurring \"you charged November twice\" report.",
+    "do_not_confuse_with": [
+      {
+        "term": "Scheduled date vs Due date on an instalment",
+        "reason": "Every instalment has three dates and customers conflate the first two. The DUE date is the one the admin chooses (the template's day of the month). The payment is CREATED earlier - due date minus the account's days-to-pay - and that is when the debt appears, the client is asked to pay and direct debit starts collecting. THE DEFAULT GAP IS 15 DAYS. The setting is \"Days before booking is marked unpaid\" (Settings - Billing & Payments - Payment settings - Payment acceptance policy), and in code 0 or below - the column default, so most companies - means 15 for instalments, not 0 (confirmed in Payment_Schedule_Order::calculate_scheduled_at, owner 2026-11-20). So \"I set the 15th and it created the payment on the 31st\" is exactly right, and a company asking for \"the request at the start of the month, due by the 15th\" usually already has it. Changing the setting does not move instalments that exist; \"Update planned instalments\" syncs upcoming ones and leaves due dates alone. An advance-notice email can go out earlier still. So \"I set the 15th but it is charging on the 1st\" is correct behaviour, and the way to get a specific pair of dates is to set the due day AND the days-to-pay to the same gap. The gap between them IS the days-to-pay number; there is no separate field for it. CAVEAT ON THE PREVIEW: the \"Payment created -> N days -> Due date\" strip drawn on the template reads the setting literally, so an account left at 0 is drawn with both dates on the SAME day while the instalment is really created 15 days earlier (payment_schedule_dates_visualisation.js vs the API). Typing 15 into the field makes the picture match; it changes no dates.\n"
+      }
+    ]
   },
   {
     "id": "aliquot",
@@ -1688,6 +1928,60 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
     ]
   },
   {
+    "id": "payment-adjustment",
+    "canonical_en": "Payment adjustment",
+    "category": "payments",
+    "definition": "A signed line item attached to ONE upcoming scheduled payment, reducing (credit) or increasing (debit) what the client will be charged next. This is what the \"Credit attendees\" option on a cancelled session creates. It is NOT a Zooza credit and NOT a refund — no money moves, and the result is floored at zero, so the company can never end up owing the client. A client with no upcoming scheduled payment receives nothing.",
+    "synonyms": [
+      "adjustment",
+      "event credit",
+      "credit attendees",
+      "scheduled payment adjustment"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Úprava platby",
+      "cz": "Úprava platby",
+      "de": "Zahlungsanpassung",
+      "pl": "Korekta płatności",
+      "ro": "Ajustare de plată",
+      "hu": "Fizetési korrekció"
+    },
+    "intent_keywords": {
+      "en": [
+        "credit the attendees",
+        "compensate clients",
+        "refund for a cancelled session",
+        "give them money back",
+        "reduce their next payment",
+        "credit or debit"
+      ],
+      "sk": [
+        "kreditovať klientov",
+        "vrátiť peniaze za zrušenú hodinu",
+        "odpočítať z ďalšej platby",
+        "kompenzovať klientov",
+        "dobropis"
+      ],
+      "cz": [
+        "vrátit peníze za zrušenou lekci",
+        "odečíst z další platby",
+        "kompenzovat klienty"
+      ]
+    },
+    "ai_notes": "Never describe an adjustment as a refund or as a make-up session. Before promising compensation, check that the clients actually have an upcoming scheduled payment — those who do not are skipped silently and the affected count is the only evidence. Say how many clients will be affected and the total amount, remember the surplus above an instalment is discarded, and note that the batch covers every active registration on the class rather than only those booked on the cancelled session. Only one credit and one debit can exist per session; correcting a mistake means reversing the adjustment per payment, not sending another one.",
+    "do_not_confuse_with": [
+      {
+        "term": "Credit (make-up session)",
+        "reason": "A Zooza credit is a row in `credits` — a make-up session, prepaid credit, voucher or free event — an entitlement to attend. A payment adjustment is money off an invoice. Cancelling a session creates adjustments, never make-up credits; make-up credits come from the attendance path when a client cancels their own booking.\n"
+      },
+      {
+        "term": "Refund",
+        "reason": "A refund returns money already paid. An adjustment only lowers a future scheduled payment, so a client who already paid in full gets nothing from it.\n"
+      }
+    ]
+  },
+  {
     "id": "reference-number",
     "canonical_en": "Reference number",
     "category": "payments",
@@ -1715,13 +2009,25 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       "en": [
         "reference number",
         "payment reference",
-        "bank transfer reference"
+        "bank transfer reference",
+        "how is the reference number generated",
+        "what reference should the parent use"
       ],
       "sk": [
         "variabilný symbol",
         "referenčné číslo",
         "VS",
-        "prevod"
+        "prevod",
+        "ako sa generuje variabilný symbol",
+        "aký variabilný symbol má zadať klient"
+      ],
+      "cz": [
+        "variabilní symbol",
+        "referenční číslo",
+        "VS",
+        "převod",
+        "variabilní symbol se generuje jak",
+        "jak se generuje variabilní symbol"
       ],
       "de": [
         "Verwendungszweck",
@@ -1729,7 +2035,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "Überweisung"
       ]
     },
-    "ai_notes": "",
+    "ai_notes": "2026-11-20: IT IS NOT GENERATED AND THERE IS NOTHING TO CONFIGURE. The reference / variable symbol of a booking IS the booking number, and of a product order the order number. That is the whole rule, and it is the answer to \"how is the variable symbol generated\", which customers ask in Czech and Slovak and which went unanswered six times in one thread. The answer lives in content/guides/payment-pairing.md under \"How is the variable symbol generated?\", together with the two consequences: bookings and orders are numbered in separate series, and enrolling after a trial creates a new booking and therefore a new number.",
     "do_not_confuse_with": []
   },
   {
@@ -1796,7 +2102,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "platba se nespárovala"
       ]
     },
-    "ai_notes": "When a user says \"payment not paired\", \"payment stuck\", or \"payment not showing\", they mean an inbound payment that landed in manual review (status: new). Guide them to Payments → Payment reconciliation and pair manually from the Queue. When they say \"payment not arriving\", check GoCardless consent expiry first.",
+    "ai_notes": "When a user says \"payment not paired\", \"payment stuck\", or \"payment not showing\", they mean an inbound payment that landed in manual review (status: new). Guide them to Payments → Payment reconciliation and pair manually from the Queue. When they say \"payment not arriving\", check GoCardless consent expiry first. CSV IMPORT DUPLICATES (confirmed 2026-09-14): imported rows go through the same dedup as bank-read payments. A row identical to a known payment (same VS, date, amount) is NOT paired again — it lands as unpaired/ignored. \"400 unpaired payments after import\" = the company re-imported overlapping statements. Advice: import often, export only the days since the last import, never combine CSV import with automatic bank reading on the same account. KB text saying a re-import doubles balances is out of date. IGNORED = never imported into the system; a payment in \"ignored records\" cannot be paired to a booking until it is imported. Pairing only targets ACTIVE registrations — a cancelled registration will not be paired automatically; add the payment manually. GOCARDLESS FEED EXPIRY (shipped 2026-09-20, API-20260920-001): the bank authorisation lapses at the EARLIER of the period the bank granted and 90 days — 90 is the ceiling, not the rule, and feeds have lapsed at 84 days. Company owners now get a warning 14 DAYS BEFORE and a second message when it has lapsed, both as email and as an in-app notification; the invoice profile and each bank account show \"Reconnect needed\" or \"Reconnect needed in N days\". Before this the feed just went quiet — one company sat dark for 29 days. The old indicator assumed 180 days from connection and was therefore silent on feeds that had already stopped. RECONNECTING REPEATEDLY IS NO LONGER HARMFUL (same spec): every reconnect used to mint a new requisition while the old ones stayed LINKED for up to 180 days, all competing for the same ~4 calls/day quota — one company held 17 at once, which is itself what broke feeds. Activating a new agreement now supersedes the older ones for the same company + institution. Zooza deliberately does NOT revoke the old one at GoCardless (irreversible, no sandbox); it simply stops polling it.",
     "do_not_confuse_with": [
       {
         "term": "GoCardless direct debit",
@@ -1850,7 +2156,9 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "vstupová karta",
         "nabiť kredit",
         "permanentka",
-        "permanentky"
+        "permanentky",
+        "pernamentka",
+        "pernamentky"
       ],
       "de": [
         "Eintrittskarte",
@@ -1860,7 +2168,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "aufladen"
       ]
     },
-    "ai_notes": "",
+    "ai_notes": "ADMIN SIDE: passes live on an ORDER attached to the booking, and the entries do not exist until that order is marked paid. So adding passes RAISES the booking's outstanding balance until Add payment is recorded — which reads as \"adding passes made it worse\" and is the most reported entry-pass problem. Sequence: open the booking → Buy → tick the payment method → if the product lets the parent choose an option, open the order and use Add item to order → back on the booking, Add payment. Only at that last step are the entries generated and released to the parent. Confirmed 2026-09-13. OWNERSHIP (confirmed 2026-09-26, api-v1 Attendance::get_unused_entrance_voucher + user.php::widget__get_entrance_vouchers): entries belong to the CLIENT at that company (origin_user_id + origin_company_id) — NOT to a registration, a class or a child. Redemption picks the client's next unused entry ordered by soonest expiry, whatever registration the session belongs to. So two children of the same parent, registered separately, draw from ONE shared pool: ten entries is five sessions each, not ten. The KB claimed the opposite until 2026-09-26 (pay-as-you-go-faq). Linked classes decide which SESSIONS a registration may book — never which passes apply. AVAILABILITY (confirmed 2026-09-26): on a product assigned to a class, \"Available in the client's profile\" (show_in_profile, default on) and \"Make available in the booking form\" (show_in_registration, default off) are INDEPENDENT checkboxes — one product can be sold in both places. The old advice to create a duplicate mandatory/optional pair was wrong and is corrected in creating-entry-passes. A client with nothing to buy in their profile usually has no product ATTACHED TO THE CLASS, not a missing product.",
     "do_not_confuse_with": [
       {
         "term": "Credit (overpayment)",
@@ -2002,9 +2310,14 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       "Programme fee"
     ],
     "translations": {
-      "sk": "Platba za semester / Termínová platba",
+      "sk": "Kurzovné",
       "cz": "Platba za semestr",
-      "de": "Kursbeitrag / Semesterbeitrag"
+      "de": "Semesterbeitrag",
+      "pl": "Opłata semestralna",
+      "ro": "Taxă pe semestru",
+      "hu": "Féléves díj",
+      "it": "Quota semestrale",
+      "fr": "Frais semestriels"
     },
     "intent_keywords": {},
     "ai_notes": "",
@@ -2162,31 +2475,46 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "address",
         "where",
         "room",
-        "hall"
+        "hall",
+        "regional holidays",
+        "region on a venue",
+        "school breaks not skipped"
       ],
       "sk": [
         "miesto",
         "adresa",
         "kde",
         "sála",
-        "miestnosť"
+        "miestnosť",
+        "región",
+        "regionálne sviatky",
+        "prázdniny sa nepreskočili",
+        "ako sú nastavené prázdniny"
+      ],
+      "cz": [
+        "místo",
+        "region",
+        "jak jsou nastaveny obecné prázdniny",
+        "která data jsou prázdniny"
       ],
       "de": [
         "Standort",
         "Ort",
         "Adresse",
         "Halle",
-        "wo"
+        "wo",
+        "Region",
+        "Ferien"
       ]
     },
-    "ai_notes": "",
+    "ai_notes": "2026-11-20: HOLIDAYS ARE DECIDED PER VENUE, AND A VENUE CAN NOW CARRY SEVERAL REGIONS. Settings - Venues - open the venue - the \"Regional holidays\" card: one Region row per region plus an empty row to add another, each with Delete, and the card has its own Save. A date is skipped when it is a holiday in ANY listed region, plus national holidays. A venue with no region gets national holidays only, which is the usual cause of \"the sessions landed in half term\" and is most often an online venue. BEWARE THE SECOND FIELD CALLED REGION: the one in the venue's address card is part of the address (help text \"City area\") and does nothing for holidays. The list of regions offered comes from the company's country, which only support can change.",
     "do_not_confuse_with": []
   },
   {
     "id": "retention",
     "canonical_en": "Retention",
     "category": "client-management",
-    "definition": "A Zooza feature that sends a re-engagement link to clients whose trial was lost or whose booking was cancelled, giving them a time-limited opportunity to return. The admin configures how many days the re-engagement link remains active and can add a personalised note. Configurable per programme under Programme → Settings → Retention.",
+    "definition": "A Zooza feature that sends a re-engagement link to clients whose trial was lost or whose booking was cancelled, giving them a time-limited opportunity to return. The admin configures how many days the re-engagement link remains active and can add a personalised note. Configurable per programme under Programme → Settings → Auto-enrolment (the tile was formerly called Retention).",
     "synonyms": [
       "re-engagement",
       "churn prevention",
@@ -2231,7 +2559,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "retenční odkaz"
       ]
     },
-    "ai_notes": "Retention is accessed via Programme → Settings → Retention (not via the Loyalty program). It is distinct from the Loyalty Program (which rewards active clients). Retention targets clients who already left or never converted (Trial Lost / Cancelled). The admin sets the number of days the retention link is accessible and an optional note. This is a configurable-days feature — the default was 30 days, but admins can change it per programme.",
+    "ai_notes": "Auto-enrolment is accessed via Programme → Settings → Auto-enrolment (not via the Loyalty program). It is distinct from the Loyalty Program (which rewards active clients). Retention targets clients who already left or never converted (Trial Lost / Cancelled). The admin sets the number of days the retention link is accessible and an optional note. This is a configurable-days feature — the default was 30 days, but admins can change it per programme.",
     "do_not_confuse_with": [
       {
         "term": "Loyalty Program",
@@ -2441,7 +2769,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "testvérkedvezmény"
       ]
     },
-    "ai_notes": "Navigation path: Sales & Payments → Loyalty Program. Three sub-features: 1. Sibling Discount — activated when a second+ child is enrolled under the same account. 2. Returning Client Discount — activated when a client re-books after a previous booking. 3. Referral Program — each client has a unique referral link in their booking widget profile (not in the admin). When a referred client books through the link and completes registration, rewards are issued automatically. The referral link is visible in the booking widget profile section — clients see it whenever they log into the widget on the provider's website. Admins cannot view or copy referral links from the admin panel. IMPORTANT: Referral links are NOT set up manually per client — they exist automatically for every client once the Referral Program is activated. Loyalty discounts from copying registrations (new season) may not apply automatically if the booking history is not inherited by the copy.",
+    "ai_notes": "Navigation path: Sales & Payments → Loyalty Program. Three sub-features: 1. Sibling Discount — activated when a second+ child is enrolled under the same account. 2. Returning Client Discount — activated when a client re-books after a previous booking. 3. Referral Program — each client has a unique referral link in their booking widget profile (not in the admin). When a referred client books through the link and completes registration, rewards are issued automatically. The referral link is visible in the booking widget profile section — clients see it whenever they log into the widget on the provider's website. Admins cannot view or copy referral links from the admin panel. IMPORTANT: Referral links are NOT set up manually per client — they exist automatically for every client once the Referral Program is activated. 2026-10-27 (shipped, default behaviour change for every company): THE SIBLING AND RETURNING-CLIENT DISCOUNTS NOW COUNT ONLY EARLIER BOOKINGS THAT HAVE SOME PAYMENT ON THEM. An unpaid first booking no longer makes the next child a second child — this closed a loophole where a parent booked, did not pay, re-booked through the form, and collected a sibling discount for the same child. Expect some bookings that previously got a discount not to get one; that is the intent. 2026-10-27: SAME-CHILD DETECTION. Identity is now decided by a family-scoped matcher (person id, then date of birth, then a diacritic- and diminutive-tolerant name match), not by person id alone. \"Martin\", \"Martinko\" and \"Maťko\" are one child. Previously each spelling created a new person row and earned a sibling discount. It is a match, not a certainty — say so rather than promising it is exact. 2026-10-27: REQUIRES-LOGIN SWITCH, per programme. A company can grant the sibling and returning-customer discounts only to customers who were logged in when booking. The referral programme is deliberately excluded — it exists for acquisition, where the person has no account yet. The count is of DISTINCT CHILDREN, not of bookings: one child in an autumn class and a winter class is one child and gets nothing. Children booked together in one booking are numbered in the order they appear, so the second twin takes the 2nd-child rule. A free newborn is NOT a sibling-discount case — the rule would charge the sibling percentage instead of nothing; either do not register the baby or add them by hand at price 0. Confirmed with the founder 2026-11-02. Loyalty discounts from copying registrations (new season) may not apply automatically if the booking history is not inherited by the copy.",
     "do_not_confuse_with": [
       {
         "term": "Discount codes",
@@ -2552,8 +2880,12 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "erstatten"
       ]
     },
-    "ai_notes": "SK/CZ customers use \"storno\" in two different contexts — always clarify: (1) \"storno registrácie / prihlásenia\" = cancel the booking (enrolment action) (2) \"storno platby / vrátenie poplatku\" = refund the money (financial action) Stripe refunds: Bookings → Payments → transaction → Refund (full or partial). Bank transfer refunds: process in banking app, then record in Zooza as a manual payment to zero out the balance. After any refund, also reduce the outstanding debt on the booking if needed — the refund alone does not update the debt.",
+    "ai_notes": "SK/CZ customers use \"storno\" in two different contexts — always clarify: (1) \"storno registrácie / prihlásenia\" = cancel the booking (enrolment action) (2) \"storno platby / vrátenie poplatku\" = refund the money (financial action) Stripe refunds: Bookings → Payments → transaction → Refund (full or partial). Bank transfer refunds: process in banking app, then record in Zooza as a manual payment to zero out the balance. After any refund, also reduce the outstanding debt on the booking if needed — the refund alone does not update the debt. 2026-10-30: clients can raise refund requests themselves when they cancel an eligible session, if the company switches on Settings - General - Allow refund requests (off by default). The request lands on the booking detail with Approve and Deny; the approved amount is prefilled from the refund policy and capped. Statuses are Pending, Approved, Denied; resolved ones stay under \"Resolved refund requests\". Two email templates carry the decision: \"Refund request - approved\" and \"Refund request - denied\", both with an optional admin note. 2026-11-06 (confirmed with the founder): A REFUND ISSUED IN THE STRIPE DASHBOARD IS NEVER PASSED BACK TO ZOOZA. Zooza only knows about refunds made inside Zooza, so the booking keeps showing the money as received and \"Refunds issued 0.00\". Never conclude from that display that the refund failed. To record it: open the booking, Payments tab, Online payments box, click the card payment itself (NOT the line in the Payments list — that is where people look and give up), then Refund box - Refund payment; Zooza reports the gateway refund as unavailable and offers an administrative refund prefilled with the amount. Doing the refund inside Zooza in the first place makes the gateway refund and the record one action.",
     "do_not_confuse_with": [
+      {
+        "term": "Refund request (raised by the client)",
+        "reason": "Approving a refund request MOVES NO MONEY. It records the decision and emails the client; the admin still issues the refund in the payment provider. Never tell a customer that approving refunds anybody — the gap between the email and the money is where the complaint comes from. Denying is final and cannot be reopened.\n"
+      },
       {
         "term": "Cancellation fee",
         "reason": "A refund returns money to the client. A cancellation fee is the amount the business KEEPS when processing a cancellation — the client gets back only the remainder after the fee is deducted.\n"
@@ -2565,6 +2897,78 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       {
         "term": "Cancel booking",
         "reason": "Cancelling a booking removes the enrolment. A refund is a separate financial action — cancelling does not automatically trigger a refund.\n"
+      }
+    ]
+  },
+  {
+    "id": "payment-reminder",
+    "canonical_en": "Payment reminder",
+    "category": "payments",
+    "definition": "An automatic email chasing an unpaid scheduled payment. Zooza has two separate mechanisms and conflating them is the usual source of wrong answers: (1) SCHEDULED-PAYMENT NOTIFICATIONS, set once for the whole account under Settings - Billing & Payments - Payment settings. Three of them: Upcoming payment (before the debt is created), Payment created (when it is posted), Overdue payment (on or after the due date). They have a global on/off toggle and a cooldown. (2) PAYMENT REMINDER SCENARIOS, set per programme in Price and payment - Payment reminders settings. First, second and (since November 2026) third reminder, each a number of days, in one of two modes: counting back from the programme start, or counting forward from each person's booking. The same card also decides what happens to a booking that stays unpaid.",
+    "synonyms": [
+      "payment notification",
+      "dunning email",
+      "overdue notice"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Pripomienka k platbe / Upomienka",
+      "cz": "Připomínka k platbě / Upomínka",
+      "de": "Zahlungserinnerung",
+      "hu": "Fizetési emlékeztető",
+      "ro": "Memento de plată"
+    },
+    "intent_keywords": {
+      "en": [
+        "payment reminder",
+        "third reminder",
+        "chase unpaid",
+        "overdue email",
+        "dunning",
+        "remind client to pay",
+        "send a reminder manually",
+        "reminder not sent",
+        "reminder before course starts"
+      ],
+      "sk": [
+        "pripomienka k platbe",
+        "upomienka",
+        "upomínka",
+        "výzva na úhradu",
+        "výzva na platbu",
+        "tretia pripomienka",
+        "neposlala sa pripomienka",
+        "pripomienka po začiatku kurzu",
+        "ručne poslať pripomienku"
+      ],
+      "cz": [
+        "připomínka k platbě",
+        "upomínka",
+        "výzva k úhradě",
+        "výzva k platbě",
+        "třetí připomínka",
+        "neodeslala se připomínka"
+      ],
+      "de": [
+        "Zahlungserinnerung",
+        "Mahnung",
+        "dritte Erinnerung"
+      ],
+      "ro": [
+        "memento de plată",
+        "notificare de plată",
+        "al treilea memento"
+      ]
+    },
+    "ai_notes": "2026-11-04 (shipped, confirmed with the founder): A THIRD REMINDER NOW EXISTS. It is in the same per-programme Payment reminders settings card, in both modes; 0 or empty means off, which is how every existing programme starts. The three stay ordered and the app enforces it as you type — counting DOWN in before-the-start mode, UP in after-the-booking mode. It has its own read-only system email template, \"Third reminder\", beside the first and second under Communication - Templates. Before this date the correct answer was that only two existed; do not repeat that. 2026-11-04: THE UNDOCUMENTED ~35-DAY CEILING IS GONE. Reminders set further out than about 35 days silently never fired (an 838-hour TIMEDIFF cap in the query; a 40-day reminder was the reported case), and nothing said so in the settings or the help. Long lead times now work — 40 days, 360 days — which matters for trips and camps sold months ahead. If a company reports \"we set 40 days and nothing was sent\", this was why; it was never their setup. 2026-11-04: reminders go out at 09:00 on the reminder's day, not at the session's clock time and not overnight. A reminder missed through an outage is sent at most one day late, then skipped. SINCE MID-2026 THE REMINDERS FOLLOW THE BOOKING'S STATUS, NOT THE CALENDAR. While a booking sits in Awaiting payment and the notification is on, it keeps being sent — INCLUDING AFTER THE FIRST SESSION HAS BEEN TAUGHT. \"Before the start of the programme\" names where the countdown starts, not a deadline after which reminders stop. This is asked constantly as \"can I send a reminder N days AFTER the course starts\"; the answer is that unpaid people are already chased, and for a per-person clock the mode to use is \"after the booking\". Confirmed with the founder 2026-11-04. 2026-11-04: the unpaid-booking rule on the same card can now CANCEL the booking instead of DELETING it. Cancel keeps the booking and stamps an automatic reason of unpaid, so it still shows in the client's record and in cancellation reporting; delete leaves nothing to point at. A rule configured before this date is still set to delete. Only a booking with a payment ASSIGNED to it counts as paid, so a company reconciling bank transfers by hand can delete a parent who genuinely paid. Reminders only reach bookings created after the setting was activated; the card shows the activation date, and existing debtors are not chased retroactively. 2026-11-20: THE AMOUNT IN THE EMAIL COMES FROM A TAG, AND THE WRONG TAG IS A COMMON EDIT. *|PAYMENT_AMOUNT|* is the amount this particular email is about and is what the QR code in the same email is built from, so the two can never disagree. It is what the default payment templates ship with. *|COURSE_PAYMENT|* is a programme-level figure for the booking and is larger than the outstanding amount as soon as part has been paid. A reported case: the text said 50 EUR next to a QR code for the correct 25 EUR, because the company had edited the Missed Payment template to use COURSE_PAYMENT in both the sentence and the Amount row. When someone reports \"the reminder shows the wrong amount\" or \"the QR code and the text disagree\", check the template's tags before looking at the booking's figures. These payment templates are the ones companies customise most, because they add their own payment terms to them.",
+    "do_not_confuse_with": [
+      {
+        "term": "Scheduled-payment notifications (account level)",
+        "reason": "Set once under Settings - Billing & Payments for the whole account, and switched off there for everyone. The per-programme reminder scenarios are a different card with different fields. An operator asking \"where do I turn reminders off\" has to be pointed at the right one of the two, or they will turn off the wrong thing.\n"
+      },
+      {
+        "term": "Invoice",
+        "reason": "A reminder prompts payment; an invoice records the charge. \"Send them an invoice\" on an outstanding booking usually means \"ask them to pay\", which is a reminder carrying the profile link, not a PDF. See invoice.\n"
       }
     ]
   },
@@ -2639,8 +3043,8 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
     ],
     "deprecated": [],
     "translations": {
-      "sk": "Čakacia listina / Poradovník",
-      "cz": "Čekací listina / Pořadník",
+      "sk": "Poradovník",
+      "cz": "Pořadník",
       "de": "Warteliste",
       "hu": "Várólistán"
     },
@@ -2721,9 +3125,14 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       "interest form"
     ],
     "translations": {
-      "sk": "Zbierny kôš / Zber záujmu",
-      "cz": "Sběrný koš / Sběr zájmu",
-      "de": "Lead-Sammlung / Interessensbekundung"
+      "sk": "Zber záujmu",
+      "cz": "Sběr zájmu",
+      "de": "Interessentensammlung",
+      "pl": "Zbieranie zainteresowanych",
+      "ro": "Colectare de interes",
+      "hu": "Érdeklődők gyűjtése",
+      "it": "Raccolta di interesse",
+      "fr": "Recueil d'intérêt"
     },
     "intent_keywords": {
       "en": [
@@ -2772,6 +3181,10 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "reason": "A waiting list means a class exists and is at full capacity — clients wait for a spot to open. A Lead Collection class has no sessions yet — clients register interest before any schedule exists.\n"
       },
       {
+        "term": "Contact form",
+        "reason": "The contact form (lead capture) is a website widget that creates a contact, not a booking, and needs no programme or class. Lead Collection is a class without sessions inside an existing programme; registering creates a booking.\n"
+      },
+      {
         "term": "Pay-as-you-go",
         "reason": "Pay-as-you-go is a pricing model (clients pay per session). Lead Collection is a collection state — the class has no sessions and is waiting for demand before becoming any type of class.\n"
       }
@@ -2800,7 +3213,10 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "instalments",
         "pay in instalments",
         "one-off payment template",
-        "how do i set up payments"
+        "how do i set up payments",
+        "split payment",
+        "pay before the course starts",
+        "pay monthly until the class starts"
       ],
       "sk": [
         "platobná šablóna",
@@ -2818,7 +3234,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "jednorázová platba"
       ]
     },
-    "ai_notes": "Three failure modes, all confirmed from support conversations: (1) the template is not of the right TYPE — a membership fee needs a membership template, chosen at creation; (2) the template is active but not VISIBLE to clients — separate switch; (3) a fixed-number-of-instalments template misbehaves once people register after the course has started, because the count was fixed for a full-length enrolment. See: content/guides/payment-templates-creation.md, content/guides/membership-fee-setup.md",
+    "ai_notes": "Three failure modes, all confirmed from support conversations: (1) the template is not of the right TYPE — a membership fee needs a membership template, chosen at creation; (2) the template is active but not VISIBLE to clients — separate switch; (3) a fixed-number-of-instalments template misbehaves once people register after the course has started, because the count was fixed for a full-length enrolment. SPLIT PAYMENT (shipped 2026-11-10): a fourth type, \"Split payment before the class start\", spreads a course fee over the months BEFORE the class rather than during it — for businesses selling 6-9 months ahead. Monthly only, equal amounts, first instalment at booking. While enough instalments still fit before its deadline it REPLACES the class's other instalment plans for clients (a one-off plan still shows); once too few fit, the ordinary plans return. One per company, course-fee programmes only, and saving the template resets the per-class minimum everywhere. See: content/guides/payment-templates-creation.md, content/guides/membership-fee-setup.md",
     "do_not_confuse_with": [
       {
         "term": "Payment plan",
@@ -2874,6 +3290,10 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       {
         "term": "Invoice engine",
         "reason": "The profile is WHO invoices and to which account. The invoice engine is WHICH system produces the document (Zooza's own, SuperFaktura, Fakturoid, Számlázz, Oblio, SmartBill). One profile selects one engine.\n"
+      },
+      {
+        "term": "Global Payments connection",
+        "reason": "Shipped 2026-09-22. The invoice profile decides WHO ISSUES the invoice; the Global Payments connection decides WHICH MERCHANT ACCOUNT RECEIVES the money. They are mapped to each other but nothing enforces agreement — an unmapped profile falls through to the fallback connection, so a multi-entity company can invoice from entity X and settle into entity Y. Zooza shows the routing rather than blocking it. If someone asks \"which account does this money go to\", the answer is the Global Payments binding, not the invoice profile.\n"
       }
     ]
   },
@@ -3115,11 +3535,15 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "cât datorează"
       ]
     },
-    "ai_notes": "",
+    "ai_notes": "2026-10-24: \"Remains to be paid\" is recalculated on every page load, never cached, so it always reflects the bookings as they stand. Payments on cancelled or deleted bookings drop out of it — a total that fell without a payment arriving usually means a cancellation, not a bug.",
     "do_not_confuse_with": [
       {
         "term": "Credit",
         "reason": "A negative balance is an overpayment held for the client, not money owed to you. The figure is sometimes shown without a sign, so an overpayment can look identical to a debt — open the bookings behind it before chasing anyone.\n"
+      },
+      {
+        "term": "Remains to be paid (vs Overdue)",
+        "reason": "\"Remains to be paid\" (SK \"Ostáva uhradiť\") is every issued and unpaid payment, including ones not yet due and ones still inside the Awaiting payment grace period. \"Overdue\" is only the subset past its due date. The first is always the larger number and the gap between them is future income, not arrears — so a customer reporting \"the total is far higher than what is overdue\" is describing correct behaviour, not a fault.\n"
       }
     ]
   },
@@ -3151,11 +3575,17 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
       "sk": [
         "faktúra",
         "faktúry",
+        "FA",
+        "fa",
         "číslo faktúry",
         "číselný rad",
         "poradové číslo faktúry",
         "zmazať faktúru",
-        "preposielanie faktúr"
+        "preposielanie faktúr",
+        "faktúra na 0 eur",
+        "nulová faktúra",
+        "zmizli faktúry",
+        "nevystavila sa faktúra"
       ],
       "cz": [
         "faktura",
@@ -3173,7 +3603,7 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "serie facturi"
       ]
     },
-    "ai_notes": "There is no process for deleting an invoice and none is needed. When someone wants to \"delete invoices to fix the numbering\", the answer is to set the next number or number series on the invoice profile instead. Confirmed 2026-08-30.",
+    "ai_notes": "There is no process for deleting an invoice and none is needed. When someone wants to \"delete invoices to fix the numbering\", the answer is to set the next number or number series on the invoice profile instead. Confirmed 2026-08-30. \"SEND THEM AN INVOICE\" IS OFTEN NOT ABOUT AN INVOICE. On an outstanding booking it is usually a synonym for \"tell the client they owe us and let them pay\" — what the operator wants is a payment reminder carrying the profile link, not a PDF. An invoice records a charge; it neither prompts nor collects. Establish which is meant before walking anybody through invoice generation: the document is the answer when the client needs it for their own records or their employer. See payment-link. Confirmed with the founder 2026-09-15. 2026-11-20: THREE CAUSES BEHIND \"THE INVOICE IS WRONG OR MISSING\", all confirmed on real accounts. Start from the fact that Zooza has no mechanism for deleting an invoice and the year's number series is unbroken — so nothing vanished. (1) ZERO AMOUNT: the invoice carries what the booking owed or had paid ON ITS ISSUE DATE. Either the real invoice already exists (automatic generation issued it when the payment matched, and somebody then generated a second one by hand — with automatic invoicing on, never generate by hand), or the invoice's period does not include the date of the payment (edit the period). (2) NEVER ISSUED: a missing buyer name fails the invoice with \"No customer name entered\" and it is not retried. An overpayment raises no invoice automatically either. (3) ON THE PARENT'S OTHER BOOKING: the invoice stays with the booking it was issued for even when the payment is later moved. Typical when a parent creates two bookings minutes apart. A wrong invoice cannot be deleted — a credit note belongs in the accounting system. Note \"FA\" is how Slovak operators abbreviate faktúra and it almost always means this.",
     "do_not_confuse_with": []
   },
   {
@@ -3461,6 +3891,96 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
     "do_not_confuse_with": []
   },
   {
+    "id": "notification-centre",
+    "canonical_en": "Notification centre",
+    "category": "communication",
+    "definition": "The place where an admin subscribes an email address to events in the account — a new booking, an online payment, a class filling up, a client replying. Each notification is one type sent to one address; several addresses means several notifications.",
+    "synonyms": [
+      "notification center",
+      "admin alerts"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Notifikačné centrum",
+      "cz": "Notifikační centrum",
+      "de": "Benachrichtigungszentrum",
+      "hu": "Értesítési központ",
+      "ro": "Centrul de notificări"
+    },
+    "intent_keywords": {
+      "en": [
+        "notification centre",
+        "notify me when",
+        "alert when someone books",
+        "new email reply from client",
+        "get notified of replies",
+        "class is full alert"
+      ],
+      "sk": [
+        "notifikačné centrum",
+        "upozornenie na odpoveď",
+        "chcem byť upozornený",
+        "notifikácia keď sa niekto prihlási",
+        "upozornenie keď je skupina plná"
+      ],
+      "cz": [
+        "notifikační centrum",
+        "upozornění na odpověď"
+      ]
+    },
+    "ai_notes": "\"Can I be told when a client replies?\" — YES. The type is \"New email reply from client\". This was answered wrongly to a customer in September 2026 because the help article carrying the list was marked archived and could not be retrieved. Replies to Zooza email land in the app rather than the operator's mailbox, so without this notification nothing announces them — which is why people conclude the alert does not exist. Also present and easily missed in a long dropdown: \"class is filling up / full\". Navigation: Settings → Other → Notification center → Add new notification; one email address per notification. Confirmed 2026-09-13.",
+    "do_not_confuse_with": []
+  },
+  {
+    "id": "payment-link",
+    "canonical_en": "Payment link",
+    "category": "payments",
+    "definition": "What operators call the thing they send a client so the client can pay. In Zooza, for a booking, that is the client's own profile link — there is no separate per-instalment payment URL. The client opens their profile, sees what is outstanding and pays there, and the same link still works for the next instalment.",
+    "synonyms": [
+      "pay link",
+      "link to pay",
+      "profile link"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Platobný odkaz / odkaz na úhradu",
+      "cz": "Platební odkaz",
+      "de": "Zahlungslink",
+      "hu": "Fizetési link",
+      "ro": "Link de plată"
+    },
+    "intent_keywords": {
+      "en": [
+        "payment link",
+        "send a payment link",
+        "link to pay",
+        "where do they pay",
+        "how does the client pay",
+        "send them a link"
+      ],
+      "sk": [
+        "platobný link",
+        "platobny link",
+        "odkaz na platbu",
+        "poslať link na úhradu",
+        "kde má zaplatiť",
+        "ako mi zaplatí"
+      ],
+      "cz": [
+        "platební odkaz",
+        "odkaz na platbu",
+        "poslat link na úhradu"
+      ]
+    },
+    "ai_notes": "The tag is *|WIDGET_PROFILE_URL|* and it belongs in the message template rather than pasted in as fixed text, because it resolves per recipient. It carries a login token, so whoever opens it is inside that client's profile — not a link to share publicly or reuse for a second client. Confirmed with the founder 2026-09-15.",
+    "do_not_confuse_with": [
+      {
+        "term": "Product checkout link",
+        "reason": "A product sold on its own — a gift voucher, an entry pass — DOES have its own checkout link, copied from the product itself. The profile-link answer is for money owed on a BOOKING. Establish which one is meant before answering.\n"
+      }
+    ]
+  },
+  {
     "id": "payment-reconciliation",
     "canonical_en": "Payment reconciliation",
     "category": "payments",
@@ -3502,13 +4022,77 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "párování plateb",
         "nespárovaná platba",
         "spárovat ručně"
+      ],
+      "en_setup": [
+        "set up pairing",
+        "payment collection setup",
+        "money collection",
+        "connect my bank",
+        "how do I set up pairing"
+      ],
+      "sk_setup": [
+        "ako nastaviť párovanie",
+        "nastavenie párovania",
+        "money collection",
+        "zber peňazí",
+        "prepojiť banku"
       ]
     },
-    "ai_notes": "Navigation: Payments → Payment reconciliation, tabs Queue · AI rules & filters · AI Analytics. Before September 2026 all of this sat under a hub called \"Inbound\"; content written earlier may still say Payments → Inbound → List or → Setup. The status the client sees is a bucket, not the raw enum: Unpaired covers new and staging. Confirmed against production 2026-09-04.",
+    "ai_notes": "Navigation: Payments → Payment reconciliation, tabs Queue · AI rules & filters · AI Analytics. Before September 2026 all of this sat under a hub called \"Inbound\"; content written earlier may still say Payments → Inbound → List or → Setup. The status the client sees is a bucket, not the raw enum: Unpaired covers new and staging. Confirmed against production 2026-09-04. WHERE IT IS SET UP — asked more often than how the queue works, and answered wrongly once in September 2026. Pairing is configured ONCE ON THE COMPANY, in two places: the IBAN goes on a bank account inside the billing profile (Settings → Billing & Payments → Invoice profiles), and how Zooza reads that account is chosen in Payment collection setup — a GoCardless bank connection, or bank email notifications. The IBAN field ON A PROGRAMME is NOT this. It exists for the narrow case of one or two programmes being paid into a different account, and filling it in does not start pairing. Confirmed 2026-09-13.",
     "do_not_confuse_with": [
       {
         "term": "Transactions",
         "reason": "Reconciliation is money still waiting to be matched. Transactions is money already settled and recorded. A payment moves from the first to the second once it is paired — so \"where is my payment\" is answered in reconciliation, and \"what have we taken\" in Transactions.\n"
+      }
+    ]
+  },
+  {
+    "id": "payment-collection-setup",
+    "canonical_en": "Payment collection setup",
+    "category": "payments",
+    "definition": "The screen where a company says how Zooza should read money arriving in its bank account — a GoCardless bank connection, or bank email notifications — and which accounts it applies to. This is where automatic pairing is switched on; the reconciliation queue is where the result is worked.",
+    "synonyms": [
+      "money collection",
+      "inbound payments hub"
+    ],
+    "deprecated": [
+      "Payments → Inbound → Setup"
+    ],
+    "translations": {
+      "sk": "Nastavenie zberu platieb",
+      "cz": "Nastavení sběru plateb",
+      "de": "Zahlungseinzug-Einrichtung"
+    },
+    "intent_keywords": {
+      "en": [
+        "payment collection setup",
+        "money collection",
+        "set up pairing",
+        "connect my bank",
+        "bank email notifications",
+        "gocardless connection"
+      ],
+      "sk": [
+        "nastavenie zberu platieb",
+        "money collection",
+        "ako nastaviť párovanie",
+        "prepojiť banku",
+        "emailové notifikácie z banky"
+      ],
+      "cz": [
+        "nastavení plateb",
+        "propojit banku"
+      ]
+    },
+    "ai_notes": "Navigation: Settings → Billing & Payments → Payment collection setup. Two things have to be right and they live apart: the IBAN sits on a bank account inside the billing profile (Settings → Billing & Payments → Invoice profiles), and this screen chooses how that account is read. Confirmed 2026-09-13.",
+    "do_not_confuse_with": [
+      {
+        "term": "Payment reconciliation",
+        "reason": "Setup is done once and then left alone; reconciliation is the daily queue. \"How do I set up pairing\" belongs here, \"why did this payment not pair\" belongs in reconciliation.\n"
+      },
+      {
+        "term": "IBAN on a programme",
+        "reason": "A programme can carry its own bank account, for the narrow case of one or two programmes being paid into a different account. It is not how pairing is switched on, and filling it in hoping pairing will start is the wrong lever. Answered wrongly to a customer in September 2026.\n"
       }
     ]
   },
@@ -3605,7 +4189,665 @@ export const TERMINOLOGY_INDEX: TerminologyEntry[] = [
         "temă"
       ]
     },
-    "ai_notes": "Navigation: Settings → My profile → Appearance. Theme: System · Light · Dark. Colour: Zooza orange, Veronese Green, Rosso Corsa, International Klein Blue, Mauve, Monticello. SUPERSEDES older content saying Zooza has no theme setting and simply follows the operating system — that was true until the picker shipped at the end of August 2026. \"System\" is the default and is what makes the app follow the OS. Confirmed against production 2026-09-04.",
+    "ai_notes": "Navigation: your name (top right) → My profile → Appearance. Theme: System · Light · Dark. Colour: Zooza orange, Veronese Green, Rosso Corsa, International Klein Blue, Mauve, Monticello. SUPERSEDES older content saying Zooza has no theme setting and simply follows the operating system — that was true until the picker shipped at the end of August 2026. \"System\" is the default and is what makes the app follow the OS. Confirmed against production 2026-09-04.",
     "do_not_confuse_with": []
+  },
+  {
+    "id": "contact",
+    "canonical_en": "Contact",
+    "category": "clients",
+    "definition": "A person who enquired through the contact form on the company's website, or was added by hand under Clients → Contacts. A contact is not a client: it has no login, no booking and never appears in the Clients list. It holds one or more enquiries, a status (New, In progress, Lost, Converted), an owner, labels, notes and to-dos. Converting a contact creates the client.",
+    "synonyms": [
+      "lead",
+      "prospect"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Kontakt",
+      "cz": "Kontakt",
+      "de": "Kontakt",
+      "hu": "Kapcsolat",
+      "ro": "Contact",
+      "pl": "Kontakt"
+    },
+    "intent_keywords": {
+      "en": [
+        "contact",
+        "contacts",
+        "lead",
+        "leads",
+        "enquiry",
+        "enquiries",
+        "inquiry",
+        "website enquiry",
+        "someone enquired",
+        "convert to client",
+        "contacts list",
+        "lead capture",
+        "crm"
+      ],
+      "sk": [
+        "kontakt",
+        "kontakty",
+        "lead",
+        "leady",
+        "dopyt",
+        "dopyty",
+        "záujemca",
+        "záujemcovia",
+        "niekto napísal cez web",
+        "previesť na klienta",
+        "zber leadov"
+      ],
+      "cz": [
+        "kontakt",
+        "kontakty",
+        "lead",
+        "leady",
+        "poptávka",
+        "poptávky",
+        "zájemce",
+        "převést na klienta",
+        "sběr leadů"
+      ],
+      "hu": [
+        "kapcsolat",
+        "érdeklődő",
+        "érdeklődés",
+        "lead",
+        "ügyféllé alakítás"
+      ],
+      "ro": [
+        "contact",
+        "contacte",
+        "lead",
+        "solicitare",
+        "cerere",
+        "convertire în client"
+      ]
+    },
+    "ai_notes": "Navigation: Clients → Contacts (list, filters, Spam review, Add contact); Clients → Contacts → contact (detail, status/owner, labels, to-dos, timeline, Link to client, Convert to client, Erase contact). Contacts are matched by email (case-insensitive); a repeat enquiry is added to the same contact and never overwrites existing details. A contact whose email belongs to an existing client of the company is linked automatically (\"Existing client\"). Converting sends no email. Erase is a permanent GDPR deletion. No CSV export and no bulk actions yet. See: content/guides/working-with-contacts.md",
+    "do_not_confuse_with": [
+      {
+        "term": "Client",
+        "reason": "A client has a booking or a client account and appears in the Clients list. A contact only enquired. Convert to client creates the client from the contact.\n"
+      },
+      {
+        "term": "Lead Collection",
+        "reason": "Lead Collection is a class without sessions; registering for it creates a booking inside an existing programme. A contact comes from the contact form and needs no programme or class at all.\n"
+      }
+    ]
+  },
+  {
+    "id": "contact-form",
+    "canonical_en": "Contact form",
+    "category": "widgets",
+    "definition": "The Zooza widget that replaces the contact form on a company's website. Every enquiry sent through it becomes a contact, with the page, referrer and campaign parameters it came from, custom field answers and the consents given. What the form asks is set in a contact form configuration (Settings → General → Contact forms); where it appears is set on the widget (Publish → Widget → Contact form). Every company has one default configuration that cannot be archived.",
+    "synonyms": [
+      "lead capture",
+      "lead form",
+      "lead capture form",
+      "contact widget",
+      "enquiry form"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Kontaktný formulár",
+      "cz": "Kontaktní formulář",
+      "de": "Kontaktformular",
+      "hu": "Kapcsolatfelvételi űrlap",
+      "ro": "Formular de contact",
+      "pl": "Formularz kontaktowy"
+    },
+    "intent_keywords": {
+      "en": [
+        "contact form",
+        "lead capture",
+        "lead form",
+        "lead widget",
+        "enquiry form",
+        "contact us form",
+        "contact widget",
+        "form on my website",
+        "embed contact form",
+        "collect leads",
+        "capture leads",
+        "meta campaign leads",
+        "landing page form"
+      ],
+      "sk": [
+        "kontaktný formulár",
+        "kontaktny formular",
+        "lead formulár",
+        "lead capture",
+        "zber leadov",
+        "zber kontaktov",
+        "formulár na web",
+        "formulár záujem",
+        "dopytový formulár",
+        "kampaň leady",
+        "meta kampaň formulár"
+      ],
+      "cz": [
+        "kontaktní formulář",
+        "lead formulář",
+        "sběr leadů",
+        "sběr kontaktů",
+        "poptávkový formulář",
+        "formulář na web"
+      ],
+      "hu": [
+        "kapcsolatfelvételi űrlap",
+        "érdeklődő űrlap",
+        "lead űrlap",
+        "lead gyűjtés"
+      ],
+      "ro": [
+        "formular de contact",
+        "formular lead",
+        "colectare lead-uri",
+        "formular pe site"
+      ]
+    },
+    "ai_notes": "Setup: Settings → General → Contact forms (configuration: standard fields with enabled/required, custom and hidden fields, consents per configuration, visitor tracking / first touch, after submit message or redirect, handling: owner, labels, also-notify emails, to-do, automatic reply; \"Form on your website\" liveness). Embed: Publish → widget → Contact form → Configure (URL, configuration, additional domains, Use CSS); embed code body-only or head+body; one contact form per page; no WordPress shortcode (Custom HTML block); loads only on allowed domains. Email or phone must be enabled and required. Spam protection is invisible (no CAPTCHA); spam goes to Clients → Contacts → Spam for 30 days. Analytics events: zooza_event_contact_form_view / _submit_start / _submitted (the lead conversion). Meta Lead Ads sync is NOT part of this (as of 2026-09-17). See: content/guides/contact-form-lead-capture.md, content/setup/contact-form-setup.md, content/setup/contact-form-on-your-website.md, content/guides/contact-form-campaign-tracking.md",
+    "do_not_confuse_with": [
+      {
+        "term": "Booking form",
+        "reason": "The booking form creates a booking in a programme and asks for everything a booking needs. The contact form creates a contact and can ask for as little as a name and an email or phone.\n"
+      },
+      {
+        "term": "Lead Collection",
+        "reason": "Lead Collection is a programme/class state (a class without sessions). The contact form is a widget that needs no programme.\n"
+      },
+      {
+        "term": "Additional fields",
+        "reason": "Additional fields are extra questions on the booking form, per programme. The contact form uses custom contact fields, a company-wide registry.\n"
+      }
+    ]
+  },
+  {
+    "id": "enquiry",
+    "canonical_en": "Enquiry",
+    "category": "clients",
+    "definition": "One sending of the contact form, or one manual entry, on a contact. An enquiry records the answers, the page and campaign it came from and the consents given, and never changes afterwards. A contact can have several enquiries.",
+    "synonyms": [
+      "submission",
+      "inquiry"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Dopyt",
+      "cz": "Poptávka",
+      "de": "Anfrage",
+      "hu": "Érdeklődés",
+      "ro": "Solicitare",
+      "pl": "Zapytanie"
+    },
+    "intent_keywords": {
+      "en": [
+        "enquiry",
+        "inquiry",
+        "submission",
+        "new enquiry",
+        "form submission",
+        "someone sent the form",
+        "enquiry received"
+      ],
+      "sk": [
+        "dopyt",
+        "nový dopyt",
+        "odoslanie formulára",
+        "niekto poslal formulár",
+        "správa z webu"
+      ],
+      "cz": [
+        "poptávka",
+        "nová poptávka",
+        "odeslání formuláře",
+        "zpráva z webu"
+      ],
+      "hu": [
+        "érdeklődés",
+        "új érdeklődés",
+        "űrlap beküldés"
+      ],
+      "ro": [
+        "solicitare",
+        "solicitare nouă",
+        "trimitere formular"
+      ]
+    },
+    "ai_notes": "Shown on the contact's timeline as \"Enquiry received\". Staff get the \"New contact enquiry\" notification (Notification center) plus the form's Also notify addresses; Reply-To is the enquirer. A spam-flagged enquiry never becomes a contact and sends nothing.",
+    "do_not_confuse_with": []
+  },
+  {
+    "id": "custom-contact-field",
+    "canonical_en": "Custom contact field",
+    "category": "settings",
+    "definition": "A company-defined question for people who enquire through the contact form, created once in Settings → General → Custom contact fields and reusable on any contact form. Seven types: short text, long text, number, date, yes/no, single choice, multiple choice. Key and type are fixed after creation; fields are archived, never deleted, so earlier answers keep their meaning. Answers are filterable in the Contacts list.",
+    "synonyms": [
+      "contact field",
+      "custom field (contacts)"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Vlastné pole kontaktu",
+      "cz": "Vlastní pole kontaktu",
+      "de": "Benutzerdefiniertes Kontaktfeld",
+      "hu": "Egyéni kapcsolati mező",
+      "ro": "Câmp de contact personalizat"
+    },
+    "intent_keywords": {
+      "en": [
+        "custom contact field",
+        "contact field",
+        "own question on contact form",
+        "add question to contact form",
+        "hidden field",
+        "filter contacts by answer"
+      ],
+      "sk": [
+        "vlastné pole kontaktu",
+        "vlastná otázka vo formulári",
+        "pridať otázku do kontaktného formulára",
+        "skryté pole",
+        "filtrovať kontakty podľa odpovede"
+      ],
+      "cz": [
+        "vlastní pole kontaktu",
+        "vlastní otázka ve formuláři",
+        "skryté pole"
+      ],
+      "hu": [
+        "egyéni kérdés az űrlapon",
+        "egyéni mező",
+        "rejtett mező"
+      ]
+    },
+    "ai_notes": "A custom field can be Hidden on a form and filled automatically from a URL parameter, a cookie, an embed code attribute (data-zooza-field-<name>) or a fixed value. Hidden fields are never required. See: content/setup/custom-contact-fields.md",
+    "do_not_confuse_with": [
+      {
+        "term": "Additional fields",
+        "reason": "Additional fields belong to the booking form and are set per programme (up to 5). Custom contact fields belong to contacts and are company-wide.\n"
+      }
+    ]
+  },
+  {
+    "id": "cold-contact",
+    "canonical_en": "Cold contact",
+    "category": "marketing",
+    "definition": "A person who has shown interest — tapped an ad, left a name and an email or phone through a contact form or a Meta lead ad — but does not yet know the company and has not committed to anything: no booking, no payment. It is a conversation the company is allowed to start, not a customer it has won. In the app a cold contact is simply a Contact with status New. The point of the follow-up process (owner, first human reply within the hour, status New → In progress → Converted) is to turn a cold contact into a client.",
+    "synonyms": [
+      "cold lead",
+      "studený lead"
+    ],
+    "deprecated": [
+      "cold interest",
+      "chladný záujem",
+      "chladný lead",
+      "chladný zájem",
+      "kaltes Interesse",
+      "zimne zainteresowanie",
+      "interes rece"
+    ],
+    "translations": {
+      "sk": "Studený kontakt",
+      "cz": "Studený kontakt",
+      "de": "Kaltkontakt",
+      "hu": "Hideg kontakt",
+      "ro": "Contact rece",
+      "pl": "Zimny kontakt"
+    },
+    "intent_keywords": {
+      "en": [
+        "cold lead",
+        "cold contact",
+        "cold traffic",
+        "not ready to book",
+        "just enquired",
+        "left their details",
+        "lead from ads",
+        "meta lead",
+        "follow up a lead"
+      ],
+      "sk": [
+        "studený kontakt",
+        "studený lead",
+        "studené leady",
+        "studené volanie",
+        "len sa opýtal",
+        "nechal kontakt",
+        "lead z reklamy",
+        "ešte nie je pripravený",
+        "follow-up leadu"
+      ],
+      "cz": [
+        "studený kontakt",
+        "studený lead",
+        "studené leady",
+        "jen se zeptal",
+        "nechal kontakt",
+        "lead z reklamy",
+        "ještě není připravený"
+      ],
+      "hu": [
+        "hideg kontakt",
+        "hideg lead",
+        "hideg megkeresés",
+        "csak érdeklődött"
+      ],
+      "ro": [
+        "contact rece",
+        "lead rece",
+        "lead din reclamă",
+        "doar a întrebat",
+        "nu e încă pregătit"
+      ]
+    },
+    "ai_notes": "Speed decides: HBR (Oldroyd, McElheran, Elkington 2011; 2,241 firms) — contacting a lead within an hour made qualifying it ~7× more likely than waiting one more hour, >60× more likely than waiting a day. Most people an ad reaches are not in-market (95:5 rule, Dawes / Ehrenberg-Bass) — a cold contact is the normal case, not a failed campaign. Blog: /lead-generation-childrens-activity-businesses/ (localized: sk /sk/generovanie-leadov-pre-detske-aktivity-sk/ etc.). Feature page: /features/lead-capture/.",
+    "do_not_confuse_with": [
+      {
+        "term": "Contact",
+        "reason": "Contact is the product entity (Clients → Contacts). Cold contact is a marketing description of how far that person is from booking — a cold contact IS a Contact, usually with status New. Do not invent a separate \"cold\" status or flag in the app.\n"
+      },
+      {
+        "term": "Client",
+        "reason": "A client has a booking or a client account. A cold contact has neither. Convert to client is the moment a contact stops being a lead.\n"
+      }
+    ]
+  },
+  {
+    "id": "warm-contact",
+    "canonical_en": "Warm contact",
+    "category": "marketing",
+    "definition": "A person who already knows the company — an existing client's family, a parent sent by a friend, someone who has been to a trial or has been in conversation with the team — and can decide in one sitting. In plain copy, prefer saying what it means (\"a parent who already knows you\") over the jargon. Warm contacts go straight to a booking form (trial or class); cold contacts go to a contact form first. Rule of thumb: if the team would normally talk to the person before enrolling them, they are a cold contact.",
+    "synonyms": [
+      "warm lead",
+      "a parent who already knows us",
+      "zohriaty lead"
+    ],
+    "deprecated": [
+      "warm parent",
+      "teplý rodič",
+      "teplý kontakt",
+      "warme Eltern",
+      "ciepły rodzic",
+      "părinte cald"
+    ],
+    "translations": {
+      "sk": "Zohriaty kontakt",
+      "cz": "Zahřátý kontakt",
+      "de": "Warmer Kontakt",
+      "hu": "Meleg kontakt",
+      "ro": "Contact cald",
+      "pl": "Ciepły kontakt"
+    },
+    "intent_keywords": {
+      "en": [
+        "warm lead",
+        "warm contact",
+        "already knows us",
+        "referred by a friend",
+        "came for a trial",
+        "ready to book"
+      ],
+      "sk": [
+        "zohriaty kontakt",
+        "zohriaty lead",
+        "rodič, ktorý nás už pozná",
+        "odporučila kamarátka",
+        "bol na skúšobnej hodine",
+        "pripravený rezervovať"
+      ],
+      "cz": [
+        "zahřátý kontakt",
+        "zahřátý lead",
+        "rodič, který nás už zná",
+        "doporučila kamarádka",
+        "byl na zkušební lekci"
+      ],
+      "hu": [
+        "meleg kontakt",
+        "meleg lead",
+        "már ismer minket",
+        "ajánlás alapján jött"
+      ],
+      "ro": [
+        "contact cald",
+        "lead cald",
+        "ne cunoaște deja",
+        "recomandat de o prietenă"
+      ]
+    },
+    "ai_notes": "In customer-facing copy in any language, say the plain thing — \"a parent who already knows you / rodič, ktorý vás už pozná / Eltern, die Sie schon kennen / rodzic, który już cię zna / un părinte care te cunoaște deja\" — and keep the temperature word for internal or marketing-audience text. Never attach cold / warm to \"parent\", \"child\" or \"family\".",
+    "do_not_confuse_with": [
+      {
+        "term": "Cold contact",
+        "reason": "A cold contact does not know the company yet and needs a conversation before a booking; a warm contact can book directly. The distinction decides which form a campaign sends people to (contact form vs booking form).\n"
+      },
+      {
+        "term": "Client",
+        "reason": "Warm does not mean converted. A warm contact may still have no booking; a client always has one (or a client account).\n"
+      }
+    ]
+  },
+  {
+    "id": "global-payments",
+    "canonical_en": "Global Payments",
+    "category": "payments",
+    "definition": "A card payment gateway, available to companies in the EU and EEA. Unlike the other gateways, a company can connect several merchant accounts and route each billing profile to one of them, so each legal entity settles into its own account.",
+    "synonyms": [
+      "GP"
+    ],
+    "deprecated": [],
+    "translations": {
+      "sk": "Global Payments",
+      "cz": "Global Payments",
+      "de": "Global Payments",
+      "ro": "Global Payments",
+      "hu": "Global Payments"
+    },
+    "intent_keywords": {
+      "en": [
+        "global payments",
+        "GP",
+        "merchant account",
+        "app id",
+        "app key",
+        "card gateway",
+        "which account does the money go to",
+        "fallback connection"
+      ],
+      "sk": [
+        "global payments",
+        "obchodnícky účet",
+        "platobná brána",
+        "kam chodia peniaze"
+      ],
+      "ro": [
+        "global payments",
+        "cont de comerciant",
+        "procesator de carduri"
+      ]
+    },
+    "ai_notes": "WHERE (shipped 2026-09-22): Settings -> Integrations -> Global Payments. Two cards — Connections (label + App ID + App Key, validated server-side on save) and Billing profile routing (one row per profile, unset = fallback). EU/EEA only; the option is region-gated, NOT gated on having a connection, so a company can see it before connecting anything. CREDENTIALS: the App ID is masked after saving and the App Key is never returned. Rotating the key replaces it without disturbing bindings. The FIRST connection added becomes the fallback automatically. A connection cannot be deleted while it is the fallback or has profiles bound to it. TOKENS DO NOT MIGRATE: a stored card and an already-armed scheduled instalment stay with the merchant account that captured them. Rebinding a billing profile changes only NEW payments. The app warns when the source connection is still in use. Refunds are supported (2026-09-23). The Integrations hub shows a connection COUNT, not a connected/not-connected badge.",
+    "do_not_confuse_with": [
+      {
+        "term": "Invoice profile",
+        "reason": "The invoice profile issues the invoice; the Global Payments connection receives the money. See the invoice-profile entry.\n"
+      }
+    ]
+  },
+  {
+    "id": "consent",
+    "canonical_en": "Consent",
+    "category": "settings",
+    "definition": "A statement a client accepts on the booking form, the order form or a contact form — terms and conditions, GDPR notice, marketing opt-in, photo permission, health declaration. Configured in Settings → General → Consents & Agreements and stored on the client's profile with a version number and a timestamp.",
+    "synonyms": [
+      "agreement",
+      "terms and conditions",
+      "GTC",
+      "GDPR consent"
+    ],
+    "deprecated": [
+      "agreement checkbox",
+      "GTC setting"
+    ],
+    "translations": {
+      "sk": "Súhlas / Obchodné podmienky",
+      "cz": "Souhlas / Obchodní podmínky",
+      "de": "Zustimmung / AGB",
+      "pl": "Zgoda / Regulamin",
+      "ro": "Consimțământ / Termeni și condiții",
+      "hu": "Hozzájárulás / ÁSZF",
+      "it": "Consenso / Termini e condizioni",
+      "fr": "Consentement / CGV"
+    },
+    "intent_keywords": {
+      "en": [
+        "terms and conditions",
+        "T&C",
+        "GTC",
+        "GDPR",
+        "consent",
+        "health declaration",
+        "waiver",
+        "photo consent",
+        "optional consent",
+        "select all",
+        "14-day withdrawal"
+      ],
+      "sk": [
+        "obchodné podmienky",
+        "VOP",
+        "GDPR",
+        "súhlas",
+        "čestné prehlásenie",
+        "súhlas s fotením",
+        "nepovinný súhlas",
+        "označiť všetky",
+        "odstúpenie od zmluvy"
+      ],
+      "cz": [
+        "obchodní podmínky",
+        "VOP",
+        "souhlas",
+        "GDPR",
+        "odstoupení od smlouvy"
+      ],
+      "de": [
+        "AGB",
+        "Einwilligung",
+        "DSGVO",
+        "Widerrufsrecht"
+      ],
+      "ro": [
+        "termeni și condiții",
+        "consimțământ",
+        "GDPR"
+      ]
+    },
+    "ai_notes": "WHERE: Settings → General → Consents & Agreements. This is also the answer to \"where do I update our terms and conditions\" — they are not in Programmes. MANDATORY BY DESIGN (confirmed 2026-09-26 in app pages/settings/consents.js and widgets_src/shared/agreements/collect.js): every consent created through the admin UI is mandatory. There is NO optional switch — the save payload never sends the mandatory flag. A Check box consent blocks the booking until it is ticked. The way to let a client DECLINE and still register is the \"Choose Yes or No\" type: the client must answer, \"I don't agree\" is accepted, the booking completes and the refusal is recorded as Agreed: No, filterable under Declined. Nothing is ever pre-ticked — a checkbox and both Yes/No options render empty. THE 14-DAY WITHDRAWAL QUESTION (Slovak/Czech lawyers ask for this repeatedly, e.g. Legalion 2026-09-23): \"make the consent optional, unticked by default, and let the registration complete without it\" → Choose Yes or No is the answer. A single checkbox that may be left unticked and still submit does not exist. \"SELECT ALL\" above the consent block does not exist, in any form. That is a development request, not a configuration question. VERSIONING: an ordinary save edits the text in place and re-prompts nobody. Ticking \"Require clients to consent again\" mints a new version and is irreversible.",
+    "do_not_confuse_with": [
+      {
+        "term": "Extra field / Additional field",
+        "reason": "A consent is a tick or a Yes/No answer that is versioned and auditable. An extra field collects text or a dropdown choice and is not. A health declaration or a waiver is a CONSENT, never an extra field.\n"
+      }
+    ]
+  },
+  {
+    "id": "passkey",
+    "canonical_en": "Passkey",
+    "category": "platform",
+    "definition": "A key stored on a person's device and unlocked with their fingerprint, face or screen lock, used instead of a one-time login code. It works only on the web address it was created on. Available to admins in the app and to clients in the booking form and client profile. One-time codes remain the fallback everywhere and are never removed.",
+    "synonyms": [
+      "WebAuthn",
+      "FIDO2"
+    ],
+    "deprecated": [
+      "Password",
+      "PIN"
+    ],
+    "translations": {
+      "sk": "Prístupový kľúč",
+      "cz": "Přístupový klíč",
+      "ro": "Cheie de acces",
+      "hu": "Azonosítókulcs",
+      "de": "Passkey",
+      "pl": "Klucz dostępu",
+      "it": "Passkey",
+      "fr": "Clé d'accès"
+    },
+    "intent_keywords": {
+      "en": [
+        "passkey",
+        "fingerprint login",
+        "face id login",
+        "touch id",
+        "log in without a code",
+        "log in with my face",
+        "no code login",
+        "biometric login",
+        "screen lock login",
+        "skip the login code",
+        "faster login"
+      ],
+      "sk": [
+        "prístupový kľúč",
+        "prihlásenie odtlačkom",
+        "prihlásenie tvárou",
+        "bez kódu",
+        "prihlásiť sa bez kódu",
+        "face id prihlásenie",
+        "odtlačok prsta",
+        "rýchlejšie prihlásenie"
+      ],
+      "cz": [
+        "přístupový klíč",
+        "přihlášení otiskem",
+        "přihlášení obličejem",
+        "bez kódu",
+        "přihlásit se bez kódu",
+        "otisk prstu"
+      ],
+      "hu": [
+        "azonosítókulcs",
+        "ujjlenyomatos belépés",
+        "arcfelismerés belépés",
+        "kód nélkül"
+      ],
+      "de": [
+        "passkey",
+        "fingerabdruck anmelden",
+        "gesicht anmelden",
+        "ohne code anmelden"
+      ],
+      "pl": [
+        "klucz dostępu",
+        "logowanie odciskiem",
+        "logowanie twarzą",
+        "bez kodu"
+      ],
+      "ro": [
+        "cheie de acces",
+        "autentificare cu amprenta",
+        "fara cod"
+      ]
+    },
+    "ai_notes": "Shipped 2026-11-14 for admins (app) and 2026-11-15 for widget customers. A passkey is bound to one web address: admins get a separate one per region (zooza.app, uk.zooza.app, asia.zooza.app) and clients get one per the website address saved with the company's widget. Changing that widget address stops the existing client passkeys being offered — they are not deleted, and reverting the address restores them. Network companies sharing one widget address share the passkey across siblings. Watch the dismissal asymmetry: in the ADMIN app \"Not now\" means ask again next code login and \"Keep using codes\" stops the offer; in the CLIENT profile \"Not now\" stops the offer outright. A client who says the offer disappeared has probably pressed it; they add one from More → Passkeys. Cross-device sync is the person's password manager (iCloud Keychain, Google Password Manager, 1Password), never Zooza — mixed ecosystems may need a second passkey. Passkeys do not appear at all on http pages, in unsupported browsers, inside an iframe-wrapped widget, or while an admin is viewing Zooza as someone else. Every registration sends a security email: from Zooza for admins, from the company for clients.",
+    "do_not_confuse_with": [
+      {
+        "term": "One-time login code",
+        "reason": "The code (also called a PIN) is emailed or sent by WhatsApp and typed in. A passkey is held on the device and never typed. Both log the same person into the same account; the code is always available as the fallback, so a passkey problem is never a lockout.\n"
+      },
+      {
+        "term": "Password",
+        "reason": "Zooza has no passwords, before or after passkeys. If a customer asks to \"reset their password\" they mean either a login code or a passkey. Ask which.\n"
+      },
+      {
+        "term": "Magic link",
+        "reason": "The magic link is the clickable link in the login email and is unaffected by passkeys. It stays valid longer than the code.\n"
+      }
+    ]
   }
 ];

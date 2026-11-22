@@ -63,7 +63,7 @@ describe("runFindClasses — billing_period_id", () => {
 
   it("pipe-joins an array filter and reports each class's billing period", async () => {
     const urls = stub([
-      { id: 1, billing_periods_schedules: { id: 9, billing_period_id: 371, schedule_id: 1, company_id: 1 } },
+      { id: 1, billing_periods_schedules: { billing_period_id: 371, schedule_id: 1, company_id: 1 } },
       { id: 2, billing_periods_schedules: [{ billing_period_id: "433" }] },
       { id: 3 },
     ]);

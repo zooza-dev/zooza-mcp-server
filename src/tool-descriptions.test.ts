@@ -194,13 +194,30 @@ const PER_TOOL_SCHEMA_MAX = 4_500;
 // Raised 88 000 → 90 000 on 2026-10-09 for classes_add_share_link + classes_list_share_links
 // (issue #18, ~2 280 chars together: 1 863 of it is company_id x2 + dual-phase token/confirmed
 // boilerplate; dispatch-only). Measured 89 685.
-const TOTAL_SCHEMA_MAX = 90_000;
+// Raised 90 000 → 91 500 on 2026-11-21 for classes_add_billing_period (ZMCP-20261121-001,
+// dispatch-only; company_id is ~500 of it). Measured 91 149 with it.
+// Raised 91 500 → 92 000 on 2026-11-21 for bookings_copy_booking's `blocks` input
+// (ZMCP-20261121-002 phase 2, +241 chars). Phase 1 of the same spec had already absorbed
+// its own three fields by trimming the payments/status/target_event_id descriptions;
+// `blocks` is one array field whose description is the spec's wording, and there was
+// nothing left in the tool to trim without cutting what it teaches. Measured 91 739.
+// Raised 92 000 → 93 000 on 2026-11-22 for classes_show_copy_progress (ZMCP-20261122-002,
+// dispatch-only, ~1 180 chars, company_id ~500 of it). Measured 92 922.
+// Raised 93 000 → 97 100 on 2026-11-22 for classes_copy_class (ZMCP-20261122-001,
+// dispatch-only, so CORE_SCHEMA_MAX is untouched), measured at 4 117 chars — inside
+// PER_TOOL_SCHEMA_MAX. 1 359 of it is company_id + dual-phase token/confirmed; the
+// per-class `classes[]` object is 1 675 (twelve overrides, each the spec's one-line
+// meaning) and holiday_decisions 771. registration_fee and exclude_registration_ids were
+// already left out of v1 to stay in budget. Measured 97 039.
+const TOTAL_SCHEMA_MAX = 97_100;
 
 /** Ceiling for the tools LISTED by default (CORE_TOOL_NAMES) — the input schemas every
  *  client loads each conversation. Set 2026-10-09 at 41 295 measured (17 core tools
  *  with an exported schema; get_skill's inline schema is skipped, as above). Promoting
  *  a tool into core must fit here — demote or trim something first. */
-const CORE_SCHEMA_MAX = 41_500;
+// Raised 41 500 → 41 800 on 2026-11-21: bookings_copy_booking is core, so its `blocks`
+// input (+241, see TOTAL_SCHEMA_MAX above) lands here too. Measured 41 636.
+const CORE_SCHEMA_MAX = 41_800;
 
 /**
  * Tools already over PER_TOOL_SCHEMA_MAX when the budget landed. Each is held
@@ -258,4 +275,22 @@ describe("tool input schemas — size budget", () => {
     );
     expect(total).toBeLessThanOrEqual(CORE_SCHEMA_MAX);
   });
+});
+
+// Live bug, 2026-11-22: classes_copy_class required target_billing_period_id and
+// classes in its REGISTERED schema, so call_tool (which validates against it before
+// the handler runs) refused every apply call — they send only { token, confirmed }.
+// Unit tests called the handler directly and never saw it. Every dual-phase tool's
+// registered schema must accept the bare apply shape.
+describe("dual-phase apply calls pass the registered schema", () => {
+  const dualPhase = Object.entries(SCHEMAS).filter(([, shape]) => "token" in shape && "confirmed" in shape);
+  it("finds the dual-phase tools", () => {
+    expect(dualPhase.length).toBeGreaterThan(3);
+  });
+  for (const [key, shape] of dualPhase) {
+    it(`${key} accepts { company_id, token, confirmed: true }`, () => {
+      const r = z.object(shape).safeParse({ company_id: 1, token: "tok_x", confirmed: true });
+      expect(r.success ? "ok" : r.error.issues.map((i) => i.path.join(".")).join(", ")).toBe("ok");
+    });
+  }
 });

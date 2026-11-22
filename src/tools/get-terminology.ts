@@ -73,6 +73,19 @@ function matchesQuery(entry: TerminologyEntry, q: string, lang?: string): boolea
   return false;
 }
 
+/** 0 = the query IS the canonical name or a synonym; 1 = an exact intent keyword;
+ *  2 = substring only. Without this, "term" listed every entry containing
+ *  "termín" ahead of Billing period, whose synonym it actually is. */
+function matchRank(entry: TerminologyEntry, q: string): number {
+  const lower = q.toLowerCase();
+  if (entry.canonical_en.toLowerCase() === lower) return 0;
+  if (entry.synonyms.some((s) => s.toLowerCase() === lower)) return 0;
+  for (const keywords of Object.values(entry.intent_keywords)) {
+    if (keywords.some((k) => k.toLowerCase() === lower)) return 1;
+  }
+  return 2;
+}
+
 function projectEntry(entry: TerminologyEntry, lang?: string): object {
   if (!lang) return entry;
   // When a language is specified, surface language-specific data prominently
@@ -114,7 +127,11 @@ export async function runGetTerminology(rawInput: unknown): Promise<{
   // 2. Filter by query
   if (query?.trim()) {
     const q = query.trim();
-    results = results.filter((e) => matchesQuery(e, q, language));
+    results = results
+      .filter((e) => matchesQuery(e, q, language))
+      .map((e, i) => ({ e, i, rank: matchRank(e, q) }))
+      .sort((a, b) => a.rank - b.rank || a.i - b.i)
+      .map(({ e }) => e);
   }
 
   // 3. Project (highlight language-specific data if requested)

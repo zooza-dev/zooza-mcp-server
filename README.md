@@ -231,6 +231,9 @@ The `negotiate_terminology` tool lets Claude learn your business's specific voca
 | Tool | What it does |
 |---|---|
 | `classes_add_course` | Create a new programme — the container that holds pricing, payment settings, and booking-form config. Only for a genuinely new offering; a new term or time slot is a class inside an existing programme |
+| `classes_add_billing_period` | Create a billing period (what operators call a term, semester or season) with a name and start/end dates. An existing period with the same name is returned instead of a duplicate |
+| `classes_show_copy_progress` | For a billing-period rollover ("start new term"): which classes of the old period are already copied into the new one, which are being copied right now, and the rest grouped into chunks of at most 25. With a `job_id`, one copy job's status per class. Read-only, reads class lineage, so it works across conversations |
+| `classes_copy_class` | Copy 1–25 classes into a billing period ("start new term"): new sessions planned from each class's weekly pattern, every holiday decided (skip, run or exchange), blocks carried by position, and optionally the enrolled clients. The preview is Zooza's own dry run; nobody is emailed |
 | `classes_preview_schedule` | Preview a recurring class schedule before committing |
 | `classes_preview_events` | Preview individual sessions across a date range |
 | `classes_commit_class` | Create a class with a full recurring session schedule |
@@ -335,7 +338,7 @@ Skills are playbooks that teach Claude how to combine tools correctly for real o
 |---|---|
 | `onboarding-profile` | Guided first-run setup — identifies the business model, aligns vocabulary, and walks through the full setup checklist. |
 | `class-management` | Full guided flow for creating a class: interview → schedule preview → confirmation. |
-| `schedule-optimization` | Build a whole weekly timetable for a new term — optimise from scratch or roll over the current period. |
+| `period-rollover` | Start a new term: create the billing period, then copy the previous period's classes into it in chunks of up to 25 — new sessions with the operator's holiday decisions, the same blocks, the enrolled clients, programme progression. |
 | `communication` | Guided client email flow: work out the audience, pick a template or compose, preview recipient counts, send after confirmation. |
 | `report-discovery` | Maps a business symptom ("feels like fewer kids coming") to the right metric and report. |
 | `report-compose` | Build a focused, single-question report from the operator's real data — no invented numbers. |
